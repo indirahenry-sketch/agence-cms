@@ -13,7 +13,7 @@ Espace de gestion centralisé pour les sites de tes clients : **Payload CMS 3 + 
 | 5. Isolation | Règles d’accès + hooks serveur + 33 tests automatiques | ✅ |
 | 6. Contenus | Médias/galerie, catégories, événements, tarifs, pages, blog, informations, FR/EN | ✅ |
 | 7. Administration | Tableau de bord (super admin et client), support, journal d'audit | 🟡 base faite |
-| 8. Sites Next.js | Template multi-clients, revalidation | ⏳ |
+| 8. Sites Next.js | Premier site branché : Les Écuries de Poigny (`/sites/ecuries-poigny`) | 🟡 1er site |
 | 9. Sécurité | Intégration continue GitHub (tests à chaque envoi) | 🟡 fichier prêt |
 | 10. Production | Dockerfile, docker-compose de prod, sauvegardes | 🟡 fichiers prêts, non déployés |
 
@@ -199,3 +199,15 @@ Pour une mise à jour, il suffit de faire un `git push`, puis *Manual Deploy →
 ## Sauvegarde et restauration
 
 Voir `infra/scripts/backup.sh` et `infra/scripts/restore.sh` (utilisés sur le serveur à l'étape 10). Une sauvegarde se teste en la restaurant dans une base vide.
+
+---
+
+## Sites des clients servis par le CMS
+
+Chaque site est une maquette HTML (dossier `apps/cms/src/sites/<client>/`) dont les repères `{{…}}` sont remplis à chaque visite avec les contenus du client. Adresse : **`<adresse du CMS>/sites/<identifiant court du client>`**.
+
+Pour les Écuries de Poigny, le CMS pilote : nom, logo, téléphone, e-mail, adresse, horaires (et le badge « Ouvert / Fermé »), Instagram, tarifs (un onglet par catégorie, « Prix affiché » pour une fourchette, « Mettre en avant »), photos cochées « Afficher dans la galerie », prochains stages (Événements). Les réglages « Afficher les tarifs / la galerie / les événements » de la fiche client masquent les sections.
+
+- Les photos passent par `/sites/<client>/media/<id>` : seules les photos publiques (galerie, logo, événements) du client concerné sont servies, le stockage reste privé.
+- Le site est marqué « Maquette » et masqué des moteurs de recherche tant que le client n'a pas validé.
+- Le client est créé par la migration `20261104_211500_ecuries_poigny` (rien n'est recréé s'il existe déjà).

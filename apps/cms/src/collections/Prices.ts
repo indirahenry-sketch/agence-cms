@@ -26,6 +26,19 @@ export const Prices: CollectionConfig = {
         { name: 'isFrom', label: '« À partir de »', type: 'checkbox', defaultValue: false },
       ],
     },
+    {
+      type: 'row',
+      fields: [
+        {
+          name: 'displayPrice',
+          label: 'Prix affiché (facultatif)',
+          type: 'text',
+          localized: true,
+          admin: { placeholder: '810–840 €', description: 'Remplace le prix sur le site, pour une fourchette par exemple.' },
+        },
+        { name: 'highlight', label: 'Mettre en avant sur le site', type: 'checkbox', defaultValue: false },
+      ],
+    },
     { name: 'category', label: 'Catégorie', type: 'relationship', relationTo: 'categories' },
     { name: 'order', label: 'Ordre d’affichage', type: 'number', defaultValue: 0 },
   ],

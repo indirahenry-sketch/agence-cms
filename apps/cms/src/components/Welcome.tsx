@@ -2,6 +2,7 @@ import type { ServerProps } from 'payload'
 import React from 'react'
 
 import { getTenantIDs, isSuperAdmin } from '@/access/roles'
+import { hasSiteTemplate } from '@/sites/render'
 
 import './welcome.scss'
 
@@ -14,6 +15,8 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
   if (!user) return null
 
   if (isSuperAdmin(user)) {
+    const sites = await payload.find({ collection: 'tenants', depth: 0, limit: 50, overrideAccess: true, select: { name: true, slug: true } })
+    sites.docs = sites.docs.filter((t) => hasSiteTemplate(t.slug))
     const [tenants, openRequests] = await Promise.all([
       payload.count({ collection: 'tenants', overrideAccess: true }),
       payload.count({ collection: 'support-requests', overrideAccess: true, where: { status: { not_equals: 'resolved' } } }),
@@ -35,6 +38,19 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
           <a className="welcome__button" href="/admin/collections/tenants/create">+ Nouveau client</a>
           <a className="welcome__button welcome__button--ghost" href="/admin/collections/users/create">+ Inviter un utilisateur</a>
         </div>
+        {sites.docs.length > 0 && (
+          <p className="welcome__hint">
+            Sites en ligne :{' '}
+            {sites.docs.map((t, i) => (
+              <React.Fragment key={t.id}>
+                {i > 0 && ' · '}
+                <a href={`/sites/${t.slug}`} target="_blank" rel="noreferrer">
+                  {t.name} ↗
+                </a>
+              </React.Fragment>
+            ))}
+          </p>
+        )}
       </section>
     )
   }
@@ -60,6 +76,10 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
             <div className="welcome__actions">
               {domain ? (
                 <a className="welcome__button" href={`https://${domain}`} target="_blank" rel="noreferrer">
+                  Voir mon site ↗
+                </a>
+              ) : hasSiteTemplate(tenant.slug) ? (
+                <a className="welcome__button" href={`/sites/${tenant.slug}`} target="_blank" rel="noreferrer">
                   Voir mon site ↗
                 </a>
               ) : (

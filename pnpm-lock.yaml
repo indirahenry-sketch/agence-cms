@@ -10,6 +10,9 @@ importers:
 
   apps/cms:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.1161.0
+        version: 3.1161.0
       '@payloadcms/db-postgres':
         specifier: 3.92.1
         version: 3.92.1(payload@3.92.1(graphql@16.14.2)(typescript@5.7.3))

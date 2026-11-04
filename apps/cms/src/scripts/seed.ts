@@ -6,6 +6,8 @@ import 'dotenv/config'
 import config from '@payload-config'
 import { getPayload } from 'payload'
 
+import { importEcuriesPoigny } from '../sites/ecuries-poigny/seed'
+
 const payload = await getPayload({ config })
 
 const email = process.env.SEED_ADMIN_EMAIL
@@ -72,5 +74,8 @@ if (demo.docs.length === 0) {
   })
   payload.logger.info('✔ Client de démonstration créé (connexion : client@demo.test / demo-client-2026)')
 }
+
+// Site réel de démonstration : Les Écuries de Poigny (voir /sites/ecuries-poigny)
+await importEcuriesPoigny(payload)
 
 process.exit(0)

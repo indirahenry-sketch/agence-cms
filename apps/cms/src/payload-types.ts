@@ -309,6 +309,11 @@ export interface Price {
   price: number;
   unit?: string | null;
   isFrom?: boolean | null;
+  /**
+   * Remplace le prix sur le site, pour une fourchette par exemple.
+   */
+  displayPrice?: string | null;
+  highlight?: boolean | null;
   category?: (number | null) | Category;
   order?: number | null;
   updatedAt: string;
@@ -793,6 +798,8 @@ export interface PricesSelect<T extends boolean = true> {
   price?: T;
   unit?: T;
   isFrom?: T;
+  displayPrice?: T;
+  highlight?: T;
   category?: T;
   order?: T;
   updatedAt?: T;
