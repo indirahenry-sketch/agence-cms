@@ -184,6 +184,18 @@ En dev, la base se met à jour toute seule. En production, **uniquement** par le
 - **Question « data loss will occur… (y/N) » au démarrage** : un changement de structure supprimerait des données de dev. Réponds `y` si ce ne sont que des données de test, sinon `N` et demande-moi.
 - **Repartir de zéro en dev** : `pnpm db:down`, puis `docker volume rm agence-cms-dev_pgdata`, puis `pnpm db:up` et `pnpm seed`.
 
+## Mise en ligne de test (gratuite) : Render + Supabase
+
+Pour les tests, le CMS tourne gratuitement sur Render, avec la base et les photos chez Supabase.
+Adresse fixe : `https://<nom-du-service>.onrender.com`. Le serveur s'endort après 15 minutes sans visite et met environ une minute à se réveiller.
+
+1. **Image Docker** : à chaque `git push` sur `main`, GitHub construit l'image et la publie dans `ghcr.io/<compte>/agence-cms` (onglet *Actions*, workflow « Image Docker »).
+2. **Render** : *New → Web Service → Existing image*, image `ghcr.io/<compte>/agence-cms:latest`, avec un identifiant GitHub (jeton `read:packages`), offre **Free**.
+3. **Variables d'environnement** sur Render : `PAYLOAD_SECRET`, `DATABASE_URI` (Supabase, *Session pooler*), `PUBLIC_SERVER_URL` (l'adresse onrender.com), `AGENCY_EMAIL`, et pour les photos `S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE=true` (Supabase Storage, compatible S3).
+4. Au premier démarrage, les migrations créent les tables. Ouvre `/admin` : l'écran **« Créer le premier utilisateur »** apparaît, et ce premier compte devient super administrateur. Cet écran disparaît ensuite.
+
+Pour une mise à jour, il suffit de faire un `git push`, puis *Manual Deploy → Deploy latest reference* sur Render.
+
 ## Sauvegarde et restauration
 
 Voir `infra/scripts/backup.sh` et `infra/scripts/restore.sh` (utilisés sur le serveur à l'étape 10). Une sauvegarde se teste en la restaurant dans une base vide.

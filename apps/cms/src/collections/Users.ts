@@ -68,6 +68,17 @@ const randomPasswordForInvites: CollectionBeforeValidateHook = ({ data, operatio
 }
 
 /**
+ * Le tout premier compte créé (écran « Créer le premier utilisateur » d'une base vide)
+ * devient automatiquement super administrateur. Ne s'applique plus jamais ensuite.
+ */
+const firstUserIsSuperAdmin: CollectionBeforeChangeHook = async ({ req, data, operation }) => {
+  if (operation !== 'create' || req.user) return data
+  const { totalDocs } = await req.payload.count({ collection: 'users', overrideAccess: true, req })
+  if (totalDocs === 0) data.roles = ['super-admin']
+  return data
+}
+
+/**
  * Protège la liste des clients d'un utilisateur :
  * un admin client ne peut ajouter/retirer QUE ses propres clients,
  * et ne peut jamais toucher aux appartenances d'un utilisateur à d'autres clients.
@@ -176,7 +187,7 @@ export const Users: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [randomPasswordForInvites],
-    beforeChange: [protectMemberships],
+    beforeChange: [firstUserIsSuperAdmin, protectMemberships],
     afterChange: [sendInvitation, auditChange('users')],
     afterDelete: [auditDelete('users')],
   },
