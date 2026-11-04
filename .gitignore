@@ -1,0 +1,17 @@
+node_modules/
+.next/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# Secrets : ne jamais envoyer sur GitHub
+.env
+.env.*
+!.env.example
+
+# Fichiers envoyés en local (sans stockage S3)
+apps/cms/media/
+
+# Sauvegardes locales
+backups/

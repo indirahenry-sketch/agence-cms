@@ -1,0 +1,63 @@
+# Services de développement, sur ton PC uniquement.
+# Lancement : pnpm db:up   |   Arrêt : pnpm db:down
+#
+# - PostgreSQL : la base de données (port 5432)
+# - MinIO      : stockage de fichiers compatible S3, comme Cloudflare R2 (console : http://localhost:9001)
+# - Mailpit    : attrape tous les e-mails envoyés en dev (voir : http://localhost:8025)
+
+name: agence-cms-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cms
+      POSTGRES_PASSWORD: cms
+      POSTGRES_DB: cms
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cms"]
+      interval: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
+  # Crée automatiquement le bucket "media" au premier démarrage
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minio minio-secret; do sleep 1; done;
+      mc mb --ignore-existing local/media;
+      mc anonymous set download local/media;
+      exit 0;
+      "
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  pgdata:
+  miniodata:

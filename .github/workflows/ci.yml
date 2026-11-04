@@ -1,0 +1,35 @@
+# À chaque envoi de code sur GitHub : vérification des types + tests d'isolation.
+# Si un test échoue, GitHub l'affiche en rouge et on ne déploie pas.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cms
+          POSTGRES_PASSWORD: cms
+          POSTGRES_DB: cms_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cms" --health-interval 5s --health-retries 10
+    env:
+      PAYLOAD_SECRET: ci-secret
+      DATABASE_URI: postgres://cms:cms@localhost:5432/cms
+      DATABASE_URI_TEST: postgres://cms:cms@localhost:5432/cms_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.4
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test

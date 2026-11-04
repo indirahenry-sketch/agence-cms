@@ -1,0 +1,78 @@
+# Production : le CMS + un tunnel Cloudflare (HTTPS, aucun port ouvert sur le serveur).
+#
+# ── Mode test, sans nom de domaine (adresse gratuite xxx.trycloudflare.com) ──
+#   docker compose -f infra/docker-compose.prod.yml --env-file apps/cms/.env --profile quick up -d --build
+#   Voir l'adresse :  docker compose -f infra/docker-compose.prod.yml logs quicktunnel | grep trycloudflare
+#   L'adresse change seulement si le tunnel redémarre.
+#
+# ── Mode définitif, avec ton domaine (cms.ton-agence.fr) ──
+#   Crée un tunnel dans Cloudflare (Zero Trust > Networks > Tunnels), service : http://cms:3000,
+#   copie son jeton dans CLOUDFLARE_TUNNEL_TOKEN (.env), puis :
+#   docker compose -f infra/docker-compose.prod.yml --env-file apps/cms/.env --profile domain up -d --build
+#
+# ── Plus tard, base et fichiers sur ton propre serveur : ajoute --profile selfhosted (voir README) ──
+
+name: agence-cms
+
+services:
+  cms:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    restart: unless-stopped
+    env_file: ../apps/cms/.env
+    environment:
+      NODE_ENV: production
+      MEDIA_DIR: /app/media
+    volumes:
+      # Photos stockées sur le serveur tant que S3_BUCKET est vide
+      - media:/app/media
+    expose:
+      - "3000"
+
+  # Adresse gratuite et temporaire, sans compte ni domaine
+  quicktunnel:
+    profiles: ["quick"]
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://cms:3000
+    depends_on:
+      - cms
+
+  # Adresse définitive avec ton nom de domaine
+  tunnel:
+    profiles: ["domain"]
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - cms
+
+  postgres:
+    profiles: ["selfhosted"]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?mot de passe requis}
+      POSTGRES_DB: ${POSTGRES_DB:-cms}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  minio:
+    profiles: ["selfhosted"]
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?mot de passe requis}
+    volumes:
+      - miniodata:/data
+
+volumes:
+  media:
+  pgdata:
+  miniodata:

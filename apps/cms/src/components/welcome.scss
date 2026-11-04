@@ -1,0 +1,85 @@
+// Bandeau d'accueil : pensé pour le téléphone d'abord, puis la tablette et le PC
+.welcome {
+  margin-bottom: var(--base);
+  padding: calc(var(--base) * 1) calc(var(--base) * 1);
+  border: 1px solid var(--theme-elevation-150);
+  border-radius: 12px;
+  background: var(--theme-elevation-50);
+
+  &__title {
+    margin: 0 0 calc(var(--base) * 0.75);
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: calc(var(--base) * 0.5);
+    margin-bottom: calc(var(--base) * 0.75);
+
+    @media (min-width: 600px) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  &__stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--theme-elevation-0);
+    border: 1px solid var(--theme-elevation-100);
+    color: var(--theme-text);
+    text-decoration: none;
+
+    strong {
+      font-size: 28px;
+      line-height: 1;
+    }
+  }
+
+  &__tenant + &__tenant {
+    margin-top: var(--base);
+  }
+
+  &__tenant-name {
+    margin: 0 0 8px;
+    font-weight: 600;
+    font-size: 18px;
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    @media (min-width: 600px) {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+  }
+
+  &__button {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 44px; // taille confortable au doigt
+    padding: 0 18px;
+    border-radius: 8px;
+    background: var(--theme-text);
+    color: var(--theme-bg);
+    font-weight: 600;
+    text-decoration: none;
+
+    &--ghost {
+      background: transparent;
+      color: var(--theme-text);
+      border: 1px solid var(--theme-elevation-300);
+    }
+  }
+
+  &__hint {
+    align-self: center;
+    color: var(--theme-elevation-600);
+  }
+}

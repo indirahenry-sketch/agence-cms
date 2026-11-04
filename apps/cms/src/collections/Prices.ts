@@ -1,0 +1,32 @@
+import type { CollectionConfig } from 'payload'
+
+import { tenantCollectionAccess } from '@/access/tenantAccess'
+import { auditChange, auditDelete } from '@/hooks/audit'
+import { enforceTenant } from '@/hooks/enforceTenant'
+
+export const Prices: CollectionConfig = {
+  slug: 'prices',
+  labels: { singular: 'Tarif', plural: 'Tarifs' },
+  admin: { useAsTitle: 'name', defaultColumns: ['name', 'price', 'category', 'order'], group: 'Contenus' },
+  access: tenantCollectionAccess(),
+  hooks: {
+    beforeChange: [enforceTenant()],
+    afterChange: [auditChange('prices')],
+    afterDelete: [auditDelete('prices')],
+  },
+  defaultSort: 'order',
+  fields: [
+    { name: 'name', label: 'Nom de la prestation', type: 'text', localized: true, required: true },
+    { name: 'description', label: 'Description', type: 'textarea', localized: true },
+    {
+      type: 'row',
+      fields: [
+        { name: 'price', label: 'Prix (€)', type: 'number', min: 0, required: true, admin: { step: 0.01 } },
+        { name: 'unit', label: 'Unité', type: 'text', localized: true, admin: { placeholder: 'par personne, l’heure…' } },
+        { name: 'isFrom', label: '« À partir de »', type: 'checkbox', defaultValue: false },
+      ],
+    },
+    { name: 'category', label: 'Catégorie', type: 'relationship', relationTo: 'categories' },
+    { name: 'order', label: 'Ordre d’affichage', type: 'number', defaultValue: 0 },
+  ],
+}

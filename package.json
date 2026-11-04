@@ -1,0 +1,21 @@
+{
+  "name": "agence-cms",
+  "private": true,
+  "description": "CMS multi-clients de l'agence (Payload + Next.js + PostgreSQL)",
+  "scripts": {
+    "dev": "pnpm --filter cms dev",
+    "build": "pnpm --filter cms build",
+    "start": "pnpm --filter cms start",
+    "seed": "pnpm --filter cms seed",
+    "test": "pnpm --filter cms test",
+    "db:up": "docker compose -f infra/docker-compose.dev.yml up -d",
+    "db:down": "docker compose -f infra/docker-compose.dev.yml down",
+    "share": "cloudflared tunnel --url http://localhost:3000",
+    "typecheck": "pnpm --filter cms typecheck"
+  },
+  "engines": {
+    "node": ">=22.23.4",
+    "pnpm": ">=10"
+  },
+  "packageManager": "pnpm@10.28.0"
+}
