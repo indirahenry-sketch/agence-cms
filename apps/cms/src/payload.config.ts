@@ -45,6 +45,7 @@ export default buildConfig({
     importMap: { baseDir: path.resolve(dirname) },
     components: {
       beforeDashboard: ['@/components/Welcome#Welcome'],
+      afterNavLinks: ['@/components/LogoutLink#LogoutLink'],
     },
   },
 

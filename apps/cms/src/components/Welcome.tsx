@@ -4,6 +4,8 @@ import React from 'react'
 import { getTenantIDs, isSuperAdmin } from '@/access/roles'
 import { hasSiteTemplate } from '@/sites/render'
 
+import { LogoutLink } from './LogoutLink'
+
 import './welcome.scss'
 
 /**
@@ -37,6 +39,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
         <div className="welcome__actions">
           <a className="welcome__button" href="/admin/collections/tenants/create">+ Nouveau client</a>
           <a className="welcome__button welcome__button--ghost" href="/admin/collections/users/create">+ Inviter un utilisateur</a>
+          <LogoutLink variant="button" />
         </div>
         {sites.docs.length > 0 && (
           <p className="welcome__hint">
@@ -88,6 +91,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
               <a className="welcome__button welcome__button--ghost" href="/admin/collections/support-requests/create">
                 Contacter l’agence
               </a>
+              <LogoutLink variant="button" />
             </div>
           </div>
         )
