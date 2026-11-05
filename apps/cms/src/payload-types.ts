@@ -195,6 +195,7 @@ export interface Media {
   description?: string | null;
   category?: (number | null) | Category;
   inGallery?: boolean | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -714,6 +715,7 @@ export interface MediaSelect<T extends boolean = true> {
   description?: T;
   category?: T;
   inGallery?: T;
+  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;

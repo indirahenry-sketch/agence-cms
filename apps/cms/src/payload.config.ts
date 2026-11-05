@@ -23,6 +23,7 @@ import { SupportRequests } from './collections/SupportRequests'
 import { Tenants } from './collections/Tenants'
 import { Users } from './collections/Users'
 import { migrations } from './migrations'
+import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -91,6 +92,16 @@ export default buildConfig({
     : undefined,
 
   sharp,
+
+  // Au démarrage : crée le client de démonstration « Les Écuries de Poigny » s'il n'existe pas
+  onInit: async (payload) => {
+    if (process.env.NODE_ENV !== 'production' || process.env.SKIP_DEMO_IMPORT === 'true') return
+    try {
+      await importEcuriesPoigny(payload)
+    } catch (err) {
+      payload.logger.error({ err }, 'Import des Écuries de Poigny impossible')
+    }
+  },
 
   typescript: { outputFile: path.resolve(dirname, 'payload-types.ts') },
 

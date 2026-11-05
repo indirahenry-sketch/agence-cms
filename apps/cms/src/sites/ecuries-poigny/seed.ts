@@ -1,4 +1,4 @@
-import type { Payload, PayloadRequest } from 'payload'
+import type { Payload } from 'payload'
 
 import { seedGallery, seedLogo } from './seedImages'
 
@@ -8,15 +8,20 @@ export const POIGNY_SLUG = 'ecuries-poigny'
  * Crée le client « Les Écuries de Poigny » avec le contenu de la maquette V10 :
  * fiche, horaires, catégories et tarifs, logo et photos de la galerie.
  *
- * Sans risque : ne fait rien si le client existe déjà.
- * Utilisé par la migration de production et par `pnpm seed` en local.
+ * Sans risque : ne recrée jamais un client existant. Si les photos manquent
+ * (stockage indisponible au premier essai), elles sont réessayées au démarrage suivant.
+ *
+ * Lancé au démarrage du CMS (onInit) et par `pnpm seed`. Chaque enregistrement a sa
+ * propre transaction : un échec d'envoi de photo n'annule pas la fiche du client.
  */
-export async function importEcuriesPoigny(payload: Payload, req?: Partial<PayloadRequest>): Promise<void> {
-  const base = { req, overrideAccess: true, context: { skipInvite: true } } as const
+export async function importEcuriesPoigny(payload: Payload): Promise<void> {
+  const base = { overrideAccess: true, context: { skipInvite: true } } as const
 
-  const existing = await payload.find({ collection: 'tenants', where: { slug: { equals: POIGNY_SLUG } }, limit: 1, ...base })
+  const existing = await payload.find({ collection: 'tenants', where: { slug: { equals: POIGNY_SLUG } }, limit: 1, depth: 0, ...base })
   if (existing.docs.length) {
-    payload.logger.info('• Les Écuries de Poigny existent déjà : import ignoré')
+    const tenant = existing.docs[0]
+    const { totalDocs } = await payload.count({ collection: 'media', where: { tenant: { equals: tenant.id } }, overrideAccess: true })
+    if (totalDocs === 0) await importPhotos(payload, tenant.id)
     return
   }
 
@@ -107,24 +112,28 @@ export async function importEcuriesPoigny(payload: Payload, req?: Partial<Payloa
     }
   }
 
-  // Logo et photos : si le stockage des fichiers ne répond pas, le site garde son logo intégré
-  // et le client pourra ajouter ses photos lui-même. L'import du reste n'est pas bloqué.
+  payload.logger.info('✔ Client « Les Écuries de Poigny » créé avec son contenu')
+  await importPhotos(payload, tenant.id)
+}
+
+/** Logo et photos de la galerie. En cas d'échec, le site garde son logo intégré et masque la galerie. */
+async function importPhotos(payload: Payload, tenantID: number | string): Promise<void> {
+  const base = { overrideAccess: true } as const
   const upload = async (img: { mime: string; b64: string; alt: string }, name: string, inGallery: boolean) => {
     const data = Buffer.from(img.b64, 'base64')
     return payload.create({
       collection: 'media',
-      data: { tenant: tenant.id, alt: img.alt, title: inGallery ? img.alt : undefined, inGallery },
+      data: { tenant: tenantID as number, alt: img.alt, title: inGallery ? img.alt : undefined, inGallery },
       file: { data, mimetype: img.mime, name, size: data.length },
       ...base,
     })
   }
   try {
     const logo = await upload(seedLogo, 'logo.png', false)
-    await payload.update({ collection: 'tenants', id: tenant.id, data: { logo: logo.id }, ...base })
+    await payload.update({ collection: 'tenants', id: tenantID, data: { logo: logo.id }, ...base })
     for (const [i, img] of seedGallery.entries()) await upload(img, `photo-${i + 1}.jpg`, true)
+    payload.logger.info('✔ Photos des Écuries de Poigny importées')
   } catch (err) {
-    payload.logger.error({ err }, 'Import des photos des Écuries de Poigny impossible (stockage des fichiers)')
+    payload.logger.error({ err }, 'Import des photos des Écuries de Poigny impossible : vérifie les variables S3_ (stockage Supabase)')
   }
-
-  payload.logger.info('✔ Client « Les Écuries de Poigny » créé avec son contenu')
 }

@@ -1,16 +1,10 @@
 import { MigrateDownArgs, MigrateUpArgs } from '@payloadcms/db-postgres'
 
-import { importEcuriesPoigny } from '../sites/ecuries-poigny/seed'
-
 /**
- * Données (pas de changement de structure) : crée le client « Les Écuries de Poigny »
- * avec le contenu de la maquette V10, pour tester le site branché sur le CMS.
- * Ne fait rien si le client existe déjà.
+ * Ancienne migration de données, gardée vide pour l'historique.
+ * L'import des Écuries de Poigny se fait désormais au démarrage (onInit de payload.config.ts),
+ * hors transaction de migration, pour qu'un échec d'envoi de photo n'annule pas la fiche.
  */
-export async function up({ payload, req }: MigrateUpArgs): Promise<void> {
-  await importEcuriesPoigny(payload, req)
-}
+export async function up(_args: MigrateUpArgs): Promise<void> {}
 
-export async function down(_args: MigrateDownArgs): Promise<void> {
-  // Volontairement vide : on ne supprime jamais les données d'un client par une migration.
-}
+export async function down(_args: MigrateDownArgs): Promise<void> {}
