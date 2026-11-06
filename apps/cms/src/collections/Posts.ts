@@ -6,6 +6,8 @@ import { enforceTenant } from '@/hooks/enforceTenant'
 import { uniqueSlugPerTenant } from '@/hooks/slug'
 import { seoFields } from '@/fields/seo'
 
+import { categoriesOfType } from './Categories'
+
 /** Renseigne l'auteur et la date de publication automatiquement. */
 const setAuthorAndDate: CollectionBeforeChangeHook = ({ req, data, operation }) => {
   if (operation === 'create' && req.user && !data.author) data.author = req.user.id
@@ -15,7 +17,7 @@ const setAuthorAndDate: CollectionBeforeChangeHook = ({ req, data, operation }) 
 
 export const Posts: CollectionConfig = {
   slug: 'posts',
-  labels: { singular: 'Article', plural: 'Articles (blog)' },
+  labels: { singular: 'Article', plural: 'Articles et blog' },
   admin: { useAsTitle: 'title', defaultColumns: ['title', '_status', 'publishedAt'], group: 'Contenus' },
   access: tenantCollectionAccess(),
   versions: { drafts: true, maxPerDoc: 20 },
@@ -35,6 +37,20 @@ export const Posts: CollectionConfig = {
       index: true,
       admin: { position: 'sidebar', description: 'Générée depuis le titre si vide.' },
       hooks: { beforeValidate: [uniqueSlugPerTenant('posts')] },
+    },
+    {
+      type: 'row',
+      fields: [
+        {
+          name: 'category',
+          label: 'Catégorie',
+          type: 'relationship',
+          relationTo: 'categories',
+          filterOptions: categoriesOfType('articles', 'blog'),
+          admin: { description: 'Articles (actualités) ou Blog.' },
+        },
+        { name: 'tags', label: 'Tags', type: 'relationship', relationTo: 'tags', hasMany: true },
+      ],
     },
     { name: 'coverImage', label: 'Image de couverture', type: 'upload', relationTo: 'media' },
     { name: 'excerpt', label: 'Résumé (2-3 phrases)', type: 'textarea', localized: true },

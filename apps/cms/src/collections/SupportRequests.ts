@@ -2,6 +2,7 @@ import type { Access, CollectionAfterChangeHook, CollectionBeforeChangeHook, Col
 
 import { isSuperAdmin } from '@/access/roles'
 import { superAdminOnly, tenantCreate, tenantRead } from '@/access/tenantAccess'
+import { auditChange, auditDelete } from '@/hooks/audit'
 import { enforceTenant } from '@/hooks/enforceTenant'
 import { escapeHTML, getServerURL } from '@/utilities/serverURL'
 
@@ -45,6 +46,13 @@ const notifyAgency: CollectionAfterChangeHook = async ({ req, doc, operation }) 
   return doc
 }
 
+/** La capture d'écran jointe à une demande reste privée : jamais servie sur le site public. */
+const keepScreenshotPrivate: CollectionAfterChangeHook = async ({ req, doc }) => {
+  const id = typeof doc.screenshot === 'object' && doc.screenshot ? doc.screenshot.id : doc.screenshot
+  if (id) await req.payload.update({ collection: 'media', id, data: { isPublic: false, inGallery: false }, overrideAccess: true, req, context: { skipAudit: true } })
+  return doc
+}
+
 const updateOnlyAgency: Access = superAdminOnly
 
 export const SupportRequests: CollectionConfig = {
@@ -64,7 +72,8 @@ export const SupportRequests: CollectionConfig = {
   },
   hooks: {
     beforeChange: [enforceTenant(), setRequester],
-    afterChange: [notifyAgency],
+    afterChange: [keepScreenshotPrivate, notifyAgency, auditChange('support-requests')],
+    afterDelete: [auditDelete('support-requests')],
   },
   defaultSort: '-createdAt',
   fields: [

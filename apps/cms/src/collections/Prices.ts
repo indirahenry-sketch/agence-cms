@@ -4,6 +4,8 @@ import { tenantCollectionAccess } from '@/access/tenantAccess'
 import { auditChange, auditDelete } from '@/hooks/audit'
 import { enforceTenant } from '@/hooks/enforceTenant'
 
+import { categoriesOfType } from './Categories'
+
 export const Prices: CollectionConfig = {
   slug: 'prices',
   labels: { singular: 'Tarif', plural: 'Tarifs' },
@@ -39,7 +41,7 @@ export const Prices: CollectionConfig = {
         { name: 'highlight', label: 'Mettre en avant sur le site', type: 'checkbox', defaultValue: false },
       ],
     },
-    { name: 'category', label: 'Catégorie', type: 'relationship', relationTo: 'categories' },
+    { name: 'category', label: 'Catégorie (onglet sur le site)', type: 'relationship', relationTo: 'categories', filterOptions: categoriesOfType('prices') },
     { name: 'order', label: 'Ordre d’affichage', type: 'number', defaultValue: 0 },
   ],
 }

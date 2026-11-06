@@ -1,4 +1,4 @@
-import { Forbidden, type CollectionBeforeChangeHook } from 'payload'
+import { Forbidden, type CollectionBeforeChangeHook, type PayloadRequest } from 'payload'
 
 import { ALL_TENANT_ROLES, extractID, getTenantIDs, isSuperAdmin, sameID, type TenantRole } from '@/access/roles'
 
@@ -13,7 +13,7 @@ import { ALL_TENANT_ROLES, extractID, getTenantIDs, isSuperAdmin, sameID, type T
  */
 export const enforceTenant =
   (roles: TenantRole[] = ALL_TENANT_ROLES): CollectionBeforeChangeHook =>
-  ({ req, data, operation, originalDoc }) => {
+  async ({ req, data, operation, originalDoc }) => {
     const user = req.user
     if (!user) return data
 
@@ -35,6 +35,7 @@ export const enforceTenant =
         throw new Forbidden(req.t)
       }
 
+      await assertTenantActive(req, tenantID)
       data.tenant = tenantID
       return data
     }
@@ -47,5 +48,12 @@ export const enforceTenant =
     if (!isSuperAdmin(user) && !getTenantIDs(user, roles).some((id) => sameID(id, originalTenant))) {
       throw new Forbidden(req.t)
     }
+    if (!isSuperAdmin(user) && originalTenant !== null) await assertTenantActive(req, originalTenant)
     return data
   }
+
+/** Un client suspendu ne peut plus rien modifier (ses contenus restent intacts). */
+const assertTenantActive = async (req: PayloadRequest, tenantID: number | string) => {
+  const tenant = await req.payload.findByID({ collection: 'tenants', id: tenantID, depth: 0, overrideAccess: true, req, disableErrors: true })
+  if (!tenant || tenant.status === 'suspended') throw new Forbidden(req.t)
+}

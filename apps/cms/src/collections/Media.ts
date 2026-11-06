@@ -6,6 +6,8 @@ import { tenantCollectionAccess } from '@/access/tenantAccess'
 import { auditChange, auditDelete } from '@/hooks/audit'
 import { enforceTenant } from '@/hooks/enforceTenant'
 
+import { categoriesOfType } from './Categories'
+
 /**
  * Remplace le nom du fichier envoyé par un nom aléatoire :
  * impossible de deviner l'adresse d'une image d'un autre client.
@@ -19,11 +21,12 @@ const randomFilename: CollectionBeforeOperationHook = ({ operation, req }) => {
 
 export const Media: CollectionConfig = {
   slug: 'media',
-  labels: { singular: 'Média', plural: 'Médias (photos)' },
+  labels: { singular: 'Média', plural: 'Médiathèque' },
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['filename', 'title', 'category', 'inGallery'],
+    defaultColumns: ['filename', 'title', 'mimeType', 'category', 'inGallery'],
     group: 'Contenus',
+    description: 'Photos, vidéos (MP4, WebM, MOV) et documents (PDF, Word, Excel, PowerPoint). 50 Mo maximum par fichier.',
   },
   access: tenantCollectionAccess(),
   hooks: {
@@ -35,7 +38,26 @@ export const Media: CollectionConfig = {
   upload: {
     // Sans stockage S3 (S3_BUCKET vide), les fichiers vont dans ce dossier du serveur
     staticDir: process.env.MEDIA_DIR || path.resolve(process.cwd(), 'media'),
-    mimeTypes: ['image/*', 'application/pdf'],
+    // Le type réel du fichier est vérifié (un fichier déguisé est refusé). Pas de SVG : il peut contenir du code.
+    mimeTypes: [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/avif',
+      'video/mp4',
+      'video/webm',
+      'video/quicktime',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.oasis.opendocument.text',
+      'application/vnd.oasis.opendocument.spreadsheet',
+    ],
     // Versions redimensionnées générées automatiquement
     imageSizes: [
       { name: 'thumbnail', width: 400, height: 300, position: 'centre' },
@@ -49,7 +71,20 @@ export const Media: CollectionConfig = {
     { name: 'alt', label: 'Texte alternatif (accessibilité)', type: 'text', localized: true, required: true },
     { name: 'title', label: 'Titre', type: 'text', localized: true },
     { name: 'description', label: 'Description', type: 'textarea', localized: true },
-    { name: 'category', label: 'Catégorie', type: 'relationship', relationTo: 'categories' },
+    {
+      type: 'row',
+      fields: [
+        { name: 'category', label: 'Catégorie', type: 'relationship', relationTo: 'categories', filterOptions: categoriesOfType('gallery') },
+        { name: 'tags', label: 'Tags', type: 'relationship', relationTo: 'tags', hasMany: true },
+      ],
+    },
+    {
+      name: 'isPublic',
+      label: 'Utilisable sur le site public',
+      type: 'checkbox',
+      defaultValue: true,
+      admin: { position: 'sidebar', description: 'Décochez pour un fichier interne (il ne sera jamais affiché sur le site).' },
+    },
     {
       name: 'inGallery',
       label: 'Afficher dans la galerie du site',

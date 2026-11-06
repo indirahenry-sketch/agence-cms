@@ -211,3 +211,17 @@ Pour les Écuries de Poigny, le CMS pilote : nom, logo, téléphone, e-mail, adr
 - Les photos passent par `/sites/<client>/media/<id>` : seules les photos publiques (galerie, logo, événements) du client concerné sont servies, le stockage reste privé.
 - Le site est marqué « Maquette » et masqué des moteurs de recherche tant que le client n'a pas validé.
 - Le client est créé par la migration `20261104_211500_ecuries_poigny` (rien n'est recréé s'il existe déjà).
+
+---
+
+## Version 2 (6 novembre 2026)
+
+**Nouveau dans le CMS :** menus de navigation (principal, secondaire, pied de page, sous-menus, glisser-déposer), bannières et pop-ups datés, services, tags, catégories renommables par type (Photos, Services, Tarifs, Articles, Blog), blocs de page (titre, section texte + image + boutons, vidéo, groupe de boutons), vidéos et documents dans la médiathèque (50 Mo max), type et horaires des événements, journal des connexions.
+
+**Site public :** la V10 « agenda + blog » des Écuries de Poigny lit désormais menus, services, agenda, articles, bannières et pop-ups depuis le CMS. Les pages publiées sont servies à `/sites/<client>/<adresse-de-la-page>`.
+
+**Sécurité :** un admin client ne peut plus modifier le mot de passe, l'e-mail ou supprimer le compte d'un membre qui appartient aussi à un autre client ; un client suspendu ne peut plus se connecter ni rien modifier ; le logo doit venir de la médiathèque du client ; les liens « javascript: » sont refusés ; les captures du support restent privées.
+
+**Interface :** thème clair (fond lavande, accent violet, menu à icônes), tableau de bord avec chiffres clés, vignettes des sites et raccourcis clients.
+
+Audit complet : voir le document « Audit du CMS multi-sites ».

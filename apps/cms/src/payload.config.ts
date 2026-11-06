@@ -15,11 +15,15 @@ import { AuditLogs } from './collections/AuditLogs'
 import { Categories } from './collections/Categories'
 import { Events } from './collections/Events'
 import { Media } from './collections/Media'
+import { Menus } from './collections/Menus'
 import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Prices } from './collections/Prices'
+import { Promotions } from './collections/Promotions'
+import { Services } from './collections/Services'
 import { SiteInfo } from './collections/SiteInfo'
 import { SupportRequests } from './collections/SupportRequests'
+import { Tags } from './collections/Tags'
 import { Tenants } from './collections/Tenants'
 import { Users } from './collections/Users'
 import { migrations } from './migrations'
@@ -42,6 +46,8 @@ export default buildConfig({
   admin: {
     user: Users.slug,
     meta: { titleSuffix: ' · Espace de gestion' },
+    // Thème clair imposé (styles dans app/(payload)/custom.scss)
+    theme: 'light',
     importMap: { baseDir: path.resolve(dirname) },
     components: {
       beforeDashboard: ['@/components/Welcome#Welcome'],
@@ -49,7 +55,23 @@ export default buildConfig({
     },
   },
 
-  collections: [Tenants, Users, Media, Categories, Events, Prices, Pages, Posts, SiteInfo, SupportRequests, AuditLogs],
+  collections: [
+    // Contenus
+    Posts, Media, Services, Prices, Events, SiteInfo,
+    // Site
+    Pages, Menus, Promotions,
+    // Organisation
+    Categories, Tags,
+    // Agence
+    Tenants, Users, SupportRequests, AuditLogs,
+  ],
+
+  // Envois de fichiers : 50 Mo maximum (photos, vidéos courtes, documents)
+  upload: {
+    limits: { fileSize: 50 * 1024 * 1024 },
+    abortOnLimit: true,
+    responseOnLimit: 'Fichier trop lourd : 50 Mo maximum.',
+  },
 
   // Langues du CONTENU des sites (français par défaut, anglais en second)
   localization: {
@@ -117,6 +139,10 @@ export default buildConfig({
         prices: {},
         pages: {},
         posts: {},
+        services: {},
+        menus: {},
+        promotions: {},
+        tags: {},
         'site-info': { isGlobal: true },
         'support-requests': {},
       },

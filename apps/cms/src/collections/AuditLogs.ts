@@ -29,6 +29,7 @@ export const AuditLogs: CollectionConfig = {
         { label: 'Création', value: 'create' },
         { label: 'Modification', value: 'update' },
         { label: 'Suppression', value: 'delete' },
+        { label: 'Connexion', value: 'login' },
       ],
     },
     { name: 'targetCollection', label: 'Collection', type: 'text', required: true, index: true },

@@ -7,7 +7,7 @@ import { enforceTenant } from '@/hooks/enforceTenant'
 export const Events: CollectionConfig = {
   slug: 'events',
   labels: { singular: 'Événement', plural: 'Événements' },
-  admin: { useAsTitle: 'title', defaultColumns: ['title', 'startsAt', 'location'], group: 'Contenus' },
+  admin: { useAsTitle: 'title', defaultColumns: ['title', 'type', 'startsAt', 'location'], group: 'Contenus' },
   access: tenantCollectionAccess(),
   hooks: {
     beforeChange: [enforceTenant()],
@@ -17,7 +17,28 @@ export const Events: CollectionConfig = {
   defaultSort: '-startsAt',
   fields: [
     { name: 'title', label: 'Titre', type: 'text', localized: true, required: true },
-    { name: 'description', label: 'Description', type: 'textarea', localized: true },
+    { name: 'description', label: 'Détail', type: 'textarea', localized: true },
+    {
+      type: 'row',
+      fields: [
+        {
+          name: 'type',
+          label: 'Type',
+          type: 'select',
+          defaultValue: 'stage',
+          options: [
+            { label: 'Stage', value: 'stage' },
+            { label: 'Galops', value: 'galop' },
+            { label: 'Concours', value: 'concours' },
+            { label: 'Fête du club', value: 'fete' },
+            { label: 'Atelier', value: 'atelier' },
+            { label: 'Autre', value: 'autre' },
+          ],
+          admin: { description: 'Couleur dans le calendrier du site.' },
+        },
+        { name: 'hours', label: 'Horaires affichés', type: 'text', localized: true, admin: { placeholder: '9h – 17h' } },
+      ],
+    },
     {
       type: 'row',
       fields: [

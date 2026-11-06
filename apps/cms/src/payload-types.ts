@@ -67,15 +67,19 @@ export interface Config {
   };
   blocks: {};
   collections: {
+    posts: Post;
+    media: Media;
+    services: Service;
+    prices: Price;
+    events: Event;
+    'site-info': SiteInfo;
+    pages: Page;
+    menus: Menu;
+    promotions: Promotion;
+    categories: Category;
+    tags: Tag;
     tenants: Tenant;
     users: User;
-    media: Media;
-    categories: Category;
-    events: Event;
-    prices: Price;
-    pages: Page;
-    posts: Post;
-    'site-info': SiteInfo;
     'support-requests': SupportRequest;
     'audit-logs': AuditLog;
     'payload-kv': PayloadKv;
@@ -85,15 +89,19 @@ export interface Config {
   };
   collectionsJoins: {};
   collectionsSelect: {
+    posts: PostsSelect<false> | PostsSelect<true>;
+    media: MediaSelect<false> | MediaSelect<true>;
+    services: ServicesSelect<false> | ServicesSelect<true>;
+    prices: PricesSelect<false> | PricesSelect<true>;
+    events: EventsSelect<false> | EventsSelect<true>;
+    'site-info': SiteInfoSelect<false> | SiteInfoSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
+    menus: MenusSelect<false> | MenusSelect<true>;
+    promotions: PromotionsSelect<false> | PromotionsSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    tags: TagsSelect<false> | TagsSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
-    media: MediaSelect<false> | MediaSelect<true>;
-    categories: CategoriesSelect<false> | CategoriesSelect<true>;
-    events: EventsSelect<false> | EventsSelect<true>;
-    prices: PricesSelect<false> | PricesSelect<true>;
-    pages: PagesSelect<false> | PagesSelect<true>;
-    posts: PostsSelect<false> | PostsSelect<true>;
-    'site-info': SiteInfoSelect<false> | SiteInfoSelect<true>;
     'support-requests': SupportRequestsSelect<false> | SupportRequestsSelect<true>;
     'audit-logs': AuditLogsSelect<false> | AuditLogsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -134,6 +142,51 @@ export interface UserAuthOperations {
     email: string;
     password: string;
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts".
+ */
+export interface Post {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  title: string;
+  /**
+   * Générée depuis le titre si vide.
+   */
+  slug?: string | null;
+  /**
+   * Articles (actualités) ou Blog.
+   */
+  category?: (number | null) | Category;
+  tags?: (number | Tag)[] | null;
+  coverImage?: (number | null) | Media;
+  excerpt?: string | null;
+  content?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  publishedAt?: string | null;
+  author?: (number | null) | User;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+    image?: (number | null) | Media;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -184,6 +237,8 @@ export interface Tenant {
   createdAt: string;
 }
 /**
+ * Photos, vidéos (MP4, WebM, MOV) et documents (PDF, Word, Excel, PowerPoint). 50 Mo maximum par fichier.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
@@ -194,8 +249,12 @@ export interface Media {
   title?: string | null;
   description?: string | null;
   category?: (number | null) | Category;
+  tags?: (number | Tag)[] | null;
+  /**
+   * Décochez pour un fichier interne (il ne sera jamais affiché sur le site).
+   */
+  isPublic?: boolean | null;
   inGallery?: boolean | null;
-  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -235,6 +294,8 @@ export interface Media {
   };
 }
 /**
+ * Renommez librement vos catégories : le nouveau nom apparaît partout sur votre site.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "categories".
  */
@@ -242,8 +303,23 @@ export interface Category {
   id: number;
   tenant?: (number | null) | Tenant;
   name: string;
-  usage?: ('gallery' | 'prices')[] | null;
+  /**
+   * Où cette catégorie est proposée (photos, services, tarifs, articles ou blog).
+   */
+  usage: ('gallery' | 'services' | 'prices' | 'articles' | 'blog')[];
+  description?: string | null;
   order?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags".
+ */
+export interface Tag {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  name: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -284,17 +360,26 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "events".
+ * via the `definition` "services".
  */
-export interface Event {
+export interface Service {
   id: number;
   tenant?: (number | null) | Tenant;
   title: string;
-  description?: string | null;
-  startsAt: string;
-  endsAt?: string | null;
-  location?: string | null;
-  image?: (number | null) | Media;
+  summary?: string | null;
+  points?:
+    | {
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  icon?: ('person' | 'medal' | 'home' | 'heart' | 'chart' | 'calendar' | 'star') | null;
+  category?: (number | null) | Category;
+  order?: number | null;
+  /**
+   * Sert au filtre « Trouve ce qui te correspond » du site.
+   */
+  audiences?: ('debutant' | 'loisir' | 'compet' | 'proprio')[] | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -322,120 +407,24 @@ export interface Price {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "pages".
+ * via the `definition` "events".
  */
-export interface Page {
+export interface Event {
   id: number;
   tenant?: (number | null) | Tenant;
   title: string;
+  description?: string | null;
   /**
-   * Générée depuis le titre si vide. « accueil » = page d’accueil.
+   * Couleur dans le calendrier du site.
    */
-  slug?: string | null;
-  layout?:
-    | (
-        | {
-            content?: {
-              root: {
-                type: string;
-                children: {
-                  type: any;
-                  version: number;
-                  [k: string]: unknown;
-                }[];
-                direction: ('ltr' | 'rtl') | null;
-                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-                indent: number;
-                version: number;
-              };
-              [k: string]: unknown;
-            } | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'text';
-          }
-        | {
-            image: number | Media;
-            caption?: string | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'image';
-          }
-        | {
-            category?: (number | null) | Category;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'gallery';
-          }
-        | {
-            category?: (number | null) | Category;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'priceList';
-          }
-        | {
-            limit?: number | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'eventList';
-          }
-        | {
-            label: string;
-            url: string;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'button';
-          }
-      )[]
-    | null;
-  seo?: {
-    title?: string | null;
-    description?: string | null;
-    image?: (number | null) | Media;
-  };
+  type?: ('stage' | 'galop' | 'concours' | 'fete' | 'atelier' | 'autre') | null;
+  hours?: string | null;
+  startsAt: string;
+  endsAt?: string | null;
+  location?: string | null;
+  image?: (number | null) | Media;
   updatedAt: string;
   createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "posts".
- */
-export interface Post {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  title: string;
-  /**
-   * Générée depuis le titre si vide.
-   */
-  slug?: string | null;
-  coverImage?: (number | null) | Media;
-  excerpt?: string | null;
-  content?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  publishedAt?: string | null;
-  author?: (number | null) | User;
-  seo?: {
-    title?: string | null;
-    description?: string | null;
-    image?: (number | null) | Media;
-  };
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -485,6 +474,205 @@ export interface SiteInfo {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  title: string;
+  /**
+   * Générée depuis le titre si vide. « accueil » = page d’accueil.
+   */
+  slug?: string | null;
+  layout?:
+    | (
+        | {
+            eyebrow?: string | null;
+            text: string;
+            level?: ('h2' | 'h3') | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'heading';
+          }
+        | {
+            content?: {
+              root: {
+                type: string;
+                children: {
+                  type: any;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            } | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'text';
+          }
+        | {
+            eyebrow?: string | null;
+            title?: string | null;
+            content?: {
+              root: {
+                type: string;
+                children: {
+                  type: any;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            } | null;
+            image?: (number | null) | Media;
+            imagePosition?: ('right' | 'left') | null;
+            background?: ('none' | 'card' | 'accent') | null;
+            buttons?:
+              | {
+                  label: string;
+                  url: string;
+                  style?: ('primary' | 'secondary') | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'section';
+          }
+        | {
+            image: number | Media;
+            caption?: string | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'image';
+          }
+        | {
+            video: number | Media;
+            caption?: string | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'video';
+          }
+        | {
+            category?: (number | null) | Category;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'gallery';
+          }
+        | {
+            category?: (number | null) | Category;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'priceList';
+          }
+        | {
+            limit?: number | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'eventList';
+          }
+        | {
+            buttons?:
+              | {
+                  label: string;
+                  url: string;
+                  style?: ('primary' | 'secondary') | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'buttons';
+          }
+        | {
+            label: string;
+            url: string;
+            style?: ('primary' | 'secondary') | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'button';
+          }
+      )[]
+    | null;
+  seo?: {
+    title?: string | null;
+    description?: string | null;
+    image?: (number | null) | Media;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "menus".
+ */
+export interface Menu {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  name: string;
+  location: 'main' | 'secondary' | 'footer';
+  /**
+   * Faites glisser les liens pour changer leur ordre.
+   */
+  items?:
+    | {
+        label: string;
+        type: 'page' | 'anchor' | 'url';
+        page?: (number | null) | Page;
+        anchor?: ('top' | 'galerie' | 'services' | 'tarifs' | 'installations' | 'stages' | 'blog' | 'contact') | null;
+        url?: string | null;
+        newTab?: boolean | null;
+        children?:
+          | {
+              label: string;
+              type: 'page' | 'anchor' | 'url';
+              page?: (number | null) | Page;
+              anchor?:
+                ('top' | 'galerie' | 'services' | 'tarifs' | 'installations' | 'stages' | 'blog' | 'contact') | null;
+              url?: string | null;
+              newTab?: boolean | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "promotions".
+ */
+export interface Promotion {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  kind: 'banner' | 'popup';
+  active?: boolean | null;
+  title: string;
+  text?: string | null;
+  image?: (number | null) | Media;
+  buttonLabel?: string | null;
+  buttonUrl?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  style?: ('accent' | 'dark' | 'light') | null;
+  frequency?: ('session' | 'once' | 'always') | null;
+  delay?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Un bug, une question, besoin d’être rappelé ? Écrivez-nous ici.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -509,7 +697,7 @@ export interface SupportRequest {
  */
 export interface AuditLog {
   id: number;
-  action: 'create' | 'update' | 'delete';
+  action: 'create' | 'update' | 'delete' | 'login';
   targetCollection: string;
   documentId: string;
   tenant?: (number | null) | Tenant;
@@ -543,40 +731,56 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'tenants';
-        value: number | Tenant;
-      } | null)
-    | ({
-        relationTo: 'users';
-        value: number | User;
+        relationTo: 'posts';
+        value: number | Post;
       } | null)
     | ({
         relationTo: 'media';
         value: number | Media;
       } | null)
     | ({
-        relationTo: 'categories';
-        value: number | Category;
-      } | null)
-    | ({
-        relationTo: 'events';
-        value: number | Event;
+        relationTo: 'services';
+        value: number | Service;
       } | null)
     | ({
         relationTo: 'prices';
         value: number | Price;
       } | null)
     | ({
-        relationTo: 'pages';
-        value: number | Page;
-      } | null)
-    | ({
-        relationTo: 'posts';
-        value: number | Post;
+        relationTo: 'events';
+        value: number | Event;
       } | null)
     | ({
         relationTo: 'site-info';
         value: number | SiteInfo;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'menus';
+        value: number | Menu;
+      } | null)
+    | ({
+        relationTo: 'promotions';
+        value: number | Promotion;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'tags';
+        value: number | Tag;
+      } | null)
+    | ({
+        relationTo: 'tenants';
+        value: number | Tenant;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
       } | null)
     | ({
         relationTo: 'support-requests';
@@ -627,6 +831,391 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts_select".
+ */
+export interface PostsSelect<T extends boolean = true> {
+  tenant?: T;
+  title?: T;
+  slug?: T;
+  category?: T;
+  tags?: T;
+  coverImage?: T;
+  excerpt?: T;
+  content?: T;
+  publishedAt?: T;
+  author?: T;
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media_select".
+ */
+export interface MediaSelect<T extends boolean = true> {
+  tenant?: T;
+  alt?: T;
+  title?: T;
+  description?: T;
+  category?: T;
+  tags?: T;
+  isPublic?: T;
+  inGallery?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+  sizes?:
+    | T
+    | {
+        thumbnail?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        card?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        hero?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "services_select".
+ */
+export interface ServicesSelect<T extends boolean = true> {
+  tenant?: T;
+  title?: T;
+  summary?: T;
+  points?:
+    | T
+    | {
+        text?: T;
+        id?: T;
+      };
+  icon?: T;
+  category?: T;
+  order?: T;
+  audiences?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "prices_select".
+ */
+export interface PricesSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  description?: T;
+  price?: T;
+  unit?: T;
+  isFrom?: T;
+  displayPrice?: T;
+  highlight?: T;
+  category?: T;
+  order?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "events_select".
+ */
+export interface EventsSelect<T extends boolean = true> {
+  tenant?: T;
+  title?: T;
+  description?: T;
+  type?: T;
+  hours?: T;
+  startsAt?: T;
+  endsAt?: T;
+  location?: T;
+  image?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-info_select".
+ */
+export interface SiteInfoSelect<T extends boolean = true> {
+  tenant?: T;
+  openingHours?:
+    | T
+    | {
+        day?: T;
+        closed?: T;
+        slots?:
+          | T
+          | {
+              opens?: T;
+              closes?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  closures?:
+    | T
+    | {
+        from?: T;
+        to?: T;
+        reason?: T;
+        id?: T;
+      };
+  phone?: T;
+  email?: T;
+  address?:
+    | T
+    | {
+        street?: T;
+        postalCode?: T;
+        city?: T;
+        mapsUrl?: T;
+      };
+  socials?:
+    | T
+    | {
+        network?: T;
+        url?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages_select".
+ */
+export interface PagesSelect<T extends boolean = true> {
+  tenant?: T;
+  title?: T;
+  slug?: T;
+  layout?:
+    | T
+    | {
+        heading?:
+          | T
+          | {
+              eyebrow?: T;
+              text?: T;
+              level?: T;
+              id?: T;
+              blockName?: T;
+            };
+        text?:
+          | T
+          | {
+              content?: T;
+              id?: T;
+              blockName?: T;
+            };
+        section?:
+          | T
+          | {
+              eyebrow?: T;
+              title?: T;
+              content?: T;
+              image?: T;
+              imagePosition?: T;
+              background?: T;
+              buttons?:
+                | T
+                | {
+                    label?: T;
+                    url?: T;
+                    style?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        image?:
+          | T
+          | {
+              image?: T;
+              caption?: T;
+              id?: T;
+              blockName?: T;
+            };
+        video?:
+          | T
+          | {
+              video?: T;
+              caption?: T;
+              id?: T;
+              blockName?: T;
+            };
+        gallery?:
+          | T
+          | {
+              category?: T;
+              id?: T;
+              blockName?: T;
+            };
+        priceList?:
+          | T
+          | {
+              category?: T;
+              id?: T;
+              blockName?: T;
+            };
+        eventList?:
+          | T
+          | {
+              limit?: T;
+              id?: T;
+              blockName?: T;
+            };
+        buttons?:
+          | T
+          | {
+              buttons?:
+                | T
+                | {
+                    label?: T;
+                    url?: T;
+                    style?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        button?:
+          | T
+          | {
+              label?: T;
+              url?: T;
+              style?: T;
+              id?: T;
+              blockName?: T;
+            };
+      };
+  seo?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "menus_select".
+ */
+export interface MenusSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  location?: T;
+  items?:
+    | T
+    | {
+        label?: T;
+        type?: T;
+        page?: T;
+        anchor?: T;
+        url?: T;
+        newTab?: T;
+        children?:
+          | T
+          | {
+              label?: T;
+              type?: T;
+              page?: T;
+              anchor?: T;
+              url?: T;
+              newTab?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "promotions_select".
+ */
+export interface PromotionsSelect<T extends boolean = true> {
+  tenant?: T;
+  kind?: T;
+  active?: T;
+  title?: T;
+  text?: T;
+  image?: T;
+  buttonLabel?: T;
+  buttonUrl?: T;
+  startsAt?: T;
+  endsAt?: T;
+  style?: T;
+  frequency?: T;
+  delay?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  usage?: T;
+  description?: T;
+  order?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags_select".
+ */
+export interface TagsSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -703,248 +1292,6 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media_select".
- */
-export interface MediaSelect<T extends boolean = true> {
-  tenant?: T;
-  alt?: T;
-  title?: T;
-  description?: T;
-  category?: T;
-  inGallery?: T;
-  _objectKey?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
-  sizes?:
-    | T
-    | {
-        thumbnail?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-        card?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-        hero?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-      };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories_select".
- */
-export interface CategoriesSelect<T extends boolean = true> {
-  tenant?: T;
-  name?: T;
-  usage?: T;
-  order?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "events_select".
- */
-export interface EventsSelect<T extends boolean = true> {
-  tenant?: T;
-  title?: T;
-  description?: T;
-  startsAt?: T;
-  endsAt?: T;
-  location?: T;
-  image?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "prices_select".
- */
-export interface PricesSelect<T extends boolean = true> {
-  tenant?: T;
-  name?: T;
-  description?: T;
-  price?: T;
-  unit?: T;
-  isFrom?: T;
-  displayPrice?: T;
-  highlight?: T;
-  category?: T;
-  order?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "pages_select".
- */
-export interface PagesSelect<T extends boolean = true> {
-  tenant?: T;
-  title?: T;
-  slug?: T;
-  layout?:
-    | T
-    | {
-        text?:
-          | T
-          | {
-              content?: T;
-              id?: T;
-              blockName?: T;
-            };
-        image?:
-          | T
-          | {
-              image?: T;
-              caption?: T;
-              id?: T;
-              blockName?: T;
-            };
-        gallery?:
-          | T
-          | {
-              category?: T;
-              id?: T;
-              blockName?: T;
-            };
-        priceList?:
-          | T
-          | {
-              category?: T;
-              id?: T;
-              blockName?: T;
-            };
-        eventList?:
-          | T
-          | {
-              limit?: T;
-              id?: T;
-              blockName?: T;
-            };
-        button?:
-          | T
-          | {
-              label?: T;
-              url?: T;
-              id?: T;
-              blockName?: T;
-            };
-      };
-  seo?:
-    | T
-    | {
-        title?: T;
-        description?: T;
-        image?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "posts_select".
- */
-export interface PostsSelect<T extends boolean = true> {
-  tenant?: T;
-  title?: T;
-  slug?: T;
-  coverImage?: T;
-  excerpt?: T;
-  content?: T;
-  publishedAt?: T;
-  author?: T;
-  seo?:
-    | T
-    | {
-        title?: T;
-        description?: T;
-        image?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-  _status?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "site-info_select".
- */
-export interface SiteInfoSelect<T extends boolean = true> {
-  tenant?: T;
-  openingHours?:
-    | T
-    | {
-        day?: T;
-        closed?: T;
-        slots?:
-          | T
-          | {
-              opens?: T;
-              closes?: T;
-              id?: T;
-            };
-        id?: T;
-      };
-  closures?:
-    | T
-    | {
-        from?: T;
-        to?: T;
-        reason?: T;
-        id?: T;
-      };
-  phone?: T;
-  email?: T;
-  address?:
-    | T
-    | {
-        street?: T;
-        postalCode?: T;
-        city?: T;
-        mapsUrl?: T;
-      };
-  socials?:
-    | T
-    | {
-        network?: T;
-        url?: T;
-        id?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

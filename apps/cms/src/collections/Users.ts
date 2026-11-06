@@ -3,7 +3,11 @@ import {
   Forbidden,
   type Access,
   type CollectionAfterChangeHook,
+  type CollectionAfterLoginHook,
   type CollectionBeforeChangeHook,
+  type CollectionBeforeDeleteHook,
+  type CollectionBeforeLoginHook,
+  type CollectionBeforeOperationHook,
   type CollectionBeforeValidateHook,
   type CollectionConfig,
   type FieldAccess,
@@ -116,6 +120,78 @@ const protectMemberships: CollectionBeforeChangeHook = ({ req, data, operation, 
   return data
 }
 
+/**
+ * Comptes partagés entre plusieurs clients : un admin client ne gère QUE l'appartenance
+ * de la personne à ses propres clients. Il ne peut ni changer son mot de passe, ni son
+ * e-mail, ni son nom, ni supprimer le compte, dès qu'elle appartient aussi à un client
+ * qu'il n'administre pas (ou qu'elle est super admin). Sinon, l'admin du client A
+ * pourrait prendre le compte d'un administrateur du client B.
+ */
+const managesWholeAccount = (manager: unknown, target: { roles?: string[] | null; tenants?: MembershipRow[] | null }) => {
+  if (isSuperAdmin(manager)) return true
+  if (isSuperAdmin(target)) return false
+  const adminTenants = getTenantIDs(manager, ADMIN_ONLY)
+  return (target.tenants ?? []).every((row) => adminTenants.some((id) => sameID(id, row.tenant)))
+}
+
+const protectSharedAccounts: CollectionBeforeOperationHook = async ({ args, operation, req }) => {
+  if (operation !== 'update' && operation !== 'updateByID') return args
+  const data = args.data as { password?: string; email?: string; name?: string } | undefined
+  const { id, where } = args as { id?: number | string; where?: Where }
+  if (!req.user || isSuperAdmin(req.user) || !data) return args
+  if (!(data.password || data.email !== undefined || data.name !== undefined)) return args
+  // Cible(s) de la modification : par identifiant, ou toutes celles du filtre (modification en masse)
+  const targets = id
+    ? [await req.payload.findByID({ collection: 'users', id, depth: 0, overrideAccess: true, req, disableErrors: true })]
+    : (await req.payload.find({ collection: 'users', where, depth: 0, limit: 0, overrideAccess: true, req })).docs
+  for (const target of targets) {
+    if (!target || isSelf(req, target.id) || managesWholeAccount(req.user, target)) continue
+    const touchesAccount =
+      Boolean(data.password) ||
+      (data.email !== undefined && data.email !== target.email) ||
+      (data.name !== undefined && data.name !== target.name)
+    if (touchesAccount) throw new Forbidden(req.t)
+  }
+  return args
+}
+
+const protectSharedAccountsDelete: CollectionBeforeDeleteHook = async ({ req, id }) => {
+  if (!req.user || isSuperAdmin(req.user)) return
+  const target = await req.payload.findByID({ collection: 'users', id, depth: 0, overrideAccess: true, req, disableErrors: true })
+  if (target && !managesWholeAccount(req.user, target)) throw new Forbidden(req.t)
+}
+
+/** Un compte dont tous les clients sont suspendus ne peut plus se connecter. */
+const blockSuspendedTenants: CollectionBeforeLoginHook = async ({ req, user }) => {
+  if (isSuperAdmin(user)) return user
+  const ids = getTenantIDs(user)
+  if (!ids.length) return user
+  const { totalDocs } = await req.payload.count({
+    collection: 'tenants',
+    where: { and: [{ id: { in: ids } }, { status: { not_equals: 'suspended' } }] },
+    overrideAccess: true,
+    req,
+  })
+  if (totalDocs === 0) throw new Forbidden(req.t)
+  return user
+}
+
+/** Journal : chaque connexion réussie est enregistrée. */
+const logLogin: CollectionAfterLoginHook = async ({ req, user }) => {
+  try {
+    await req.payload.create({
+      collection: 'audit-logs',
+      overrideAccess: true,
+      req,
+      context: { skipAudit: true },
+      data: { action: 'login', targetCollection: 'users', documentId: String(user.id), user: user.id as number },
+    })
+  } catch (err) {
+    req.payload.logger.error({ err }, 'Connexion non journalisée')
+  }
+  return user
+}
+
 /** Envoie l'e-mail d'invitation : un lien pour choisir son mot de passe (prouve aussi l'adresse). */
 const sendInvitation: CollectionAfterChangeHook = async ({ req, doc, operation, context }) => {
   if (operation !== 'create' || context?.skipInvite) return doc
@@ -186,8 +262,13 @@ export const Users: CollectionConfig = {
     admin: ({ req }) => Boolean(req.user),
   },
   hooks: {
+    // Vérifié avant toute opération (le mot de passe n'est plus visible une fois haché)
+    beforeOperation: [protectSharedAccounts],
     beforeValidate: [randomPasswordForInvites],
     beforeChange: [firstUserIsSuperAdmin, protectMemberships],
+    beforeDelete: [protectSharedAccountsDelete],
+    beforeLogin: [blockSuspendedTenants],
+    afterLogin: [logLogin],
     afterChange: [sendInvitation, auditChange('users')],
     afterDelete: [auditDelete('users')],
   },

@@ -175,11 +175,14 @@ describe('Écriture', () => {
   })
 
   it('deux clients peuvent avoir la même adresse de page, mais pas deux fois chez le même client', async () => {
-    await payload.create({ collection: 'pages', data: { title: 'Contact', tenant: tenantA.id }, ...(await as(adminA)) })
-    await payload.create({ collection: 'pages', data: { title: 'Contact', tenant: tenantB.id }, ...(await as(adminB)) })
-    await expect(
-      payload.create({ collection: 'pages', data: { title: 'Contact', tenant: tenantA.id }, ...(await as(adminA)) }),
-    ).rejects.toThrow()
+    const a = await payload.create({ collection: 'pages', data: { title: 'Contact', tenant: tenantA.id }, ...(await as(adminA)) })
+    const b = await payload.create({ collection: 'pages', data: { title: 'Contact', tenant: tenantB.id }, ...(await as(adminB)) })
+    expect(a.slug).toBe('contact')
+    expect(b.slug).toBe('contact')
+    // Chez le même client : une nouvelle page reçoit une adresse libre, une modification en double est refusée
+    const again = await payload.create({ collection: 'pages', data: { title: 'Contact', tenant: tenantA.id }, ...(await as(adminA)) })
+    expect(again.slug).toBe('contact-copie')
+    await expect(payload.update({ collection: 'pages', id: again.id, data: { slug: 'contact' }, ...(await as(adminA)) })).rejects.toThrow()
   })
 })
 

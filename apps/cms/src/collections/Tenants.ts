@@ -1,8 +1,10 @@
-import type { Access, CollectionConfig, FieldAccess } from 'payload'
+import type { Access, AccessResult, CollectionAfterChangeHook, CollectionConfig, FieldAccess, Validate } from 'payload'
 
-import { ADMIN_ONLY, ALL_TENANT_ROLES, getTenantIDs, isSuperAdmin } from '@/access/roles'
+import { ADMIN_ONLY, ALL_TENANT_ROLES, extractID, getTenantIDs, isSuperAdmin, sameID } from '@/access/roles'
 import { superAdminOnly } from '@/access/tenantAccess'
 import { auditChange, auditDelete } from '@/hooks/audit'
+
+import { CATEGORY_TYPES } from './Categories'
 
 /** Un client ne voit que sa (ou ses) entreprise(s). */
 const readTenants: Access = ({ req }) => {
@@ -13,11 +15,35 @@ const readTenants: Access = ({ req }) => {
 }
 
 /** L'administrateur client peut modifier sa fiche (logo, coordonnées, couleurs). */
-const updateTenants: Access = ({ req }) => {
+const updateTenants: Access = ({ req }): AccessResult => {
   if (!req.user) return false
   if (isSuperAdmin(req.user)) return true
   const ids = getTenantIDs(req.user, ADMIN_ONLY)
-  return ids.length ? { id: { in: ids } } : false
+  return ids.length ? { and: [{ id: { in: ids } }, { status: { not_equals: 'suspended' } }] } : false
+}
+
+/** Le logo doit être une image de CE client (pas celle d'un autre). */
+const logoOfSameTenant: Validate = async (value, { req, id }) => {
+  const mediaID = extractID(value)
+  if (mediaID === null) return true
+  const media = await req.payload.findByID({ collection: 'media', id: mediaID, depth: 0, overrideAccess: true, req, disableErrors: true })
+  if (!media) return 'Image introuvable'
+  if (id === undefined || !sameID(media.tenant, id)) return 'Choisissez une image de la médiathèque de ce client.'
+  return true
+}
+
+/** Crée les catégories par défaut d'un nouveau client (renommables ensuite). */
+const createDefaultCategories: CollectionAfterChangeHook = async ({ req, doc, operation }) => {
+  if (operation !== 'create') return doc
+  for (const [i, type] of CATEGORY_TYPES.entries()) {
+    await req.payload.create({
+      collection: 'categories',
+      data: { tenant: doc.id, name: type.label.replace(' (actualités)', ''), usage: [type.value], order: i + 1 },
+      overrideAccess: true,
+      req,
+    })
+  }
+  return doc
 }
 
 /** Champs techniques : modifiables par le super admin uniquement. */
@@ -38,7 +64,7 @@ export const Tenants: CollectionConfig = {
     delete: superAdminOnly,
   },
   hooks: {
-    afterChange: [auditChange('tenants')],
+    afterChange: [createDefaultCategories, auditChange('tenants')],
     afterDelete: [auditDelete('tenants')],
   },
   fields: [
@@ -89,7 +115,7 @@ export const Tenants: CollectionConfig = {
         {
           label: 'Coordonnées',
           fields: [
-            { name: 'logo', label: 'Logo', type: 'upload', relationTo: 'media' },
+            { name: 'logo', label: 'Logo', type: 'upload', relationTo: 'media', validate: logoOfSameTenant },
             {
               type: 'row',
               fields: [

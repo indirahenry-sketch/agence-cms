@@ -12,6 +12,11 @@ import { ALL_TENANT_ROLES, getTenantIDs, isSuperAdmin, type TenantRole } from '.
 
 const tenantFilter = (ids: (number | string)[]): Where => ({ tenant: { in: ids } })
 
+/** Écriture : jamais sur les contenus d'un client suspendu (sauf super admin). */
+const activeTenantFilter = (ids: (number | string)[]): Where => ({
+  and: [{ tenant: { in: ids } }, { 'tenant.status': { not_equals: 'suspended' } }],
+})
+
 /** Lecture : tout membre du client (admin ou éditeur). */
 export const tenantRead: Access = ({ req }) => {
   if (!req.user) return false
@@ -39,7 +44,7 @@ export const tenantWrite =
     if (!req.user) return false
     if (isSuperAdmin(req.user)) return true
     const ids = getTenantIDs(req.user, roles)
-    return ids.length ? tenantFilter(ids) : false
+    return ids.length ? activeTenantFilter(ids) : false
   }
 
 export const superAdminOnly: Access = ({ req }) => isSuperAdmin(req.user)

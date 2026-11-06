@@ -1,85 +1,71 @@
-// Bandeau d'accueil : pensé pour le téléphone d'abord, puis la tablette et le PC
-.welcome {
-  margin-bottom: var(--base);
-  padding: calc(var(--base) * 1) calc(var(--base) * 1);
-  border: 1px solid var(--theme-elevation-150);
-  border-radius: 12px;
-  background: var(--theme-elevation-50);
+.dash {
+  display: grid;
+  gap: 20px;
+  margin-bottom: 32px;
+  font-family: var(--font-body);
+  color: var(--cms-ink);
 
-  &__title {
-    margin: 0 0 calc(var(--base) * 0.75);
-  }
-
-  &__stats {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: calc(var(--base) * 0.5);
-    margin-bottom: calc(var(--base) * 0.75);
-
-    @media (min-width: 600px) {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  &__stat {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding: 14px 16px;
-    border-radius: 10px;
-    background: var(--theme-elevation-0);
-    border: 1px solid var(--theme-elevation-100);
-    color: var(--theme-text);
-    text-decoration: none;
-
-    strong {
-      font-size: 28px;
-      line-height: 1;
-    }
-  }
-
-  &__tenant + &__tenant {
-    margin-top: var(--base);
-  }
-
-  &__tenant-name {
-    margin: 0 0 8px;
-    font-weight: 600;
-    font-size: 18px;
-  }
-
-  &__actions {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-
-    @media (min-width: 600px) {
-      flex-direction: row;
-      flex-wrap: wrap;
-    }
-  }
-
-  &__button {
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 44px; // taille confortable au doigt
-    padding: 0 18px;
-    border-radius: 8px;
-    background: var(--theme-text);
-    color: var(--theme-bg);
-    font-weight: 600;
-    text-decoration: none;
-
-    &--ghost {
-      background: transparent;
-      color: var(--theme-text);
-      border: 1px solid var(--theme-elevation-300);
-    }
-  }
-
-  &__hint {
-    align-self: center;
-    color: var(--theme-elevation-600);
-  }
+  h2 { margin: 2px 0 0; font-size: 1.7rem; font-weight: 600; }
+  h3 { margin: 0; font-size: 1.05rem; font-weight: 600; }
 }
+.dash__head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.dash__eyebrow { margin: 0; font-size: 0.8rem; color: var(--cms-muted); }
+.dash__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dash__btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 10px;
+  border: 1px solid var(--cms-line); background: #fff; color: var(--cms-ink); font-weight: 600; font-size: 0.85rem; text-decoration: none;
+  &:hover { border-color: var(--cms-accent); color: var(--cms-accent); }
+}
+.dash__btn--primary { background: var(--cms-accent); border-color: var(--cms-accent); color: #fff; &:hover { color: #fff; background: #6d28d9; } }
+.dash__btn--danger { color: #e11d48; background: #fff1f2; border-color: #ffe4e6; &:hover { color: #be123c; border-color: #fda4af; } }
+
+.dash__stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.dash__stat {
+  display: grid; gap: 4px; padding: 16px 18px; background: #fff; border: 1px solid var(--cms-line);
+  border-radius: var(--cms-radius); box-shadow: var(--cms-shadow); color: inherit; text-decoration: none;
+  transition: transform 0.15s, border-color 0.15s;
+  &:hover { transform: translateY(-2px); border-color: var(--cms-accent); }
+}
+.dash__chip {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 9px;
+  background: var(--cms-accent-soft); color: var(--cms-accent); margin-bottom: 6px;
+}
+.dash__chip--green { background: #e8f8ef; color: #16a34a; }
+.dash__chip--orange { background: #fff3e6; color: #ea7a0c; }
+.dash__chip--blue { background: #e8f2fe; color: #2563eb; }
+.dash__chip--pink { background: #fdecf3; color: #db2777; }
+.dash__label { font-size: 0.82rem; color: var(--cms-muted); }
+.dash__value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+.dash__sub {
+  font-size: 0.74rem; color: var(--cms-muted);
+  em { font-style: normal; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #f1f0f6; color: var(--cms-muted); font-weight: 600; }
+  em.up { background: #e8f8ef; color: #16a34a; }
+}
+
+.dash__section-head { display: flex; align-items: baseline; gap: 10px; span { color: var(--cms-muted); font-size: 0.85rem; } }
+.dash__sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.dash__site { background: #fff; border: 1px solid var(--cms-line); border-radius: var(--cms-radius); overflow: hidden; box-shadow: var(--cms-shadow); }
+.dash__preview {
+  position: relative; display: block; aspect-ratio: 16 / 10; overflow: hidden; background: var(--cms-accent-soft);
+  iframe { position: absolute; top: 0; left: 0; width: 400%; height: 400%; border: 0; transform: scale(0.25); transform-origin: 0 0; pointer-events: none; }
+}
+.dash__placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: var(--cms-accent); font-weight: 600; font-size: 0.85rem; }
+.dash__flag { position: absolute; top: 0; left: 0; right: 0; padding: 4px 10px; background: #e11d48; color: #fff; font-size: 0.75rem; font-weight: 600; }
+.dash__site-body {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 12px 14px;
+  strong { display: block; font-size: 0.9rem; }
+  small { color: var(--cms-muted); font-size: 0.75rem; }
+}
+.dash__dot { width: 9px; height: 9px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px #e8f8ef; &.off { background: #e11d48; box-shadow: 0 0 0 3px #fdecf3; } }
+.dash__mini { font-size: 0.78rem; font-weight: 600; color: var(--cms-accent); text-decoration: none; padding: 4px 10px; border-radius: 8px; background: var(--cms-accent-soft); }
+
+.dash__client { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.dash__sites--one { grid-template-columns: 1fr; }
+.dash__shortcuts {
+  display: grid; gap: 6px; padding: 16px; background: #fff; border: 1px solid var(--cms-line); border-radius: var(--cms-radius); box-shadow: var(--cms-shadow);
+  h3 { margin-bottom: 6px; }
+  a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; color: var(--cms-ink); text-decoration: none; font-weight: 500; font-size: 0.9rem; }
+  a:hover { background: var(--cms-accent-soft); color: var(--cms-accent); }
+  .dash__chip { margin: 0; }
+}
+@media (max-width: 760px) { .dash__client { grid-template-columns: 1fr; } }
