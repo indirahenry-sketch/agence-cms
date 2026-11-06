@@ -1,6 +1,7 @@
 import type { Payload } from 'payload'
 
 import { CATEGORY_TYPES } from '@/collections/Categories'
+import { describeError } from '@/lib/s3-check'
 
 import { seedEvents, seedServices } from './seedContent'
 import { seedGallery, seedLogo } from './seedImages'
@@ -45,7 +46,7 @@ export async function importEcuriesPoigny(payload: Payload): Promise<void> {
     try {
       await fn()
     } catch (err) {
-      payload.logger.error({ err }, `Écuries de Poigny : étape « ${name} » impossible`)
+      payload.logger.error({ err }, `Écuries de Poigny : étape « ${name} » impossible : ${describeError(err)}`)
     }
   }
   await step('catégories', () => ensureCategories(payload, tenantID))
@@ -340,7 +341,12 @@ async function ensurePromotions(payload: Payload, tenantID: number) {
 
 /** Logo et photos de la galerie. En cas d'échec, le site garde son logo intégré et masque la galerie. */
 async function ensurePhotos(payload: Payload, tenantID: number) {
-  if (await countOf(payload, 'media', tenantID)) return
+  // Ne renvoie que ce qui manque : un import interrompu (stockage en panne) est repris sans doublon
+  const { docs: existing } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 200, depth: 0, ...base })
+  const haveAlt = new Set(existing.map((m) => m.alt))
+  const tenant = await payload.findByID({ collection: 'tenants', id: tenantID, depth: 0, ...base })
+  const missing = seedGallery.map((img, i) => ({ img, i })).filter(({ img }) => !haveAlt.has(img.alt))
+  if (tenant.logo && !missing.length) return
   const upload = async (img: { mime: string; b64: string; alt: string; caption?: string }, name: string, inGallery: boolean) => {
     const data = Buffer.from(img.b64, 'base64')
     return payload.create({
@@ -351,9 +357,11 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
     })
   }
   const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['gallery'] } }] }, limit: 1, ...base })
-  const logo = await upload(seedLogo, 'logo.png', false)
-  await payload.update({ collection: 'tenants', id: tenantID, data: { logo: logo.id }, ...base })
-  for (const [i, img] of seedGallery.entries()) {
+  if (!tenant.logo) {
+    const logo = existing.find((m) => m.alt === seedLogo.alt) ?? (await upload(seedLogo, 'logo.png', false))
+    await payload.update({ collection: 'tenants', id: tenantID, data: { logo: logo.id }, ...base })
+  }
+  for (const { img, i } of missing) {
     const m = await upload(img, `photo-${i + 1}.jpg`, true)
     if (cats[0]) await payload.update({ collection: 'media', id: m.id, data: { category: cats[0].id }, ...base })
   }

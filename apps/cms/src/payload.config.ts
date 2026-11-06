@@ -27,6 +27,7 @@ import { Tags } from './collections/Tags'
 import { Tenants } from './collections/Tenants'
 import { Users } from './collections/Users'
 import { migrations } from './migrations'
+import { checkS3 } from './lib/s3-check'
 import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -118,7 +119,10 @@ export default buildConfig({
 
   // Au démarrage : crée le client de démonstration « Les Écuries de Poigny » s'il n'existe pas
   onInit: async (payload) => {
-    if (process.env.NODE_ENV !== 'production' || process.env.SKIP_DEMO_IMPORT === 'true') return
+    if (process.env.NODE_ENV !== 'production') return
+    // Diagnostic du stockage photo, écrit en clair dans les logs (configuration sans les secrets + erreur exacte)
+    await checkS3(payload)
+    if (process.env.SKIP_DEMO_IMPORT === 'true') return
     try {
       await importEcuriesPoigny(payload)
     } catch (err) {
