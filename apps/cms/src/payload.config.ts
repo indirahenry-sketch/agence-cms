@@ -11,6 +11,7 @@ import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
 import { ADMIN_ONLY, getTenantIDs, isSuperAdmin } from './access/roles'
+import { Announcements } from './collections/Announcements'
 import { AuditLogs } from './collections/AuditLogs'
 import { Categories } from './collections/Categories'
 import { Events } from './collections/Events'
@@ -85,7 +86,7 @@ export default buildConfig({
     // Organisation
     Categories, Tags,
     // Agence
-    Tenants, Users, SupportRequests, AuditLogs, SiteStats,
+    Tenants, Users, SupportRequests, Announcements, AuditLogs, SiteStats,
   ],
 
   // Envois de fichiers : 50 Mo maximum (photos, vidéos courtes, documents)

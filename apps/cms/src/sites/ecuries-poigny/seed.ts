@@ -1,6 +1,7 @@
 import type { Payload } from 'payload'
 
 import { CATEGORY_TYPES } from '@/collections/Categories'
+import { createLegalPages } from '@/sites/legalPages'
 import { describeError } from '@/lib/s3-check'
 
 import { seedEvents, seedServices } from './seedContent'
@@ -54,6 +55,7 @@ export async function importEcuriesPoigny(payload: Payload): Promise<void> {
   await step('services', () => ensureServices(payload, tenantID))
   await step('agenda', () => ensureEvents(payload, tenantID))
   await step('page', () => ensurePage(payload, tenantID))
+  await step('pages légales', async () => void (await createLegalPages(payload, tenantID)))
   await step('menus', () => ensureMenus(payload, tenantID))
   await step('article', () => ensurePost(payload, tenantID))
   await step('bannière', () => ensurePromotions(payload, tenantID))
@@ -218,7 +220,18 @@ async function ensureEvents(payload: Payload, tenantID: number) {
 }
 
 async function ensurePage(payload: Payload, tenantID: number) {
-  if (await countOf(payload, 'pages', tenantID)) return
+  // Les modèles de pages d'un nouveau client sont en brouillon : la démo publie ses mentions légales
+  const { docs: existing } = await payload.find({
+    collection: 'pages',
+    where: { and: [{ tenant: { equals: tenantID } }, { slug: { equals: 'mentions-legales' } }] },
+    limit: 1,
+    draft: true,
+    ...base,
+  })
+  if (existing[0]) {
+    if (existing[0]._status !== 'published') await payload.update({ collection: 'pages', id: existing[0].id, data: { _status: 'published' }, ...base })
+    return
+  }
   await payload.create({
     collection: 'pages',
     data: {

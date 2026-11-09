@@ -39,6 +39,21 @@ export const TenantTools: React.FC = () => {
     }
   }
 
+  const legal = async () => {
+    setBusy(true)
+    setMsg('')
+    try {
+      const res = await fetch(`/api/tenants/${id}/legal-pages`, { method: 'POST', credentials: 'include' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.errors?.[0]?.message || 'Échec')
+      setMsg(data.message)
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Échec')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="tenant-tools">
       <p className="tenant-tools__title">{isAgency ? 'Outils de l’agence' : 'Mon site'}</p>
@@ -54,6 +69,9 @@ export const TenantTools: React.FC = () => {
           </a>
           <button className="tenant-tools__btn" type="button" onClick={duplicate} disabled={busy}>
             {busy ? 'Duplication…' : 'Dupliquer comme modèle'}
+          </button>
+          <button className="tenant-tools__btn" type="button" onClick={legal} disabled={busy}>
+            Ajouter les pages légales et contact
           </button>
         </>
       )}

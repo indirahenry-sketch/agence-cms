@@ -82,6 +82,7 @@ export interface Config {
     tenants: Tenant;
     users: User;
     'support-requests': SupportRequest;
+    announcements: Announcement;
     'audit-logs': AuditLog;
     'site-stats': SiteStat;
     'payload-kv': PayloadKv;
@@ -106,6 +107,7 @@ export interface Config {
     tenants: TenantsSelect<false> | TenantsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'support-requests': SupportRequestsSelect<false> | SupportRequestsSelect<true>;
+    announcements: AnnouncementsSelect<false> | AnnouncementsSelect<true>;
     'audit-logs': AuditLogsSelect<false> | AuditLogsSelect<true>;
     'site-stats': SiteStatsSelect<false> | SiteStatsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -762,6 +764,27 @@ export interface SupportRequest {
   createdAt: string;
 }
 /**
+ * Messages affichés en haut du tableau de bord de vos clients : nouveautés, offres sur vos services, maintenance.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "announcements".
+ */
+export interface Announcement {
+  id: number;
+  tone: 'news' | 'offer' | 'info' | 'warning';
+  active?: boolean | null;
+  title: string;
+  text?: string | null;
+  buttonLabel?: string | null;
+  buttonUrl?: string | null;
+  audience: 'all' | 'tenants';
+  tenants?: (number | Tenant)[] | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "audit-logs".
  */
@@ -873,6 +896,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'support-requests';
         value: number | SupportRequest;
+      } | null)
+    | ({
+        relationTo: 'announcements';
+        value: number | Announcement;
       } | null)
     | ({
         relationTo: 'audit-logs';
@@ -1427,6 +1454,24 @@ export interface SupportRequestsSelect<T extends boolean = true> {
   reply?: T;
   repliedAt?: T;
   requester?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "announcements_select".
+ */
+export interface AnnouncementsSelect<T extends boolean = true> {
+  tone?: T;
+  active?: T;
+  title?: T;
+  text?: T;
+  buttonLabel?: T;
+  buttonUrl?: T;
+  audience?: T;
+  tenants?: T;
+  startsAt?: T;
+  endsAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -249,3 +249,12 @@ Pour les Écuries de Poigny, le CMS pilote : nom, logo, téléphone, e-mail, adr
 **Interface :** thème clair (fond lavande, accent violet, menu à icônes), tableau de bord avec chiffres clés, vignettes des sites et raccourcis clients.
 
 Audit complet : voir le document « Audit du CMS multi-sites ».
+
+---
+
+## Version 5 (9 novembre 2026)
+
+- **Modèles de pages** : chaque nouveau client reçoit « Mentions légales », « Politique de confidentialité » et « Contact » en brouillon, pré-remplis avec sa fiche (les [crochets] restent à compléter). Bouton « Ajouter les pages légales et contact » dans la fiche client pour les clients existants ; la duplication recrée ces pages au nom du nouveau client.
+- **Annonces aux clients** (groupe Agence) : messages de l'agence affichés en haut du tableau de bord des clients visés (tous ou certains), entre deux dates, masquables par le client.
+- **Modifier depuis le site** : un utilisateur connecté au CMS qui visite `/sites/<client>` voit une barre « Mode édition » et un crayon sur chaque section (photos, services, tarifs, agenda, articles, coordonnées, menu, bannière) qui ouvre le bon écran. Jamais pour les visiteurs, les lecteurs, les autres clients, sur le domaine du client ni dans les vignettes.
+- Migration `20261109_053121_cms_v5_annonces` ; tests : 76 (8 nouveaux).

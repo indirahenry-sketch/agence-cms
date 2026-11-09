@@ -12,13 +12,14 @@ import type { RenderOptions } from './render'
  */
 export const siteOptions = (req: Request): RenderOptions => (req.headers.get('x-site-domain') ? { base: '' } : {})
 
-export const htmlResponse = (html: string, status = 200) =>
+/** `personal` : page contenant la barre « Mode édition » d'un utilisateur connecté, jamais mise en cache. */
+export const htmlResponse = (html: string, status = 200, personal = false) =>
   new Response(html, {
     // Site en maintenance : « indisponible temporairement » pour Google
     status: html.startsWith('<!doctype html><html lang="fr" data-maintenance>') ? 503 : status,
     headers: {
       'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'no-cache',
+      'cache-control': personal ? 'private, no-store' : 'no-cache',
       // Maquettes non référencées tant que le site n'est pas marqué « visible sur Google »
       ...(html.includes('content="noindex') ? { 'x-robots-tag': 'noindex, nofollow' } : {}),
     },

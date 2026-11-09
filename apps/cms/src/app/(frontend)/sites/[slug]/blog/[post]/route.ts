@@ -4,6 +4,7 @@ import { getPayload } from 'payload'
 import { findRedirect, htmlResponse, notFoundPage, siteOptions } from '@/sites/http'
 import { renderPost } from '@/sites/render'
 import { recordVisit } from '@/sites/stats'
+import { withEditBar } from '@/sites/editBar'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +17,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const html = await renderPost(payload, slug, postSlug, opts)
   if (html) {
     recordVisit(payload, req, slug, `/blog/${postSlug}`)
-    return htmlResponse(html)
+    const edit = await withEditBar(payload, req, slug, html, { collection: 'posts', slug: postSlug })
+    return htmlResponse(edit.html, 200, edit.personal)
   }
   return (await findRedirect(payload, slug, `/blog/${postSlug}`, opts)) ?? notFoundPage()
 }

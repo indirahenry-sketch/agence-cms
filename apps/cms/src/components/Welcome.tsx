@@ -2,8 +2,11 @@ import type { CollectionSlug, ServerProps, Where } from 'payload'
 import React from 'react'
 
 import { getTenantIDs, isSuperAdmin } from '@/access/roles'
+import { audienceFilter } from '@/collections/Announcements'
 import { statsSummary } from '@/sites/stats'
+import { safeHref } from '@/utilities/safeURL'
 
+import { AnnouncementCards, type AnnouncementItem } from './AnnouncementCards'
 import { LogoutLink } from './LogoutLink'
 import { SitesBoard, type BoardSite } from './SitesBoard'
 
@@ -168,6 +171,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
   }
 
   if (admin) {
+    const liveAnnouncements = (await payload.count({ collection: 'announcements', where: audienceFilter([]), overrideAccess: true })).totalDocs
     const { docs: tenants } = await payload.find({ collection: 'tenants', depth: 0, limit: 200, pagination: false, overrideAccess: true })
     const board: BoardSite[] = tenants.map((t) => ({
       id: t.id,
@@ -195,6 +199,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
             <h2>Bonjour{firstName} 👋</h2>
           </div>
           <div className="dash__actions">
+            <a className="dash__btn" href="/admin/collections/announcements">Annonces aux clients{liveAnnouncements ? ` · ${liveAnnouncements}` : ''}</a>
             <a className="dash__btn" href="/admin/collections/users/create">+ Utilisateur</a>
             <LogoutLink variant="button" />
           </div>
@@ -247,6 +252,25 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
   const doneCount = steps.filter((x) => x.done).length
   const current = steps.find((x) => !x.done)
 
+  // Messages de l'agence pour ce client (ou pour tous les clients)
+  const { docs: announcementDocs } = await payload.find({
+    collection: 'announcements',
+    where: audienceFilter(getTenantIDs(user)),
+    sort: '-updatedAt',
+    limit: 3,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const announcements: AnnouncementItem[] = announcementDocs.map((a) => ({
+    id: a.id,
+    key: `${a.id}-${new Date(a.updatedAt).getTime()}`,
+    title: a.title,
+    text: a.text,
+    tone: a.tone || 'news',
+    buttonLabel: a.buttonLabel,
+    buttonUrl: safeHref(a.buttonUrl) === '#' ? null : a.buttonUrl,
+  }))
+
   const shortcuts = [
     { href: '/admin/collections/media', label: 'Ajouter des photos', icon: 'image' },
     { href: '/admin/collections/posts/create', label: 'Écrire un article', icon: 'file' },
@@ -268,6 +292,8 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
           <LogoutLink variant="button" />
         </div>
       </header>
+
+      <AnnouncementCards items={announcements} />
 
       {current && (
         <div className="wizard">

@@ -175,14 +175,14 @@ describe('Écriture', () => {
   })
 
   it('deux clients peuvent avoir la même adresse de page, mais pas deux fois chez le même client', async () => {
-    const a = await payload.create({ collection: 'pages', data: { title: 'Contact', tenant: tenantA.id }, ...(await as(adminA)) })
-    const b = await payload.create({ collection: 'pages', data: { title: 'Contact', tenant: tenantB.id }, ...(await as(adminB)) })
-    expect(a.slug).toBe('contact')
-    expect(b.slug).toBe('contact')
+    const a = await payload.create({ collection: 'pages', data: { title: 'Accès', tenant: tenantA.id }, ...(await as(adminA)) })
+    const b = await payload.create({ collection: 'pages', data: { title: 'Accès', tenant: tenantB.id }, ...(await as(adminB)) })
+    expect(a.slug).toBe('acces')
+    expect(b.slug).toBe('acces')
     // Chez le même client : une nouvelle page reçoit une adresse libre, une modification en double est refusée
-    const again = await payload.create({ collection: 'pages', data: { title: 'Contact', tenant: tenantA.id }, ...(await as(adminA)) })
-    expect(again.slug).toBe('contact-copie')
-    await expect(payload.update({ collection: 'pages', id: again.id, data: { slug: 'contact' }, ...(await as(adminA)) })).rejects.toThrow()
+    const again = await payload.create({ collection: 'pages', data: { title: 'Accès', tenant: tenantA.id }, ...(await as(adminA)) })
+    expect(again.slug).toBe('acces-copie')
+    await expect(payload.update({ collection: 'pages', id: again.id, data: { slug: 'acces' }, ...(await as(adminA)) })).rejects.toThrow()
   })
 })
 

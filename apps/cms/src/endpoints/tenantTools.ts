@@ -2,11 +2,14 @@ import { APIError, type Endpoint, type PayloadRequest } from 'payload'
 
 import { isSuperAdmin } from '@/access/roles'
 import { TENANT_COLLECTIONS } from '@/hooks/tenantCleanup'
+import type { Tenant } from '@/payload-types'
+import { createLegalPages, LEGAL_PAGE_SLUGS } from '@/sites/legalPages'
 
 /**
  * Outils de l'agence sur une fiche client (super admin uniquement) :
  * - GET  /api/tenants/:id/export     → toutes les données du client dans un fichier JSON
  * - POST /api/tenants/:id/duplicate  → nouveau client reprenant la structure de celui-ci
+ * - POST /api/tenants/:id/legal-pages → ajoute les modèles de pages manquants (brouillons)
  */
 
 const guard = async (req: PayloadRequest) => {
@@ -125,7 +128,20 @@ export const duplicateTenant: Endpoint = {
         await req.payload.create({ collection, data: { ...(clean(doc, idMap) as object), tenant: created.id } as never, ...base })
       }
     }
+    // Pages légales et contact : recréées au nom du NOUVEAU client (jamais celles du modèle)
+    await createLegalPages(req.payload, created as Tenant, req)
+    const { docs: fresh } = await req.payload.find({
+      collection: 'pages',
+      where: { and: [{ tenant: { equals: created.id } }, { slug: { in: [...LEGAL_PAGE_SLUGS] } }] },
+      draft: true,
+      ...base,
+    })
     for (const page of await all('pages')) {
+      if ((LEGAL_PAGE_SLUGS as readonly string[]).includes(page.slug ?? '')) {
+        const twin = fresh.find((f) => f.slug === page.slug)
+        if (twin) idMap.set(`page:${page.id}`, twin.id)
+        continue
+      }
       const p = await req.payload.create({ collection: 'pages', data: { ...(clean(page, idMap) as object), tenant: created.id, _status: 'draft' } as never, draft: true, ...base })
       idMap.set(`page:${page.id}`, p.id)
     }
@@ -133,5 +149,20 @@ export const duplicateTenant: Endpoint = {
       await req.payload.create({ collection: 'menus', data: { ...(clean(menu, idMap) as object), tenant: created.id } as never, ...base })
     }
     return Response.json({ id: created.id, slug: created.slug, message: `Client « ${name} » créé. Pages copiées en brouillon, à relire avant publication.` })
+  },
+}
+
+export const addLegalPages: Endpoint = {
+  path: '/:id/legal-pages',
+  method: 'post',
+  handler: async (req) => {
+    const tenant = await guard(req)
+    const created = await createLegalPages(req.payload, tenant as Tenant, req)
+    return Response.json({
+      created,
+      message: created.length
+        ? `Ajouté en brouillon : ${created.join(', ')}. À compléter puis publier dans Pages.`
+        : 'Ce client a déjà ces trois pages.',
+    })
   },
 }

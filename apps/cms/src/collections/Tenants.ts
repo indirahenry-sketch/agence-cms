@@ -4,7 +4,10 @@ import { ADMIN_ONLY, ALL_TENANT_ROLES, extractID, getTenantIDs, INACTIVE_STATUSE
 import { superAdminOnly } from '@/access/tenantAccess'
 import { auditChange, auditDelete } from '@/hooks/audit'
 import { deleteTenantContent } from '@/hooks/tenantCleanup'
-import { duplicateTenant, exportTenant } from '@/endpoints/tenantTools'
+import { addLegalPages, duplicateTenant, exportTenant } from '@/endpoints/tenantTools'
+
+import type { Tenant } from '@/payload-types'
+import { createLegalPages } from '@/sites/legalPages'
 
 import { CATEGORY_TYPES } from './Categories'
 
@@ -45,6 +48,8 @@ const createDefaultCategories: CollectionAfterChangeHook = async ({ req, doc, op
       req,
     })
   }
+  // Modèles de pages (mentions légales, confidentialité, contact), en brouillon
+  await createLegalPages(req.payload, doc as Tenant, req)
   return doc
 }
 
@@ -65,7 +70,7 @@ export const Tenants: CollectionConfig = {
     update: updateTenants,
     delete: superAdminOnly,
   },
-  endpoints: [exportTenant, duplicateTenant],
+  endpoints: [exportTenant, duplicateTenant, addLegalPages],
   hooks: {
     beforeDelete: [deleteTenantContent],
     afterChange: [createDefaultCategories, auditChange('tenants')],

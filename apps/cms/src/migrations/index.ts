@@ -5,6 +5,7 @@ import * as migration_20261105_163439_media_s3_object_key from './20261105_16343
 import * as migration_20261106_003543_cms_v2_menus_promos from './20261106_003543_cms_v2_menus_promos';
 import * as migration_20261109_032840_cms_v3 from './20261109_032840_cms_v3';
 import * as migration_20261109_035917_cms_v4_interface from './20261109_035917_cms_v4_interface';
+import * as migration_20261109_053121_cms_v5_annonces from './20261109_053121_cms_v5_annonces';
 
 export const migrations = [
   {
@@ -40,6 +41,11 @@ export const migrations = [
   {
     up: migration_20261109_035917_cms_v4_interface.up,
     down: migration_20261109_035917_cms_v4_interface.down,
-    name: '20261109_035917_cms_v4_interface'
+    name: '20261109_035917_cms_v4_interface',
+  },
+  {
+    up: migration_20261109_053121_cms_v5_annonces.up,
+    down: migration_20261109_053121_cms_v5_annonces.down,
+    name: '20261109_053121_cms_v5_annonces'
   },
 ];
