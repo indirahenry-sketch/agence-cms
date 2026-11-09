@@ -12,10 +12,22 @@ Espace de gestion centralisé pour les sites de tes clients : **Payload CMS 3 + 
 | 4. Utilisateurs | Super admin, admin client, éditeur ; rôles par client | ✅ |
 | 5. Isolation | Règles d’accès + hooks serveur + 33 tests automatiques | ✅ |
 | 6. Contenus | Médias/galerie, catégories, événements, tarifs, pages, blog, informations, FR/EN | ✅ |
-| 7. Administration | Tableau de bord (super admin et client), support, journal d'audit | 🟡 base faite |
-| 8. Sites Next.js | Premier site branché : Les Écuries de Poigny (`/sites/ecuries-poigny`) | 🟡 1er site |
-| 9. Sécurité | Intégration continue GitHub (tests à chaque envoi) | 🟡 fichier prêt |
-| 10. Production | Dockerfile, docker-compose de prod, sauvegardes | 🟡 fichiers prêts, non déployés |
+| 7. Administration | Tableau de bord, visites sans cookie, support, journal d'audit, export et duplication de client | ✅ |
+| 8. Sites | Thème générique pour tout nouveau client + maquette sur mesure (Poigny), domaines, SEO | ✅ |
+| 9. Sécurité | 62 tests automatiques à chaque envoi, rôles rédacteur/lecteur, en-têtes de sécurité | ✅ |
+| 10. Production | Render + Supabase, réveil automatique, sauvegarde nocturne avec test de restauration | 🟡 secrets de sauvegarde à ajouter |
+
+### Version 3 (9 novembre 2026)
+
+- **Nouveau client sans code** : un client sans maquette a automatiquement un site à ses couleurs, sa police et son logo (fiche client → onglet « Site et domaine »). S'il a une page publiée d'adresse `accueil`, elle devient l'accueil ; sinon l'accueil est composé de ses services, tarifs, photos, actualités, coordonnées et horaires.
+- **Articles** : chaque article a sa page (`/blog/<adresse>`), une date de publication future le programme, bouton « Aperçu » sur les pages et articles, sauvegarde automatique des brouillons.
+- **Rôles** : Rédacteur (brouillons, ne publie pas) et Lecteur (consultation seule) en plus d'Administrateur et Éditeur.
+- **Clients** : statut « Archivé » ; supprimer un client supprime enfin tous ses contenus et fichiers ; outils de l'agence sur la fiche : exporter (JSON), dupliquer comme modèle.
+- **Référencement** : case « Site visible sur Google », sitemap.xml, robots.txt, fiche établissement pour Google, redirections (menu Site → Redirections).
+- **Domaines** : un domaine saisi dans la fiche client (ex. `www.client.fr`) sert le site sans le préfixe `/sites/…` dès qu'il pointe vers le serveur. L'admin n'est jamais accessible par le domaine d'un client.
+- **Visites** : compteur sans cookie ni adresse IP sur le tableau de bord (pas de bandeau de consentement).
+- **Serveur** : ne s'endort plus sur Render (il s'appelle lui-même toutes les 10 min ; `KEEP_AWAKE=false` pour couper) ; adresse de contrôle `/health`.
+- **Sauvegarde** : chaque nuit (GitHub → Actions → « Sauvegarde »), base + test de restauration, photos le dimanche, gardées 14 jours. **À activer** : ajouter les secrets listés en tête de `.github/workflows/backup.yml`.
 
 ---
 

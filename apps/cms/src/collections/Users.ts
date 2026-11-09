@@ -14,7 +14,7 @@ import {
   type Where,
 } from 'payload'
 
-import { ADMIN_ONLY, extractID, getTenantIDs, isSuperAdmin, sameID } from '@/access/roles'
+import { ADMIN_ONLY, extractID, getTenantIDs, INACTIVE_STATUSES, isSuperAdmin, sameID } from '@/access/roles'
 import { auditChange, auditDelete } from '@/hooks/audit'
 import { escapeHTML, getServerURL } from '@/utilities/serverURL'
 
@@ -168,7 +168,7 @@ const blockSuspendedTenants: CollectionBeforeLoginHook = async ({ req, user }) =
   if (!ids.length) return user
   const { totalDocs } = await req.payload.count({
     collection: 'tenants',
-    where: { and: [{ id: { in: ids } }, { status: { not_equals: 'suspended' } }] },
+    where: { and: [{ id: { in: ids } }, { status: { not_in: [...INACTIVE_STATUSES] } }] },
     overrideAccess: true,
     req,
   })

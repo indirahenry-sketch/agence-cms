@@ -1,8 +1,10 @@
 import type { Access, AccessResult, CollectionAfterChangeHook, CollectionConfig, FieldAccess, Validate } from 'payload'
 
-import { ADMIN_ONLY, ALL_TENANT_ROLES, extractID, getTenantIDs, isSuperAdmin, sameID } from '@/access/roles'
+import { ADMIN_ONLY, ALL_TENANT_ROLES, extractID, getTenantIDs, INACTIVE_STATUSES, isSuperAdmin, sameID } from '@/access/roles'
 import { superAdminOnly } from '@/access/tenantAccess'
 import { auditChange, auditDelete } from '@/hooks/audit'
+import { deleteTenantContent } from '@/hooks/tenantCleanup'
+import { duplicateTenant, exportTenant } from '@/endpoints/tenantTools'
 
 import { CATEGORY_TYPES } from './Categories'
 
@@ -19,7 +21,7 @@ const updateTenants: Access = ({ req }): AccessResult => {
   if (!req.user) return false
   if (isSuperAdmin(req.user)) return true
   const ids = getTenantIDs(req.user, ADMIN_ONLY)
-  return ids.length ? { and: [{ id: { in: ids } }, { status: { not_equals: 'suspended' } }] } : false
+  return ids.length ? { and: [{ id: { in: ids } }, { status: { not_in: [...INACTIVE_STATUSES] } }] } : false
 }
 
 /** Le logo doit être une image de CE client (pas celle d'un autre). */
@@ -33,8 +35,8 @@ const logoOfSameTenant: Validate = async (value, { req, id }) => {
 }
 
 /** Crée les catégories par défaut d'un nouveau client (renommables ensuite). */
-const createDefaultCategories: CollectionAfterChangeHook = async ({ req, doc, operation }) => {
-  if (operation !== 'create') return doc
+const createDefaultCategories: CollectionAfterChangeHook = async ({ req, doc, operation, context }) => {
+  if (operation !== 'create' || context?.skipDefaultCategories) return doc
   for (const [i, type] of CATEGORY_TYPES.entries()) {
     await req.payload.create({
       collection: 'categories',
@@ -63,7 +65,9 @@ export const Tenants: CollectionConfig = {
     update: updateTenants,
     delete: superAdminOnly,
   },
+  endpoints: [exportTenant, duplicateTenant],
   hooks: {
+    beforeDelete: [deleteTenantContent],
     afterChange: [createDefaultCategories, auditChange('tenants')],
     afterDelete: [auditDelete('tenants')],
   },
@@ -92,9 +96,22 @@ export const Tenants: CollectionConfig = {
       options: [
         { label: 'Actif', value: 'active' },
         { label: 'Suspendu', value: 'suspended' },
+        { label: 'Archivé', value: 'archived' },
       ],
-      admin: { position: 'sidebar' },
+      admin: {
+        position: 'sidebar',
+        description: 'Suspendu ou archivé : site hors ligne et comptes du client bloqués, contenus conservés. Archivé : client terminé, masqué du tableau de bord.',
+      },
       access: { update: superAdminField, create: superAdminField },
+    },
+    {
+      name: 'agencyTools',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        condition: (data) => Boolean(data?.id),
+        components: { Field: '@/components/TenantTools#TenantTools' },
+      },
     },
     {
       name: 'languages',
@@ -144,6 +161,21 @@ export const Tenants: CollectionConfig = {
         {
           label: 'Site et domaine',
           fields: [
+            {
+              name: 'tagline',
+              label: 'Accroche du site',
+              type: 'text',
+              localized: true,
+              admin: { description: 'Une phrase sous le nom, en haut de l’accueil (ex. « Boulangerie artisanale depuis 1987 »).' },
+            },
+            {
+              name: 'indexable',
+              label: 'Site visible sur Google',
+              type: 'checkbox',
+              defaultValue: false,
+              access: { update: superAdminField, create: superAdminField },
+              admin: { description: 'À cocher une fois le site validé et branché sur son domaine. Décoché : maquette non référencée.' },
+            },
             {
               name: 'domains',
               label: 'Noms de domaine',

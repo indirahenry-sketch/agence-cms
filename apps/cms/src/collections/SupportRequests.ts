@@ -1,6 +1,6 @@
 import type { Access, CollectionAfterChangeHook, CollectionBeforeChangeHook, CollectionConfig, FieldAccess } from 'payload'
 
-import { isSuperAdmin } from '@/access/roles'
+import { ALL_TENANT_ROLES, isSuperAdmin } from '@/access/roles'
 import { superAdminOnly, tenantCreate, tenantRead } from '@/access/tenantAccess'
 import { auditChange, auditDelete } from '@/hooks/audit'
 import { enforceTenant } from '@/hooks/enforceTenant'
@@ -66,12 +66,12 @@ export const SupportRequests: CollectionConfig = {
   },
   access: {
     read: tenantRead,
-    create: tenantCreate(),
+    create: tenantCreate(ALL_TENANT_ROLES),
     update: updateOnlyAgency,
     delete: superAdminOnly,
   },
   hooks: {
-    beforeChange: [enforceTenant(), setRequester],
+    beforeChange: [enforceTenant(ALL_TENANT_ROLES), setRequester],
     afterChange: [keepScreenshotPrivate, notifyAgency, auditChange('support-requests')],
     afterDelete: [auditDelete('support-requests')],
   },

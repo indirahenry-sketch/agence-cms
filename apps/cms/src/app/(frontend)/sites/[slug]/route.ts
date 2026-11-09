@@ -1,26 +1,18 @@
 import config from '@payload-config'
 import { getPayload } from 'payload'
 
+import { htmlResponse, notFoundPage, siteOptions } from '@/sites/http'
 import { renderSite } from '@/sites/render'
+import { recordVisit } from '@/sites/stats'
 
 // Toujours relu à chaque visite : une modification dans le CMS apparaît immédiatement
 export const dynamic = 'force-dynamic'
 
-export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const payload = await getPayload({ config })
-  const html = await renderSite(payload, slug)
-  if (!html) {
-    return new Response('<!doctype html><meta charset="utf-8"><title>Site introuvable</title><p>Ce site n’existe pas ou n’est pas encore en ligne.</p>', {
-      status: 404,
-      headers: { 'content-type': 'text/html; charset=utf-8' },
-    })
-  }
-  return new Response(html, {
-    headers: {
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'no-cache',
-      'x-robots-tag': 'noindex, nofollow',
-    },
-  })
+  const html = await renderSite(payload, slug, siteOptions(req))
+  if (!html) return notFoundPage('Ce site n’existe pas ou n’est pas encore en ligne.')
+  recordVisit(payload, req, slug, '/')
+  return htmlResponse(html)
 }

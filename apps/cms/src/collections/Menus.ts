@@ -50,6 +50,7 @@ const linkFields: Field[] = [
       { label: 'Installations', value: 'installations' },
       { label: 'Stages', value: 'stages' },
       { label: 'Blog', value: 'blog' },
+      { label: 'Actualités (thème générique)', value: 'actualites' },
       { label: 'Contact', value: 'contact' },
     ],
     admin: { condition: (_, sibling) => sibling?.type === 'anchor' },

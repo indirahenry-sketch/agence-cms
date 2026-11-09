@@ -3,15 +3,21 @@
  *
  * - Un utilisateur a un rôle global : "super-admin" (toi) ou "user" (tout le monde).
  * - Un "user" est rattaché à un ou plusieurs clients (tenants), avec un rôle PAR client :
- *     "tenant-admin" = administrateur client, "editor" = éditeur.
+ *     "tenant-admin" = administrateur client, "editor" = éditeur,
+ *     "writer" = rédacteur (brouillons, ne publie pas), "viewer" = lecteur (consultation seule).
  *
  * Toutes les décisions d'accès partent de l'utilisateur connecté (req.user),
  * jamais d'une valeur envoyée par le navigateur.
  */
 
-export type TenantRole = 'tenant-admin' | 'editor'
+export type TenantRole = 'tenant-admin' | 'editor' | 'writer' | 'viewer'
 
-export const ALL_TENANT_ROLES: TenantRole[] = ['tenant-admin', 'editor']
+/** Lecture : tous les membres, y compris le lecteur. */
+export const ALL_TENANT_ROLES: TenantRole[] = ['tenant-admin', 'editor', 'writer', 'viewer']
+/** Modification des contenus : tous sauf le lecteur. */
+export const CONTENT_ROLES: TenantRole[] = ['tenant-admin', 'editor', 'writer']
+/** Mise en ligne des pages et articles : le rédacteur, lui, n'enregistre que des brouillons. */
+export const PUBLISHER_ROLES: TenantRole[] = ['tenant-admin', 'editor']
 export const ADMIN_ONLY: TenantRole[] = ['tenant-admin']
 
 type IDValue = number | string
@@ -64,6 +70,12 @@ export const getTenantIDs = (user: unknown, roles?: TenantRole[]): IDValue[] => 
   }
   return ids
 }
+
+/** Statuts d'un client dont le site est hors ligne et les comptes bloqués (contenus conservés). */
+export const INACTIVE_STATUSES = ['suspended', 'archived'] as const
+
+export const isTenantInactive = <T extends { status?: string | null }>(tenant: T | null | undefined): tenant is null | undefined =>
+  !tenant || (INACTIVE_STATUSES as readonly string[]).includes(tenant.status ?? '')
 
 export const hasTenantRole = (user: unknown, tenantID: unknown, roles: TenantRole[]): boolean =>
   getTenantIDs(user, roles).some((id) => sameID(id, tenantID))

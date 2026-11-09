@@ -20,13 +20,17 @@ import { Pages } from './collections/Pages'
 import { Posts } from './collections/Posts'
 import { Prices } from './collections/Prices'
 import { Promotions } from './collections/Promotions'
+import { Redirects } from './collections/Redirects'
 import { Services } from './collections/Services'
 import { SiteInfo } from './collections/SiteInfo'
+import { SiteStats } from './collections/SiteStats'
 import { SupportRequests } from './collections/SupportRequests'
 import { Tags } from './collections/Tags'
 import { Tenants } from './collections/Tenants'
 import { Users } from './collections/Users'
 import { migrations } from './migrations'
+import { removeOrphans } from './hooks/tenantCleanup'
+import { startKeepAwake } from './lib/keepAwake'
 import { checkS3 } from './lib/s3-check'
 import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
 
@@ -60,11 +64,11 @@ export default buildConfig({
     // Contenus
     Posts, Media, Services, Prices, Events, SiteInfo,
     // Site
-    Pages, Menus, Promotions,
+    Pages, Menus, Promotions, Redirects,
     // Organisation
     Categories, Tags,
     // Agence
-    Tenants, Users, SupportRequests, AuditLogs,
+    Tenants, Users, SupportRequests, AuditLogs, SiteStats,
   ],
 
   // Envois de fichiers : 50 Mo maximum (photos, vidéos courtes, documents)
@@ -120,6 +124,8 @@ export default buildConfig({
   // Au démarrage : crée le client de démonstration « Les Écuries de Poigny » s'il n'existe pas
   onInit: async (payload) => {
     if (process.env.NODE_ENV !== 'production') return
+    startKeepAwake(payload)
+    await removeOrphans(payload)
     // Diagnostic du stockage photo, écrit en clair dans les logs (configuration sans les secrets + erreur exacte)
     await checkS3(payload)
     if (process.env.SKIP_DEMO_IMPORT === 'true') return
@@ -135,6 +141,8 @@ export default buildConfig({
   plugins: [
     multiTenantPlugin({
       tenantsSlug: 'tenants',
+      // Remplacé par hooks/tenantCleanup.ts, qui supprime les contenus AVANT la fiche client
+      cleanupAfterTenantDelete: false,
       // Collections dont chaque document appartient à un client
       collections: {
         media: {},
@@ -146,6 +154,8 @@ export default buildConfig({
         services: {},
         menus: {},
         promotions: {},
+        redirects: {},
+        'site-stats': {},
         tags: {},
         'site-info': { isGlobal: true },
         'support-requests': {},
@@ -164,7 +174,9 @@ export default buildConfig({
             defaultValue: ['editor'],
             options: [
               { label: 'Administrateur client', value: 'tenant-admin' },
-              { label: 'Éditeur', value: 'editor' },
+              { label: 'Éditeur (modifie et publie)', value: 'editor' },
+              { label: 'Rédacteur (brouillons, sans publier)', value: 'writer' },
+              { label: 'Lecteur (consultation seule)', value: 'viewer' },
             ],
           },
         ],

@@ -4,7 +4,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { getPayload } from 'payload'
 
-import { sameID } from '@/access/roles'
+import { isTenantInactive, sameID } from '@/access/roles'
 import type { Media, Tenant } from '@/payload-types'
 
 /**
@@ -49,7 +49,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
 
   const { docs } = await payload.find({ collection: 'tenants', where: { slug: { equals: slug } }, limit: 1, depth: 0, overrideAccess: true })
   const tenant = docs[0] as Tenant | undefined
-  if (!tenant || tenant.status === 'suspended') return notFound()
+  if (isTenantInactive(tenant)) return notFound()
 
   const media = (await payload.findByID({ collection: 'media', id, depth: 0, overrideAccess: true, disableErrors: true })) as Media | null
   if (!media || !sameID(media.tenant, tenant.id)) return notFound()

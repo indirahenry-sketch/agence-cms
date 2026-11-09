@@ -1,6 +1,7 @@
 import { convertLexicalToHTML } from '@payloadcms/richtext-lexical/html'
 import type { Payload } from 'payload'
 
+import { isTenantInactive } from '@/access/roles'
 import type { Category, Event, Media, Menu, Page, Post, Price, Promotion, Service, SiteInfo, Tenant } from '@/payload-types'
 import { safeHref } from '@/utilities/safeURL'
 import { escapeHTML } from '@/utilities/serverURL'
@@ -10,10 +11,17 @@ import { fallbackLogo, serviceIcons, template as poignyTemplate } from './ecurie
 /**
  * Sites publics des clients, servis par le CMS à l'adresse /sites/<identifiant>.
  *
- * Chaque client a une maquette HTML (son « thème ») avec des repères {{…}} remplis à chaque
+ * Un client peut avoir une maquette HTML sur mesure (son « thème ») avec des repères {{…}} remplis à chaque
  * visite avec SES contenus : coordonnées, horaires, menus, services, tarifs, photos, agenda,
  * articles, bannières et pop-ups. Les pages créées dans le CMS sont affichées à
  * /sites/<identifiant>/<adresse-de-la-page> avec l'en-tête et le pied de page du thème.
+ *
+ * Un client SANS maquette utilise le thème générique (plus bas) : ses couleurs, sa police et
+ * son logo, la page « accueil » s'il en a créé une, sinon un accueil composé automatiquement
+ * à partir de ses contenus. Aucun code à écrire pour un nouveau client.
+ *
+ * Sur un nom de domaine du client (www.client.fr), les adresses n'ont plus le préfixe
+ * /sites/<identifiant> : c'est l'option `base` (voir proxy.ts).
  *
  * Toutes les lectures se font côté serveur, filtrées sur l'id du client : un site ne peut
  * jamais afficher les données d'un autre client. Seuls les contenus publiés sont lus.
@@ -85,14 +93,18 @@ type SiteData = {
 
 const read = { overrideAccess: true, locale: 'fr' as const, fallbackLocale: 'fr' as const }
 
-async function loadTenant(payload: Payload, siteSlug: string): Promise<Tenant | null> {
-  if (!hasSiteTemplate(siteSlug)) return null
-  const { docs } = await payload.find({ collection: 'tenants', where: { slug: { equals: siteSlug } }, limit: 1, depth: 1, ...read })
-  const tenant = docs[0] as Tenant | undefined
-  return tenant && tenant.status !== 'suspended' ? tenant : null
+export type RenderOptions = {
+  /** Préfixe des liens : /sites/<identifiant> par défaut, '' sur le domaine du client. */
+  base?: string
 }
 
-async function loadSite(payload: Payload, tenant: Tenant, full: boolean): Promise<SiteData> {
+async function loadTenant(payload: Payload, siteSlug: string): Promise<Tenant | null> {
+  const { docs } = await payload.find({ collection: 'tenants', where: { slug: { equals: siteSlug } }, limit: 1, depth: 1, ...read })
+  const tenant = docs[0] as Tenant | undefined
+  return tenant && !isTenantInactive(tenant) ? tenant : null
+}
+
+async function loadSite(payload: Payload, tenant: Tenant, full: boolean, opts: RenderOptions = {}): Promise<SiteData> {
   const ofTenant = { tenant: { equals: tenant.id } }
   const settings = tenant.settings ?? {}
   const now = new Date().toISOString()
@@ -118,7 +130,10 @@ async function loadSite(payload: Payload, tenant: Tenant, full: boolean): Promis
     full && settings.showBlog !== false
       ? payload.find({
           collection: 'posts',
-          where: { and: [ofTenant, { _status: { equals: 'published' } }] },
+          // Une date de publication future = article programmé, pas encore visible
+          where: {
+            and: [ofTenant, { _status: { equals: 'published' } }, { or: [{ publishedAt: { exists: false } }, { publishedAt: { less_than_equal: now } }] }],
+          },
           sort: '-publishedAt',
           limit: 30,
           depth: 1,
@@ -145,7 +160,7 @@ async function loadSite(payload: Payload, tenant: Tenant, full: boolean): Promis
   ])
   return {
     tenant,
-    base: `/sites/${tenant.slug}`,
+    base: opts.base ?? `/sites/${tenant.slug}`,
     info: info.docs[0] as SiteInfo | undefined,
     prices: prices.docs as Price[],
     photos: photos.docs as Media[],
@@ -169,9 +184,9 @@ type MenuLink = { label: string; type: string; page?: number | Page | null; anch
 const linkHref = (d: SiteData, l: MenuLink): string => {
   if (l.type === 'page') {
     const page = typeof l.page === 'object' && l.page ? l.page : null
-    return page?.slug ? `${d.base}/${encodeURIComponent(page.slug)}` : d.base
+    return page?.slug ? `${d.base}/${encodeURIComponent(page.slug)}` : d.base || '/'
   }
-  if (l.type === 'anchor') return `${d.base}#${l.anchor || 'top'}`
+  if (l.type === 'anchor') return `${d.base || '/'}#${l.anchor || 'top'}`
   return safeHref(l.url)
 }
 const linkHTML = (d: SiteData, l: MenuLink, extra = '') => {
@@ -248,33 +263,83 @@ function commonValues(d: SiteData, title: string, description: string) {
   const { tenant, info } = d
   const addr = info?.address?.street ? info.address : tenant.address
   const insta = info?.socials?.find((s) => s.network === 'instagram')?.url
-  const blogLink = d.posts.length || d.events.length || !hasRenderedData(d) ? `<a class="nav-blog" href="${esc(d.base)}#blog" data-v="blog">Blog</a>` : ''
+  const blogLink = d.posts.length || d.events.length || !hasRenderedData(d) ? `<a class="nav-blog" href="${esc(d.base || '/')}#blog" data-v="blog">Blog</a>` : ''
   return {
     TITLE: esc(title),
     META_DESCRIPTION: esc(description),
     NAME: esc(tenant.name),
     CITY: esc(addr?.city || ''),
     YEAR: String(new Date().getFullYear()),
-    HOME_URL: esc(d.base),
+    HOME_URL: esc(d.base || '/'),
     LOGO_SRC: isMedia(tenant.logo) ? mediaURL(d, tenant.logo) : fallbackLogo,
     NAV_LINKS: navLinks(d),
     NAV_BLOG: tenant.settings?.showBlog === false ? '' : blogLink,
     FOOTER_LINKS: footerLinks(d, insta),
     PROMO_BANNER: promoBanner(d),
     PROMO_POPUP: promoPopup(d),
-    EXTRA_HEAD: PROMO_CSS,
+    EXTRA_HEAD: PROMO_CSS + seoHead(d, title, description),
   }
 }
+
+/** Domaine principal du client (pour les adresses absolues : partage, Google). */
+const mainDomain = (t: Tenant) => t.domains?.[0]?.domain?.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '') || ''
+
+/** Balises de partage (Facebook, WhatsApp…) et de référencement. */
+function seoHead(d: SiteData, title: string, description: string): string {
+  const domain = mainDomain(d.tenant)
+  const logo = isMedia(d.tenant.logo) && domain ? `https://${domain}/media/${d.tenant.logo.id}` : ''
+  return [
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="${esc(d.tenant.name)}">`,
+    `<meta property="og:title" content="${esc(title)}">`,
+    description ? `<meta property="og:description" content="${esc(description)}">` : '',
+    logo ? `<meta property="og:image" content="${esc(logo)}">` : '',
+    `<meta name="twitter:card" content="summary">`,
+  ].join('')
+}
+
+/** Fiche « établissement local » lue par Google (nom, coordonnées, horaires). */
+function localBusinessJSON(d: SiteData): string {
+  const { tenant, info } = d
+  const addr = info?.address?.street ? info.address : tenant.address
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const hours = (info?.openingHours ?? []).flatMap((row) =>
+    row.closed ? [] : (row.slots ?? []).map((sl) => ({ '@type': 'OpeningHoursSpecification', dayOfWeek: days[DAY_INDEX[row.day]], opens: sl.opens, closes: sl.closes })),
+  )
+  const domain = mainDomain(tenant)
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    name: tenant.name,
+    ...(domain ? { url: `https://${domain}` } : {}),
+    ...((info?.phone || tenant.phone) ? { telephone: info?.phone || tenant.phone } : {}),
+    ...((info?.email || tenant.email) ? { email: info?.email || tenant.email } : {}),
+    ...(addr?.street || addr?.city
+      ? { address: { '@type': 'PostalAddress', streetAddress: addr?.street || undefined, postalCode: addr?.postalCode || undefined, addressLocality: addr?.city || undefined, addressCountry: 'FR' } }
+      : {}),
+    ...(hours.length ? { openingHoursSpecification: hours } : {}),
+    ...(info?.socials?.length ? { sameAs: info.socials.map((x) => x.url) } : {}),
+  }
+  return `<script type="application/ld+json">${jsonForScript(data)}</script>`
+}
+
+/**
+ * Dernière étape de toute page : un site marqué « visible sur Google » perd la balise
+ * noindex des maquettes (laissée sinon, pour qu'une maquette ne soit pas référencée).
+ */
+const finalize = (d: SiteData, html: string) =>
+  d.tenant.indexable ? html.replace(/<meta name="robots" content="noindex, nofollow">/g, '') : html
 const hasRenderedData = (d: SiteData) => d.prices.length + d.photos.length + d.services.length > 0
 
 const fill = (html: string, values: Record<string, string>) => html.replace(/\{\{([A-Z_]+)\}\}/g, (m, key: string) => values[key] ?? '')
 
 // ── Page d'accueil (la maquette complète) ────────────────────────────
 
-export async function renderSite(payload: Payload, siteSlug: string): Promise<string | null> {
+export async function renderSite(payload: Payload, siteSlug: string, opts: RenderOptions = {}): Promise<string | null> {
   const tenant = await loadTenant(payload, siteSlug)
   if (!tenant) return null
-  const d = await loadSite(payload, tenant, true)
+  if (!hasSiteTemplate(siteSlug)) return renderGenericHome(payload, tenant, opts)
+  const d = await loadSite(payload, tenant, true, opts)
   const { info } = d
   let html = TEMPLATES[siteSlug]
 
@@ -384,8 +449,10 @@ export async function renderSite(payload: Payload, siteSlug: string): Promise<st
   if (!d.services.length) html = html.replace(/<!--SERVICES_START-->[\s\S]*?<!--SERVICES_END-->/, '')
   if (!stageDay) html = html.replace(/<div class="simu">[\s\S]*?<\/div>\s*<\/div>\s*<p class="note">/, '<p class="note">')
 
-  return fill(html, {
-    ...commonValues(d, tenant.name, `${tenant.name}${addr?.city ? ` à ${addr.city}` : ''}`),
+  const common = commonValues(d, tenant.name, `${tenant.name}${addr?.city ? ` à ${addr.city}` : ''}`)
+  return finalize(d, fill(html, {
+    ...common,
+    EXTRA_HEAD: common.EXTRA_HEAD + localBusinessJSON(d),
     GALLERY: galleryHTML,
     SERVICES: servicesHTML,
     PRICE_TABS: tabsHTML,
@@ -394,7 +461,7 @@ export async function renderSite(payload: Payload, siteSlug: string): Promise<st
     STAGE_DAY: String(stageDay),
     STAGES_TEXT: stagesText,
     STAGES_BUTTON: insta ? 'Voir sur Instagram' : 'Nous contacter',
-    INSTAGRAM_URL: esc(insta ? safeHref(insta) : `${d.base}#contact`),
+    INSTAGRAM_URL: esc(insta ? safeHref(insta) : `${d.base || '/'}#contact`),
     PHONE: esc(phone),
     EMAIL: esc(email),
     EMAIL_JSON: jsonForScript(email),
@@ -403,7 +470,7 @@ export async function renderSite(payload: Payload, siteSlug: string): Promise<st
     HOURS_ROWS: hoursRows,
     SCHED_JSON: jsonForScript(sched),
     BLOG_JSON: jsonForScript(blog),
-  })
+  }))
 }
 
 // ── Pages créées dans le CMS ─────────────────────────────────────────
@@ -538,31 +605,354 @@ async function blockHTML(payload: Payload, d: SiteData, b: Block): Promise<strin
   }
 }
 
-export async function renderPage(payload: Payload, siteSlug: string, pageSlug: string): Promise<string | null> {
+/** Habille un contenu avec l'en-tête et le pied de page du thème du client. */
+function inShell(d: SiteData, body: string, title: string, description: string, extraHead = ''): string | null {
+  const tpl = TEMPLATES[d.tenant.slug] ?? GENERIC_TEMPLATE
+  const headEnd = tpl.indexOf('<div class="view" data-view="accueil">')
+  const footStart = tpl.search(/<footer[\s>]/)
+  const footEnd = tpl.indexOf('</footer>') + '</footer>'.length
+  if (headEnd < 0 || footStart < 0) return null
+  const common = commonValues(d, title, description)
+  const values = {
+    ...common,
+    ...genericValues(d),
+    EXTRA_HEAD: common.EXTRA_HEAD + PAGE_CSS + extraHead,
+  }
+  return finalize(d, fill(`${tpl.slice(0, headEnd)}${body}\n${tpl.slice(footStart, footEnd)}\n{{PROMO_POPUP}}\n</body></html>`, values))
+}
+
+/** Contenu d'une page (ses blocs), sans l'habillage. */
+async function pageBody(payload: Payload, d: SiteData, page: Page, withTitle = true): Promise<string> {
+  const blocks = (await Promise.all((page.layout ?? []).map((b) => blockHTML(payload, d, b)))).join('\n')
+  return `<main class="cms-page"><div class="wrap">${withTitle ? `<div class="cms-head"><h1>${esc(page.title)}</h1></div>` : ''}${blocks}</div></main>`
+}
+
+/**
+ * Une page créée dans le CMS. Avec `draft`, la dernière version enregistrée (même non
+ * publiée) est affichée : réservé à l'aperçu, après vérification de l'utilisateur.
+ */
+export async function renderPage(
+  payload: Payload,
+  siteSlug: string,
+  pageSlug: string,
+  opts: RenderOptions & { draftID?: number | string } = {},
+): Promise<string | null> {
   const tenant = await loadTenant(payload, siteSlug)
   if (!tenant) return null
+  let page: Page | undefined
+  if (opts.draftID !== undefined) {
+    const doc = await payload.findByID({ collection: 'pages', id: opts.draftID, draft: true, depth: 2, disableErrors: true, ...read })
+    page = doc && sameTenant(doc.tenant, tenant.id) ? (doc as Page) : undefined
+  } else {
+    const { docs } = await payload.find({
+      collection: 'pages',
+      where: { and: [{ tenant: { equals: tenant.id } }, { slug: { equals: pageSlug } }, { _status: { equals: 'published' } }] },
+      limit: 1,
+      depth: 2,
+      ...read,
+    })
+    page = docs[0] as Page | undefined
+  }
+  if (!page) return null
+  const d = await loadSite(payload, tenant, false, opts)
+  return inShell(d, await pageBody(payload, d, page), page.seo?.title || `${page.title} · ${tenant.name}`, page.seo?.description || '')
+}
+
+const sameTenant = (value: unknown, id: number) => (typeof value === 'object' && value ? (value as { id: number }).id : value) === id
+
+/** Un article du blog, sur sa propre page (lien partageable). */
+export async function renderPost(
+  payload: Payload,
+  siteSlug: string,
+  postSlug: string,
+  opts: RenderOptions & { draftID?: number | string } = {},
+): Promise<string | null> {
+  const tenant = await loadTenant(payload, siteSlug)
+  if (!tenant) return null
+  let post: Post | undefined
+  if (opts.draftID !== undefined) {
+    const doc = await payload.findByID({ collection: 'posts', id: opts.draftID, draft: true, depth: 1, disableErrors: true, ...read })
+    post = doc && sameTenant(doc.tenant, tenant.id) ? (doc as Post) : undefined
+  } else {
+    const now = new Date().toISOString()
+    const { docs } = await payload.find({
+      collection: 'posts',
+      where: {
+        and: [
+          { tenant: { equals: tenant.id } },
+          { slug: { equals: postSlug } },
+          { _status: { equals: 'published' } },
+          { or: [{ publishedAt: { exists: false } }, { publishedAt: { less_than_equal: now } }] },
+        ],
+      },
+      limit: 1,
+      depth: 1,
+      ...read,
+    })
+    post = docs[0] as Post | undefined
+  }
+  if (!post) return null
+  const d = await loadSite(payload, tenant, false, opts)
+  const date = post.publishedAt || post.createdAt
+  const dateFmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' })
+  const cover = isMedia(post.coverImage) ? `<figure class="cms-figure"><img src="${esc(mediaURL(d, post.coverImage, 'hero'))}" alt="${esc(post.coverImage.alt)}"></figure>` : ''
+  const body = `<main class="cms-page"><div class="wrap"><div class="cms-head"><p class="eyebrow">${esc(dateFmt.format(new Date(date)))}</p><h1>${esc(post.title)}</h1>${post.excerpt ? `<p class="cms-lead">${esc(post.excerpt)}</p>` : ''}</div>${cover}<div class="cms-prose">${richHTML(d, post.content)}</div><p><a class="btn" href="${esc(d.base || '/')}">← Retour au site</a></p></div></main>`
+  return inShell(d, body, post.seo?.title || `${post.title} · ${tenant.name}`, post.seo?.description || post.excerpt || '')
+}
+
+/** Adresses publiques d'un site (pour le sitemap). */
+export async function siteURLs(payload: Payload, siteSlug: string): Promise<{ tenant: Tenant; paths: { path: string; updatedAt: string }[] } | null> {
+  const tenant = await loadTenant(payload, siteSlug)
+  if (!tenant) return null
+  const ofTenant = { tenant: { equals: tenant.id } }
+  const now = new Date().toISOString()
+  const [pages, posts] = await Promise.all([
+    payload.find({ collection: 'pages', where: { and: [ofTenant, { _status: { equals: 'published' } }] }, limit: 500, depth: 0, select: { slug: true, updatedAt: true }, ...read }),
+    payload.find({
+      collection: 'posts',
+      where: { and: [ofTenant, { _status: { equals: 'published' } }, { or: [{ publishedAt: { exists: false } }, { publishedAt: { less_than_equal: now } }] }] },
+      limit: 500,
+      depth: 0,
+      select: { slug: true, updatedAt: true },
+      ...read,
+    }),
+  ])
+  return {
+    tenant,
+    paths: [
+      { path: '', updatedAt: tenant.updatedAt },
+      ...pages.docs.filter((p) => p.slug && p.slug !== 'accueil').map((p) => ({ path: `/${encodeURIComponent(p.slug!)}`, updatedAt: p.updatedAt })),
+      ...posts.docs.filter((p) => p.slug).map((p) => ({ path: `/blog/${encodeURIComponent(p.slug!)}`, updatedAt: p.updatedAt })),
+    ],
+  }
+}
+
+
+
+// ── Thème générique (clients sans maquette sur mesure) ───────────────
+
+const FONTS: Record<string, { href: string; head: string; body: string }> = {
+  inter: { href: 'family=Inter:wght@400;500;700;800', head: "'Inter',system-ui,sans-serif", body: "'Inter',system-ui,sans-serif" },
+  playfair: {
+    href: 'family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;700',
+    head: "'Playfair Display',Georgia,serif",
+    body: "'Inter',system-ui,sans-serif",
+  },
+  poppins: { href: 'family=Poppins:wght@400;500;600;700', head: "'Poppins',system-ui,sans-serif", body: "'Poppins',system-ui,sans-serif" },
+  merriweather: {
+    href: 'family=Merriweather:wght@700;900&family=Source+Sans+3:wght@400;600;700',
+    head: "'Merriweather',Georgia,serif",
+    body: "'Source Sans 3',system-ui,sans-serif",
+  },
+}
+
+const HEX = /^#[0-9a-f]{6}$/i
+/** Couleur du texte lisible sur un fond donné (noir ou blanc). */
+const inkOn = (hex: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? '#14161a' : '#ffffff'
+}
+/** Mélange une couleur avec du blanc (teintes de fond). */
+const tint = (hex: string, amount: number) =>
+  '#' + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - amount) + 255 * amount).toString(16).padStart(2, '0')).join('')
+
+function themeCSS(t: Tenant): { css: string; fontLink: string } {
+  const primary = HEX.test(t.theme?.primaryColor ?? '') ? t.theme!.primaryColor! : '#1F4E79'
+  const accent = HEX.test(t.theme?.secondaryColor ?? '') ? t.theme!.secondaryColor! : '#F2C14E'
+  const font = FONTS[t.theme?.font ?? 'inter'] ?? FONTS.inter
+  return {
+    fontLink: `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?${font.href}&display=swap">`,
+    css: `:root{--brand:${primary};--brand-ink:${inkOn(primary)};--brand-soft:${tint(primary, 0.9)};--accent:${accent};--accent-ink:${inkOn(accent)};--flot:${primary};--flot-ink:${inkOn(primary)};--paille:${accent};--paille-ink:${inkOn(accent)};--f-head:${font.head};--f-body:${font.body}}`,
+  }
+}
+
+const GENERIC_CSS = `
+*,*::before,*::after{box-sizing:border-box}
+:root{color-scheme:light;--ink:#16181d;--muted:#5d6470;--bg:#fbfaf7;--card:#ffffff;--line:#e7e4dc;--r:18px}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1rem/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+img,video{max-width:100%;height:auto}
+a{color:inherit}
+h1,h2,h3{font-family:var(--f-head);line-height:1.12;margin:0;letter-spacing:-.01em}
+h1{font-size:clamp(2.3rem,7vw,4rem)}h2{font-size:clamp(1.7rem,4.4vw,2.6rem)}h3{font-size:1.2rem}
+p{margin:0}
+.wrap{width:min(1120px,100% - 32px);margin-inline:auto}
+.eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:.78rem;font-weight:700;color:var(--brand)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 20px;border-radius:999px;border:1.5px solid currentColor;font-weight:700;text-decoration:none;transition:transform .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.g-head{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.g-bar{display:flex;align-items:center;gap:16px;min-height:66px}
+.g-brand{display:flex;align-items:center;gap:10px;font:700 1.12rem/1.1 var(--f-head);text-decoration:none;margin-right:auto}
+.g-brand img{height:42px;width:auto;border-radius:8px}
+.g-nav{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.g-nav>a,.g-nav .has-sub>a{padding:8px 12px;border-radius:999px;text-decoration:none;font-weight:600;font-size:.95rem}
+.g-nav>a:hover,.g-nav .has-sub>a:hover{background:var(--brand-soft)}
+.g-burger{display:none;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:1.3rem;color:var(--ink)}
+@media (max-width:820px){.g-burger{display:block}.g-nav{display:none;position:absolute;left:0;right:0;top:100%;flex-direction:column;align-items:stretch;padding:10px 16px 16px;background:var(--bg);border-bottom:1px solid var(--line)}.nav-open .g-nav{display:flex}.g-nav .has-sub{flex-direction:column}.g-nav .has-sub .sub{display:flex;position:static;box-shadow:none;padding:0 0 0 12px;background:none}}
+.g-hero{position:relative;color:var(--brand-ink);background:var(--brand);overflow:hidden}
+.g-hero.has-img{color:#fff;background:#111}
+.g-hero .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
+.g-hero .wrap{position:relative;display:grid;gap:18px;padding-block:clamp(72px,14vw,150px);max-width:820px;margin-left:max(16px,calc((100% - 1120px)/2))}
+.g-hero .eyebrow{color:inherit;opacity:.9}.g-hero p.lead{font-size:clamp(1.05rem,2.4vw,1.3rem);max-width:600px}
+.g-hero .btn:not(.primary){color:inherit}
+.g-hero.has-img .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.g-sec{padding-block:clamp(48px,8vw,96px)}
+.g-sec.alt{background:var(--brand-soft)}
+.g-sec .wrap{display:grid;gap:clamp(22px,3vw,34px)}
+.g-sec header{display:grid;gap:8px;max-width:720px}
+.g-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.g-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px;display:grid;gap:10px;align-content:start}
+.g-card ul{margin:0;padding-left:1.1em;color:var(--muted)}.g-card p{color:var(--muted)}
+.g-card a.more{font-weight:700;color:var(--brand);text-decoration:none}
+.g-card img{width:calc(100% + 44px);margin:-22px -22px 4px;aspect-ratio:16/10;object-fit:cover;border-radius:var(--r) var(--r) 0 0;max-width:none}
+.prix{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.prix-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:grid;gap:4px}
+.prix-card.star{border:2px solid var(--brand)}.prix-card h3{font-size:1.05rem}
+.montant{font:800 1.6rem/1.2 var(--f-head);color:var(--brand)}.unite{color:var(--muted);font-size:.9rem}
+.g-cat{display:grid;gap:12px}.g-cat+.g-cat{margin-top:18px}
+.g-contact{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.g-hours{width:100%;border-collapse:collapse}.g-hours td{padding:7px 0;border-bottom:1px solid var(--line)}.g-hours td+td{text-align:right;color:var(--muted)}
+.g-hours tr.today td{font-weight:700;color:var(--ink)}
+.g-foot{background:#14161a;color:#e8e8e8;padding-block:40px}
+.g-foot-grid{display:grid;gap:14px}.g-foot p,.g-foot small{color:#b9bcc3}.g-foot a{color:#fff}
+.cms-lead{font-size:1.15rem;color:var(--muted)}
+`
+
+const GENERIC_TEMPLATE = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>{{TITLE}}</title><meta name="description" content="{{META_DESCRIPTION}}">{{FAVICON}}{{FONT_LINK}}<style>{{THEME_CSS}}${GENERIC_CSS}</style>{{EXTRA_HEAD}}</head><body>{{PROMO_BANNER}}<header class="g-head"><div class="wrap g-bar"><a class="g-brand" href="{{HOME_URL}}">{{LOGO_TAG}}<span>{{NAME}}</span></a><button class="g-burger" type="button" aria-label="Ouvrir le menu" onclick="document.body.classList.toggle('nav-open')">☰</button><nav class="g-nav" aria-label="Menu principal">{{NAV_LINKS}}</nav></div></header>
+<div class="view" data-view="accueil">{{HOME_BODY}}</div>
+<footer class="g-foot"><div class="wrap g-foot-grid"><strong>{{NAME}}</strong><p>{{FOOT_CONTACT}}</p><div class="foot-links">{{FOOTER_LINKS}}</div><small>© {{YEAR}} {{NAME}}</small></div></footer>
+{{PROMO_POPUP}}</body></html>`
+
+/** Valeurs propres au thème générique (sans effet sur une maquette sur mesure). */
+function genericValues(d: SiteData): Record<string, string> {
+  const { css, fontLink } = themeCSS(d.tenant)
+  const { tenant, info } = d
+  const addr = info?.address?.street ? info.address : tenant.address
+  const phone = info?.phone || tenant.phone
+  const email = info?.email || tenant.email
+  const contact = [
+    [addr?.street, [addr?.postalCode, addr?.city].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(', '),
+    phone ? `<a href="tel:${esc(phone.replace(/\s/g, ''))}">${esc(phone)}</a>` : '',
+    email ? `<a href="mailto:${esc(email)}">${esc(email)}</a>` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const logo = isMedia(tenant.logo)
+  const values: Record<string, string> = {
+    THEME_CSS: css,
+    FONT_LINK: fontLink,
+    LOGO_TAG: logo ? `<img src="${esc(mediaURL(d, tenant.logo as Media))}" alt="">` : '',
+    FAVICON: logo ? `<link rel="icon" href="${esc(mediaURL(d, tenant.logo as Media))}">` : '',
+    FOOT_CONTACT: contact,
+  }
+  // Menu principal par défaut : les sections présentes sur l'accueil générique
+  if (!menuOf(d, 'main')?.items?.length && !hasSiteTemplate(tenant.slug)) {
+    const links = [
+      d.services.length && ['Services', 'services'],
+      d.prices.length && ['Tarifs', 'tarifs'],
+      d.photos.length && ['Photos', 'galerie'],
+      (d.events.length || d.posts.length) && ['Actualités', 'actualites'],
+      ['Contact', 'contact'],
+    ].filter(Boolean) as [string, string][]
+    values.NAV_LINKS = links.map(([label, anchor]) => `<a href="${esc(d.base || '/')}#${anchor}">${esc(label)}</a>`).join('')
+  }
+  return values
+}
+
+/** Accueil d'un client sans maquette : sa page « accueil », sinon un accueil composé de ses contenus. */
+async function renderGenericHome(payload: Payload, tenant: Tenant, opts: RenderOptions): Promise<string | null> {
+  const d = await loadSite(payload, tenant, true, opts)
+  const { info } = d
+  const addr = info?.address?.street ? info.address : tenant.address
+  const description = tenant.tagline || `${tenant.name}${addr?.city ? ` à ${addr.city}` : ''}`
+
   const { docs } = await payload.find({
     collection: 'pages',
-    where: { and: [{ tenant: { equals: tenant.id } }, { slug: { equals: pageSlug } }, { _status: { equals: 'published' } }] },
+    where: { and: [{ tenant: { equals: tenant.id } }, { slug: { equals: 'accueil' } }, { _status: { equals: 'published' } }] },
     limit: 1,
     depth: 2,
     ...read,
   })
-  const page = docs[0] as Page | undefined
-  if (!page) return null
-  const d = await loadSite(payload, tenant, false)
-
-  const tpl = TEMPLATES[siteSlug]
-  const headEnd = tpl.indexOf('<div class="view" data-view="accueil">')
-  const footStart = tpl.indexOf('<footer>')
-  const footEnd = tpl.indexOf('</footer>') + '</footer>'.length
-  if (headEnd < 0 || footStart < 0) return null
-
-  const blocks = (await Promise.all((page.layout ?? []).map((b) => blockHTML(payload, d, b)))).join('\n')
-  const body = `<main class="cms-page"><div class="wrap"><div class="cms-head"><h1>${esc(page.title)}</h1></div>${blocks}</div></main>`
-  const values = {
-    ...commonValues(d, page.seo?.title || `${page.title} · ${tenant.name}`, page.seo?.description || ''),
-    EXTRA_HEAD: PROMO_CSS + PAGE_CSS,
+  const home = docs[0] as Page | undefined
+  if (home?.layout?.length) {
+    return inShell(d, await pageBody(payload, d, home, false), home.seo?.title || tenant.name, home.seo?.description || description, localBusinessJSON(d))
   }
-  return fill(`${tpl.slice(0, headEnd)}${body}\n${tpl.slice(footStart, footEnd)}\n{{PROMO_POPUP}}\n</body></html>`, values)
+
+  const phone = info?.phone || tenant.phone
+  const email = info?.email || tenant.email
+  const heroImg = d.photos[0]
+  const sections: string[] = []
+
+  sections.push(`<section class="g-hero${heroImg ? ' has-img' : ''}">${heroImg ? `<img class="bg" src="${esc(mediaURL(d, heroImg, 'hero'))}" alt="">` : ''}<div class="wrap">${addr?.city ? `<p class="eyebrow">${esc(addr.city)}</p>` : ''}<h1>${esc(tenant.name)}</h1>${tenant.tagline ? `<p class="lead">${esc(tenant.tagline)}</p>` : ''}<div class="cms-btns"><a class="btn primary" href="#contact">Nous contacter</a>${phone ? `<a class="btn" href="tel:${esc(phone.replace(/\s/g, ''))}">${esc(phone)}</a>` : ''}</div></div></section>`)
+
+  if (d.services.length) {
+    const cards = d.services
+      .map((sv) => `<article class="g-card"><h3>${esc(sv.title)}</h3>${sv.summary ? `<p>${esc(sv.summary)}</p>` : ''}${sv.points?.length ? `<ul>${sv.points.map((pt) => `<li>${esc(pt.text)}</li>`).join('')}</ul>` : ''}</article>`)
+      .join('')
+    sections.push(`<section class="g-sec" id="services"><div class="wrap"><header><p class="eyebrow">Ce que nous proposons</p><h2>Services</h2></header><div class="g-cards">${cards}</div></div></section>`)
+  }
+
+  if (d.prices.length) {
+    const groups = new Map<string, { name: string; order: number; items: Price[] }>()
+    for (const pr of d.prices) {
+      const cat = typeof pr.category === 'object' && pr.category ? (pr.category as Category) : null
+      const key = cat ? String(cat.id) : 'autres'
+      if (!groups.has(key)) groups.set(key, { name: cat?.name || 'Tarifs', order: cat?.order ?? 999, items: [] })
+      groups.get(key)!.items.push(pr)
+    }
+    const cats = [...groups.values()].sort((a, b) => a.order - b.order)
+    const amount = (pr: Price) => pr.displayPrice || (pr.isFrom ? `dès ${euros(pr.price)}` : euros(pr.price))
+    const html = cats
+      .map(
+        (g) =>
+          `<div class="g-cat">${cats.length > 1 ? `<h3>${esc(g.name)}</h3>` : ''}<div class="prix">${g.items
+            .map((pr) => `<div class="prix-card${pr.highlight ? ' star' : ''}"><h3>${esc(pr.name)}</h3><span class="montant">${esc(amount(pr))}</span>${pr.unit ? `<span class="unite">${esc(pr.unit)}</span>` : ''}${pr.description ? `<span class="unite">${esc(pr.description)}</span>` : ''}</div>`)
+            .join('')}</div></div>`,
+      )
+      .join('')
+    sections.push(`<section class="g-sec alt" id="tarifs"><div class="wrap"><header><p class="eyebrow">Tarifs</p><h2>Nos prix</h2></header>${html}</div></section>`)
+  }
+
+  if (d.photos.length) {
+    sections.push(`<section class="g-sec" id="galerie"><div class="wrap"><header><p class="eyebrow">En images</p><h2>Photos</h2></header><div class="cms-grid">${d.photos.map((m) => `<img src="${esc(mediaURL(d, m, 'card'))}" alt="${esc(m.alt)}" loading="lazy">`).join('')}</div></div></section>`)
+  }
+
+  const upcoming = d.events.filter((e) => new Date(e.endsAt || e.startsAt).getTime() >= Date.now()).slice(0, 6)
+  if (upcoming.length || d.posts.length) {
+    const fmt = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' })
+    const events = upcoming.length
+      ? `<h3>À venir</h3><ul class="cms-events">${upcoming.map((e) => `<li><b>${esc(fmt.format(new Date(e.startsAt)))}</b> · ${esc(e.title)}${e.hours ? ` · ${esc(e.hours)}` : ''}${e.description ? `<br><span class="unite">${esc(e.description)}</span>` : ''}</li>`).join('')}</ul>`
+      : ''
+    const posts = d.posts.length
+      ? `<div class="g-cards">${d.posts
+          .slice(0, 6)
+          .map(
+            (po) =>
+              `<article class="g-card">${isMedia(po.coverImage) ? `<img src="${esc(mediaURL(d, po.coverImage, 'card'))}" alt="${esc(po.coverImage.alt)}" loading="lazy">` : ''}<h3>${esc(po.title)}</h3>${po.excerpt ? `<p>${esc(po.excerpt)}</p>` : ''}${po.slug ? `<a class="more" href="${esc(d.base)}/blog/${encodeURIComponent(po.slug)}">Lire l’article →</a>` : ''}</article>`,
+          )
+          .join('')}</div>`
+      : ''
+    sections.push(`<section class="g-sec alt" id="actualites"><div class="wrap"><header><p class="eyebrow">Actualités</p><h2>Les nouvelles</h2></header>${events}${posts}</div></section>`)
+  }
+
+  // Contact et horaires
+  const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getDay()
+  const hours = info?.openingHours?.length
+    ? `<div class="g-card"><h3>Horaires</h3><table class="g-hours">${WEEK.map((day) => {
+        const row = info.openingHours!.find((r) => DAY_INDEX[r.day] === day)
+        const text = !row || row.closed || !row.slots?.length ? 'Fermé' : row.slots.map((sl) => `${fmtTime(sl.opens)} – ${fmtTime(sl.closes)}`).join(' · ')
+        return `<tr${day === today ? ' class="today"' : ''}><td>${DAY_LABEL[day]}</td><td>${esc(text)}</td></tr>`
+      }).join('')}</table></div>`
+    : ''
+  const mapsURL =
+    safeHref(info?.address?.mapsUrl) !== '#'
+      ? safeHref(info?.address?.mapsUrl)
+      : addr?.street || addr?.city
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([addr?.street, addr?.postalCode, addr?.city].filter(Boolean).join(' '))}`
+        : ''
+  const coords = `<div class="g-card"><h3>Nous joindre</h3>${addr?.street || addr?.city ? `<p>${[addr?.street, [addr?.postalCode, addr?.city].filter(Boolean).join(' ')].filter(Boolean).map(esc).join('<br>')}</p>` : ''}<div class="cms-btns">${phone ? `<a class="btn primary" href="tel:${esc(phone.replace(/\s/g, ''))}">Appeler</a>` : ''}${email ? `<a class="btn" href="mailto:${esc(email)}">Écrire</a>` : ''}${mapsURL ? `<a class="btn" href="${esc(mapsURL)}" target="_blank" rel="noopener">Itinéraire</a>` : ''}</div>${info?.socials?.length ? `<p>${info.socials.map((so) => `<a href="${esc(safeHref(so.url))}" target="_blank" rel="noopener">${esc(so.network.charAt(0).toUpperCase() + so.network.slice(1))}</a>`).join(' · ')}</p>` : ''}</div>`
+  sections.push(`<section class="g-sec" id="contact"><div class="wrap"><header><p class="eyebrow">Contact</p><h2>Venir nous voir</h2></header><div class="g-contact">${coords}${hours}</div></div></section>`)
+
+  return inShell(d, sections.join('\n'), tenant.name, description, localBusinessJSON(d))
 }

@@ -1,0 +1,117 @@
+# Sauvegarde automatique, chaque nuit vers 3 h (heure de Paris) :
+#   1. copie complète de la base (pg_dump) ;
+#   2. restauration de cette copie dans une base vide, pour PROUVER qu'elle est utilisable ;
+#   3. le dimanche (ou au lancement manuel), copie de toutes les photos du stockage.
+# Les fichiers sont gardés 14 jours dans l'onglet « Actions » du dépôt (privé).
+#
+# À faire une seule fois (dépôt GitHub → Settings → Secrets and variables → Actions) :
+#   BACKUP_DATABASE_URI        chaîne de connexion Supabase (la même que DATABASE_URI sur Render)
+#   BACKUP_S3_ENDPOINT         } les mêmes valeurs que S3_ENDPOINT, S3_ACCESS_KEY_ID,
+#   BACKUP_S3_ACCESS_KEY_ID    } S3_SECRET_ACCESS_KEY, S3_BUCKET et S3_REGION sur Render
+#   BACKUP_S3_SECRET_ACCESS_KEY}
+#   BACKUP_S3_BUCKET           }
+#   BACKUP_S3_REGION           }
+#   BACKUP_PASSPHRASE          (facultatif) chiffre les fichiers ; à garder précieusement
+# Tant que BACKUP_DATABASE_URI n'existe pas, la sauvegarde s'arrête proprement sans erreur.
+name: Sauvegarde
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      photos:
+        description: "Sauvegarder aussi les photos"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      restore:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: restore
+          POSTGRES_PASSWORD: restore
+          POSTGRES_DB: restore
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U restore" --health-interval 5s --health-retries 10
+    env:
+      DB: ${{ secrets.BACKUP_DATABASE_URI }}
+      PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Secrets présents ?
+        id: check
+        run: |
+          if [ -z "$DB" ]; then
+            echo "::notice::Sauvegarde non configurée : ajoute le secret BACKUP_DATABASE_URI (voir l'en-tête de ce fichier)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Copie de la base
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          mkdir -p out
+          STAMP=$(date -u +%Y-%m-%d_%H%M)
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          docker run --rm --network host -e DB -v "$PWD/out":/out postgres:17-alpine \
+            sh -c 'pg_dump --format=custom --no-owner --no-privileges --schema=public --dbname="$DB" --file=/out/base.dump'
+          ls -lh out/base.dump
+
+      - name: Test de restauration
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          R=postgres://restore:restore@localhost:5433/restore
+          # La copie recrée le schéma « public » : on part d'une base où il n'existe pas encore
+          docker run --rm --network host postgres:17-alpine psql -q "$R" -c "drop schema public cascade"
+          docker run --rm --network host -v "$PWD/out":/out postgres:17-alpine \
+            pg_restore --no-owner --no-privileges --exit-on-error --dbname="$R" /out/base.dump
+          q() { docker run --rm --network host postgres:17-alpine psql -At "$R" -c "$1"; }
+          echo "$(q 'select count(*) from tenants') client(s), $(q 'select count(*) from users') utilisateur(s), $(q 'select count(*) from media') média(s)" | tee out/verification.txt
+          echo "::notice::Restauration vérifiée : $(cat out/verification.txt)"
+
+      - name: Copie des photos
+        if: steps.check.outputs.ready == 'true' && (github.event_name == 'schedule' || inputs.photos)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION || 'auto' }}
+          ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+        run: |
+          # Planifié : seulement le dimanche (les photos changent peu et prennent de la place)
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%u)" != "7" ]; then
+            echo "Pas dimanche : photos ignorées aujourd'hui."; exit 0
+          fi
+          if [ -z "$BUCKET" ] || [ -z "$ENDPOINT" ]; then
+            echo "::notice::Photos non sauvegardées : secrets BACKUP_S3_* absents."; exit 0
+          fi
+          aws s3 sync "s3://$BUCKET" out/photos --endpoint-url "$ENDPOINT" --only-show-errors
+          tar -czf out/photos.tar.gz -C out photos && rm -rf out/photos
+          ls -lh out/photos.tar.gz
+
+      - name: Chiffrement (si BACKUP_PASSPHRASE)
+        if: steps.check.outputs.ready == 'true' && env.PASSPHRASE != ''
+        run: |
+          for f in out/base.dump out/photos.tar.gz; do
+            [ -f "$f" ] || continue
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$PASSPHRASE" --symmetric --cipher-algo AES256 -o "$f.gpg" "$f"
+            rm "$f"
+          done
+
+      - name: Conservation 14 jours
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sauvegarde-${{ env.STAMP }}
+          path: out/
+          retention-days: 14
+          if-no-files-found: error

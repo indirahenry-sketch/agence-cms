@@ -4,6 +4,8 @@ import { ADMIN_ONLY } from '@/access/roles'
 import { tenantCollectionAccess } from '@/access/tenantAccess'
 import { auditChange, auditDelete } from '@/hooks/audit'
 import { enforceTenant } from '@/hooks/enforceTenant'
+import { onlyPublishersPublish } from '@/hooks/publishing'
+import { previewURL } from '@/utilities/preview'
 import { uniqueSlugPerTenant } from '@/hooks/slug'
 import { seoFields } from '@/fields/seo'
 import { validateURL } from '@/utilities/safeURL'
@@ -136,12 +138,12 @@ const VideoBlock: Block = {
 export const Pages: CollectionConfig = {
   slug: 'pages',
   labels: { singular: 'Page', plural: 'Pages' },
-  admin: { useAsTitle: 'title', defaultColumns: ['title', 'slug', '_status', 'updatedAt'], group: 'Site' },
+  admin: { useAsTitle: 'title', defaultColumns: ['title', 'slug', '_status', 'updatedAt'], group: 'Site', preview: previewURL('pages') },
   // Les éditeurs peuvent lire les pages, seuls les administrateurs clients les modifient
   access: { ...tenantCollectionAccess(ADMIN_ONLY), read: tenantCollectionAccess().read },
-  versions: { drafts: true, maxPerDoc: 20 },
+  versions: { drafts: { autosave: { interval: 2000 } }, maxPerDoc: 20 },
   hooks: {
-    beforeChange: [enforceTenant(ADMIN_ONLY)],
+    beforeChange: [enforceTenant(ADMIN_ONLY), onlyPublishersPublish],
     afterChange: [auditChange('pages')],
     afterDelete: [auditDelete('pages')],
   },

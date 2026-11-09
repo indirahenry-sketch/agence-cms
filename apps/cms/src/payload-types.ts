@@ -76,12 +76,14 @@ export interface Config {
     pages: Page;
     menus: Menu;
     promotions: Promotion;
+    redirects: Redirect;
     categories: Category;
     tags: Tag;
     tenants: Tenant;
     users: User;
     'support-requests': SupportRequest;
     'audit-logs': AuditLog;
+    'site-stats': SiteStat;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -98,12 +100,14 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     menus: MenusSelect<false> | MenusSelect<true>;
     promotions: PromotionsSelect<false> | PromotionsSelect<true>;
+    redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'support-requests': SupportRequestsSelect<false> | SupportRequestsSelect<true>;
     'audit-logs': AuditLogsSelect<false> | AuditLogsSelect<true>;
+    'site-stats': SiteStatsSelect<false> | SiteStatsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -177,6 +181,9 @@ export interface Post {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * Date future = publication programmée : l’article publié n’apparaît sur le site qu’à partir de cette date.
+   */
   publishedAt?: string | null;
   author?: (number | null) | User;
   seo?: {
@@ -199,7 +206,10 @@ export interface Tenant {
    * Minuscules et tirets, ex. boulangerie-dupont. Sert à l’adresse de prévisualisation.
    */
   slug: string;
-  status?: ('active' | 'suspended') | null;
+  /**
+   * Suspendu ou archivé : site hors ligne et comptes du client bloqués, contenus conservés. Archivé : client terminé, masqué du tableau de bord.
+   */
+  status?: ('active' | 'suspended' | 'archived') | null;
   languages?: ('fr' | 'en')[] | null;
   logo?: (number | null) | Media;
   email?: string | null;
@@ -210,6 +220,14 @@ export interface Tenant {
     city?: string | null;
     country?: string | null;
   };
+  /**
+   * Une phrase sous le nom, en haut de l’accueil (ex. « Boulangerie artisanale depuis 1987 »).
+   */
+  tagline?: string | null;
+  /**
+   * À cocher une fois le site validé et branché sur son domaine. Décoché : maquette non référencée.
+   */
+  indexable?: boolean | null;
   /**
    * Ex. www.boulangerie-dupont.fr. Le premier est l’adresse principale.
    */
@@ -334,7 +352,7 @@ export interface User {
   tenants?:
     | {
         tenant: number | Tenant;
-        roles: ('tenant-admin' | 'editor')[];
+        roles: ('tenant-admin' | 'editor' | 'writer' | 'viewer')[];
         id?: string | null;
       }[]
     | null;
@@ -629,7 +647,9 @@ export interface Menu {
         label: string;
         type: 'page' | 'anchor' | 'url';
         page?: (number | null) | Page;
-        anchor?: ('top' | 'galerie' | 'services' | 'tarifs' | 'installations' | 'stages' | 'blog' | 'contact') | null;
+        anchor?:
+          | ('top' | 'galerie' | 'services' | 'tarifs' | 'installations' | 'stages' | 'blog' | 'actualites' | 'contact')
+          | null;
         url?: string | null;
         newTab?: boolean | null;
         children?:
@@ -638,7 +658,18 @@ export interface Menu {
               type: 'page' | 'anchor' | 'url';
               page?: (number | null) | Page;
               anchor?:
-                ('top' | 'galerie' | 'services' | 'tarifs' | 'installations' | 'stages' | 'blog' | 'contact') | null;
+                | (
+                    | 'top'
+                    | 'galerie'
+                    | 'services'
+                    | 'tarifs'
+                    | 'installations'
+                    | 'stages'
+                    | 'blog'
+                    | 'actualites'
+                    | 'contact'
+                  )
+                | null;
               url?: string | null;
               newTab?: boolean | null;
               id?: string | null;
@@ -673,6 +704,24 @@ export interface Promotion {
   createdAt: string;
 }
 /**
+ * Ancienne adresse → nouvelle adresse. Utile après un changement d’adresse de page ou la reprise d’un ancien site.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "redirects".
+ */
+export interface Redirect {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Le chemin seul, ex. /nos-tarifs (le domaine est ignoré).
+   */
+  from: string;
+  to: string;
+  type?: ('301' | '302') | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Un bug, une question, besoin d’être rappelé ? Écrivez-nous ici.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -703,6 +752,20 @@ export interface AuditLog {
   tenant?: (number | null) | Tenant;
   user?: (number | null) | User;
   fields?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-stats".
+ */
+export interface SiteStat {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  day: string;
+  path: string;
+  source?: string | null;
+  views?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -767,6 +830,10 @@ export interface PayloadLockedDocument {
         value: number | Promotion;
       } | null)
     | ({
+        relationTo: 'redirects';
+        value: number | Redirect;
+      } | null)
+    | ({
         relationTo: 'categories';
         value: number | Category;
       } | null)
@@ -789,6 +856,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'audit-logs';
         value: number | AuditLog;
+      } | null)
+    | ({
+        relationTo: 'site-stats';
+        value: number | SiteStat;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1196,6 +1267,18 @@ export interface PromotionsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "redirects_select".
+ */
+export interface RedirectsSelect<T extends boolean = true> {
+  tenant?: T;
+  from?: T;
+  to?: T;
+  type?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "categories_select".
  */
 export interface CategoriesSelect<T extends boolean = true> {
@@ -1237,6 +1320,8 @@ export interface TenantsSelect<T extends boolean = true> {
         city?: T;
         country?: T;
       };
+  tagline?: T;
+  indexable?: T;
   domains?:
     | T
     | {
@@ -1320,6 +1405,19 @@ export interface AuditLogsSelect<T extends boolean = true> {
   tenant?: T;
   user?: T;
   fields?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-stats_select".
+ */
+export interface SiteStatsSelect<T extends boolean = true> {
+  tenant?: T;
+  day?: T;
+  path?: T;
+  source?: T;
+  views?: T;
   updatedAt?: T;
   createdAt?: T;
 }

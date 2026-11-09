@@ -1,8 +1,11 @@
 import type { CollectionBeforeChangeHook, CollectionConfig } from 'payload'
 
-import { tenantCollectionAccess } from '@/access/tenantAccess'
+import { PUBLISHER_ROLES } from '@/access/roles'
+import { tenantCollectionAccess, tenantWrite } from '@/access/tenantAccess'
 import { auditChange, auditDelete } from '@/hooks/audit'
 import { enforceTenant } from '@/hooks/enforceTenant'
+import { onlyPublishersPublish } from '@/hooks/publishing'
+import { previewURL } from '@/utilities/preview'
 import { uniqueSlugPerTenant } from '@/hooks/slug'
 import { seoFields } from '@/fields/seo'
 
@@ -18,12 +21,19 @@ const setAuthorAndDate: CollectionBeforeChangeHook = ({ req, data, operation }) 
 export const Posts: CollectionConfig = {
   slug: 'posts',
   labels: { singular: 'Article', plural: 'Articles et blog' },
-  admin: { useAsTitle: 'title', defaultColumns: ['title', '_status', 'publishedAt'], group: 'Contenus' },
-  access: tenantCollectionAccess(),
-  versions: { drafts: true, maxPerDoc: 20 },
+  admin: {
+    useAsTitle: 'title',
+    defaultColumns: ['title', '_status', 'publishedAt'],
+    group: 'Contenus',
+    preview: previewURL('posts'),
+  },
+  // Le rédacteur crée et modifie, mais ne supprime pas un article (il n'a pas la main sur ce qui est en ligne)
+  access: { ...tenantCollectionAccess(), delete: tenantWrite(PUBLISHER_ROLES) },
+  // Brouillon enregistré automatiquement pendant la saisie
+  versions: { drafts: { autosave: { interval: 2000 } }, maxPerDoc: 20 },
   defaultSort: '-publishedAt',
   hooks: {
-    beforeChange: [enforceTenant(), setAuthorAndDate],
+    beforeChange: [enforceTenant(), onlyPublishersPublish, setAuthorAndDate],
     afterChange: [auditChange('posts')],
     afterDelete: [auditDelete('posts')],
   },
@@ -59,7 +69,11 @@ export const Posts: CollectionConfig = {
       name: 'publishedAt',
       label: 'Date de publication',
       type: 'date',
-      admin: { position: 'sidebar', date: { pickerAppearance: 'dayAndTime', displayFormat: 'dd/MM/yyyy HH:mm' } },
+      admin: {
+        position: 'sidebar',
+        date: { pickerAppearance: 'dayAndTime', displayFormat: 'dd/MM/yyyy HH:mm' },
+        description: 'Date future = publication programmée : l’article publié n’apparaît sur le site qu’à partir de cette date.',
+      },
     },
     {
       name: 'author',

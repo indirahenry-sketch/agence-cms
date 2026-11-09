@@ -2,7 +2,7 @@ import type { CollectionSlug, ServerProps, Where } from 'payload'
 import React from 'react'
 
 import { getTenantIDs, isSuperAdmin } from '@/access/roles'
-import { hasSiteTemplate } from '@/sites/render'
+import { statsSummary } from '@/sites/stats'
 
 import { LogoutLink } from './LogoutLink'
 
@@ -22,6 +22,7 @@ const ICONS: Record<string, React.ReactNode> = {
   file: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8" />,
   help: <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4.9 4.9l4.3 4.3M14.8 14.8l4.3 4.3M14.8 9.2l4.3-4.3M4.9 19.1l4.3-4.3" />,
   calendar: <path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18" />,
+  chart: <path d="M3 3v18h18M7 15l4-4 3 3 5-6" />,
   layout: <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM3 9h18M9 21V9" />,
 }
 
@@ -46,11 +47,13 @@ const Stat = ({ href, label, value, recent, icon, tone = 'violet' }: StatProps) 
   </a>
 )
 
-type SiteCard = { id: number; name: string; slug: string; status?: string | null; domain?: string | null }
+type SiteCard = { id: number; name: string; slug: string; status?: string | null; domain?: string | null; visits?: number }
+
+const STATUS_FLAG: Record<string, string> = { suspended: 'Client suspendu', archived: 'Client archivé' }
 
 const Site = ({ site }: { site: SiteCard }) => {
   const url = site.domain ? `https://${site.domain}` : `/sites/${site.slug}`
-  const live = hasSiteTemplate(site.slug)
+  const live = !site.status || site.status === 'active'
   return (
     <article className="dash__site">
       <a className="dash__preview" href={live ? url : undefined} target="_blank" rel="noreferrer" aria-label={`Ouvrir le site ${site.name}`}>
@@ -59,17 +62,80 @@ const Site = ({ site }: { site: SiteCard }) => {
         ) : (
           <span className="dash__placeholder">Site en préparation</span>
         )}
-        {site.status === 'suspended' && <span className="dash__flag">Client suspendu</span>}
+        {site.status && STATUS_FLAG[site.status] && <span className="dash__flag">{STATUS_FLAG[site.status]}</span>}
       </a>
       <div className="dash__site-body">
-        <span className={`dash__dot ${site.status === 'suspended' ? 'off' : ''}`} />
+        <span className={`dash__dot ${live ? '' : 'off'}`} />
         <div>
           <strong>{site.name}</strong>
-          <small>{site.domain || (live ? `/sites/${site.slug}` : 'pas encore en ligne')}</small>
+          <small>
+            {site.domain || (live ? `/sites/${site.slug}` : 'hors ligne')}
+            {site.visits !== undefined && ` · ${site.visits.toLocaleString('fr-FR')} visite${site.visits > 1 ? 's' : ''} (30 j)`}
+          </small>
         </div>
         <a className="dash__mini" href={`/admin/collections/tenants/${site.id}`}>Fiche</a>
       </div>
     </article>
+  )
+}
+
+type Summary = Awaited<ReturnType<typeof statsSummary>>
+
+/** Visites des 30 derniers jours : courbe en barres, pages les plus vues, provenance. */
+const Visits = ({ stats }: { stats: Summary }) => {
+  const max = Math.max(1, ...stats.series.map((p) => p.views))
+  const fmt = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' })
+  const label = (path: string) => (path === '/' ? 'Accueil' : decodeURIComponent(path))
+  return (
+    <div className="dash__visits">
+      <div className="dash__visits-head">
+        <span className="dash__chip dash__chip--blue">
+          <Icon name="chart" />
+        </span>
+        <div>
+          <span className="dash__label">Visites du site · 30 derniers jours</span>
+          <strong className="dash__value">{stats.total.toLocaleString('fr-FR')}</strong>
+        </div>
+      </div>
+      <svg className="dash__bars" viewBox={`0 0 ${stats.series.length * 10} 60`} preserveAspectRatio="none" role="img" aria-label="Visites par jour">
+        {stats.series.map((p, i) => {
+          const h = Math.max(p.views ? 3 : 1, (p.views / max) * 56)
+          return (
+            <rect key={p.day} x={i * 10 + 1} y={60 - h} width="8" height={h} rx="2" className={p.views ? '' : 'empty'}>
+              <title>{`${fmt.format(new Date(`${p.day}T12:00:00`))} : ${p.views} visite${p.views > 1 ? 's' : ''}`}</title>
+            </rect>
+          )
+        })}
+      </svg>
+      {stats.total > 0 ? (
+        <div className="dash__visits-lists">
+          <div>
+            <h4>Pages les plus vues</h4>
+            <ol>
+              {stats.pages.map(([path, n]) => (
+                <li key={path}>
+                  <span>{label(path)}</span>
+                  <b>{n}</b>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div>
+            <h4>D’où viennent les visiteurs</h4>
+            <ol>
+              {stats.sources.map(([src, n]) => (
+                <li key={src}>
+                  <span>{src === 'direct' ? 'Accès direct' : src}</span>
+                  <b>{n}</b>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      ) : (
+        <p className="dash__muted">Aucune visite comptée pour l’instant. Les visites de l’agence et des personnes connectées ne sont pas comptées. Sans cookie : aucun bandeau de consentement nécessaire.</p>
+      )}
+    </div>
   )
 }
 
@@ -88,13 +154,22 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
 
   const { docs: tenants } = await payload.find({
     collection: 'tenants',
-    where: admin ? {} : { id: { in: tenantIDs } },
+    // L'agence ne voit pas les clients archivés sur l'accueil (ils restent dans la liste Clients)
+    where: admin ? { status: { not_equals: 'archived' } } : { id: { in: tenantIDs } },
     depth: 0,
     limit: 60,
     overrideAccess: true,
     select: { name: true, slug: true, status: true, domains: true },
   })
-  const sites: SiteCard[] = tenants.map((t) => ({ id: t.id, name: t.name, slug: t.slug, status: t.status, domain: t.domains?.[0]?.domain }))
+  const stats = await statsSummary(payload, admin ? 'all' : tenantIDs).catch(() => null)
+  const sites: SiteCard[] = tenants.map((t) => ({
+    id: t.id,
+    name: t.name,
+    slug: t.slug,
+    status: t.status,
+    domain: t.domains?.[0]?.domain,
+    visits: stats ? (stats.byTenant.get(String(t.id)) ?? 0) : undefined,
+  }))
   const firstName = user.name ? ` ${String(user.name).split(' ')[0]}` : ''
 
   if (admin) {
@@ -125,6 +200,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
           <Stat href="/admin/collections/posts" label="Articles publiés" {...posts} icon="file" tone="orange" />
           <Stat href="/admin/collections/support-requests?where[status][not_equals]=resolved" label="Demandes ouvertes" value={open} icon="help" tone="pink" />
         </div>
+        {stats && <Visits stats={stats} />}
         <div className="dash__section-head">
           <h3>Sites</h3>
           <span>{sites.length} client{sites.length > 1 ? 's' : ''}</span>
@@ -170,6 +246,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
         <Stat href="/admin/collections/events" label="Événements à venir" value={events} icon="calendar" tone="blue" />
         <Stat href="/admin/collections/pages" label="Pages" {...pages} icon="layout" />
       </div>
+      {stats && <Visits stats={stats} />}
       <div className="dash__client">
         <div className="dash__sites dash__sites--one">
           {sites.map((s) => (

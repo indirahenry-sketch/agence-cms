@@ -136,8 +136,9 @@ describe('Catégories, pages et liens', () => {
 })
 
 describe('Rendu public', () => {
-  it('le site sans maquette répond « introuvable », la page non publiée aussi', async () => {
-    expect(await renderSite(payload, 'client-a')).toBeNull()
+  it('un client sans maquette a le thème générique ; une page non publiée reste introuvable', async () => {
+    expect(await renderSite(payload, 'client-a')).toContain('g-head')
+    expect(await renderSite(payload, 'client-inconnu')).toBeNull()
     expect(await renderPage(payload, 'client-a', 'contact')).toBeNull()
   })
 })
