@@ -273,7 +273,7 @@ export const Users: CollectionConfig = {
     afterDelete: [auditDelete('users')],
   },
   fields: [
-    { name: 'name', label: 'Nom', type: 'text' },
+    { name: 'name', label: 'Prénom et nom', type: 'text', admin: { description: 'Le prénom s’affiche après « Bonjour » sur le tableau de bord.' } },
     {
       name: 'roles',
       label: 'Rôle global',

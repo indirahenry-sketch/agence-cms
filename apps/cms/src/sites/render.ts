@@ -32,6 +32,32 @@ const TEMPLATES: Record<string, string> = {
 
 export const hasSiteTemplate = (slug: string) => Object.hasOwn(TEMPLATES, slug)
 
+/**
+ * Couleurs d'origine des maquettes sur mesure. Tant que le client garde ces couleurs, le dessin
+ * d'origine est intact ; s'il en choisit d'autres dans « Logo et couleurs », elles remplacent
+ * la couleur principale (boutons, bandeaux) et la couleur d'accent de la maquette.
+ */
+const TEMPLATE_COLORS: Record<string, { primary: string; secondary: string; vars: { primary: string[]; secondary: string[] } }> = {
+  'ecuries-poigny': { primary: '#4C6E2A', secondary: '#EDC655', vars: { primary: ['--flot', '--pre'], secondary: ['--paille'] } },
+}
+
+function templateThemeCSS(t: Tenant): string {
+  const base = TEMPLATE_COLORS[t.slug]
+  if (!base) return ''
+  const primary = t.theme?.primaryColor && HEX.test(t.theme.primaryColor) ? t.theme.primaryColor : base.primary
+  const secondary = t.theme?.secondaryColor && HEX.test(t.theme.secondaryColor) ? t.theme.secondaryColor : base.secondary
+  const decl: string[] = []
+  if (primary.toLowerCase() !== base.primary.toLowerCase()) {
+    for (const v of base.vars.primary) decl.push(`${v}:${primary}`)
+    decl.push(`--flot-ink:${inkOn(primary)}`)
+  }
+  if (secondary.toLowerCase() !== base.secondary.toLowerCase()) {
+    for (const v of base.vars.secondary) decl.push(`${v}:${secondary}`)
+    decl.push(`--paille-ink:${inkOn(secondary)}`)
+  }
+  return decl.length ? `<style>:root{${decl.join(';')}}</style>` : ''
+}
+
 // ── Petits outils ──────────────────────────────────────────────────────
 
 const DAY_INDEX: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 }
@@ -457,7 +483,7 @@ export async function renderSite(payload: Payload, siteSlug: string, opts: Rende
   const common = commonValues(d, tenant.name, `${tenant.name}${addr?.city ? ` à ${addr.city}` : ''}`)
   return finalize(d, fill(html, {
     ...common,
-    EXTRA_HEAD: common.EXTRA_HEAD + localBusinessJSON(d),
+    EXTRA_HEAD: common.EXTRA_HEAD + localBusinessJSON(d) + templateThemeCSS(tenant),
     GALLERY: galleryHTML,
     SERVICES: servicesHTML,
     PRICE_TABS: tabsHTML,

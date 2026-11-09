@@ -1,4 +1,4 @@
-import type { Access, AccessResult, CollectionAfterChangeHook, CollectionConfig, FieldAccess, Validate } from 'payload'
+import type { Access, AccessResult, CollectionAfterChangeHook, CollectionConfig, Field, FieldAccess, Validate } from 'payload'
 
 import { ADMIN_ONLY, ALL_TENANT_ROLES, extractID, getTenantIDs, INACTIVE_STATUSES, isSuperAdmin, sameID } from '@/access/roles'
 import { superAdminOnly } from '@/access/tenantAccess'
@@ -51,6 +51,44 @@ const createDefaultCategories: CollectionAfterChangeHook = async ({ req, doc, op
   // Modèles de pages (mentions légales, confidentialité, contact), en brouillon
   await createLegalPages(req.payload, doc as Tenant, req)
   return doc
+}
+
+const isHex: Validate = (value) => !value || /^#[0-9a-f]{6}$/i.test(String(value)) || 'Format attendu : # suivi de 6 caractères, ex. #1F4E79'
+const colorField = (name: string, label: string, defaultValue: string, description: string) => ({
+  name,
+  label,
+  type: 'text' as const,
+  defaultValue,
+  validate: isHex,
+  admin: { description, components: { Field: '@/components/ColorField#ColorField' } },
+})
+
+/** Couleurs et police du site (onglet « Logo et couleurs »). */
+const THEME_GROUP: Field = {
+  name: 'theme',
+  label: 'Couleurs et police',
+  type: 'group',
+  fields: [
+    {
+      type: 'row',
+      fields: [
+        colorField('primaryColor', 'Couleur principale', '#1F4E79', 'Boutons, liens, bandeaux.'),
+        colorField('secondaryColor', 'Couleur secondaire', '#F2C14E', 'Touches d’accent (badges, soulignés).'),
+      ],
+    },
+    {
+      name: 'font',
+      label: 'Police',
+      type: 'select',
+      defaultValue: 'inter',
+      options: [
+        { label: 'Inter (moderne)', value: 'inter' },
+        { label: 'Playfair Display (élégante)', value: 'playfair' },
+        { label: 'Poppins (arrondie)', value: 'poppins' },
+        { label: 'Merriweather (classique)', value: 'merriweather' },
+      ],
+    },
+  ],
 }
 
 /** Champs techniques : modifiables par le super admin uniquement. */
@@ -151,9 +189,16 @@ export const Tenants: CollectionConfig = {
       type: 'tabs',
       tabs: [
         {
-          label: 'Coordonnées',
+          label: 'Logo et couleurs',
+          description: 'Le logo s’affiche en haut du site ; les couleurs habillent les boutons, titres et liens.',
           fields: [
             { name: 'logo', label: 'Logo', type: 'upload', relationTo: 'media', validate: logoOfSameTenant },
+            THEME_GROUP,
+          ],
+        },
+        {
+          label: 'Coordonnées',
+          fields: [
             {
               type: 'row',
               fields: [
@@ -204,32 +249,6 @@ export const Tenants: CollectionConfig = {
               admin: { description: 'Ex. www.boulangerie-dupont.fr. Le premier est l’adresse principale.' },
               access: { update: superAdminField, create: superAdminField },
               fields: [{ name: 'domain', label: 'Domaine', type: 'text', required: true }],
-            },
-            {
-              name: 'theme',
-              label: 'Thème',
-              type: 'group',
-              fields: [
-                {
-                  type: 'row',
-                  fields: [
-                    { name: 'primaryColor', label: 'Couleur principale', type: 'text', defaultValue: '#1F4E79', admin: { description: 'Format #RRGGBB' } },
-                    { name: 'secondaryColor', label: 'Couleur secondaire', type: 'text', defaultValue: '#F2C14E' },
-                  ],
-                },
-                {
-                  name: 'font',
-                  label: 'Police',
-                  type: 'select',
-                  defaultValue: 'inter',
-                  options: [
-                    { label: 'Inter (moderne)', value: 'inter' },
-                    { label: 'Playfair Display (élégante)', value: 'playfair' },
-                    { label: 'Poppins (arrondie)', value: 'poppins' },
-                    { label: 'Merriweather (classique)', value: 'merriweather' },
-                  ],
-                },
-              ],
             },
             {
               name: 'settings',

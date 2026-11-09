@@ -22,12 +22,12 @@ export const Posts: CollectionConfig = {
   slug: 'posts',
   // Corbeille : les éléments supprimés restent 30 jours, avec « Restaurer »
   trash: true,
-  labels: { singular: 'Article', plural: 'Articles et blog' },
+  labels: { singular: 'Article', plural: 'Articles' },
   admin: {
     useAsTitle: 'title',
     defaultColumns: ['coverImage', 'title', 'category', 'statusBadge', 'modified'],
     group: 'Contenus',
-    components: { beforeListTable: ['@/components/StatusFilters#StatusFilters'] },
+    components: { beforeListTable: ['@/components/ArticlesName#ArticlesNameBar', '@/components/StatusFilters#StatusFilters'] },
     preview: previewURL('posts'),
   },
   // Le rédacteur crée et modifie, mais ne supprime pas un article (il n'a pas la main sur ce qui est en ligne)
@@ -71,7 +71,7 @@ export const Posts: CollectionConfig = {
           label: 'Catégorie',
           type: 'relationship',
           relationTo: 'categories',
-          filterOptions: categoriesOfType('articles', 'blog'),
+          filterOptions: categoriesOfType('articles'),
           admin: { description: 'Articles (actualités) ou Blog.' },
         },
         { name: 'tags', label: 'Tags', type: 'relationship', relationTo: 'tags', hasMany: true },

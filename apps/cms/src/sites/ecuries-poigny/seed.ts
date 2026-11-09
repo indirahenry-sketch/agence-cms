@@ -300,7 +300,7 @@ async function ensureMenus(payload: Payload, tenantID: number) {
 
 async function ensurePost(payload: Payload, tenantID: number) {
   if (await countOf(payload, 'posts', tenantID)) return
-  const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['blog'] } }] }, limit: 1, ...base })
+  const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['articles'] } }] }, limit: 1, ...base })
   await payload.create({
     collection: 'posts',
     data: {

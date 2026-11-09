@@ -129,7 +129,7 @@
 .board__grow { flex: 1; }
 .board__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
 .board__list { display: grid; gap: 8px; }
-.bsite { background: var(--cms-card); border: 1px solid var(--cms-line); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--cms-shadow); }
+.bsite { position: relative; background: var(--cms-card); border: 1px solid var(--cms-line); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--cms-shadow); }
 .bsite__thumb { position: relative; display: block; aspect-ratio: 16 / 10; overflow: hidden; background: var(--theme-elevation-100); }
 .bsite__thumb iframe { position: absolute; top: 0; left: 0; width: 400%; height: 400%; border: 0; transform: scale(0.25); transform-origin: 0 0; pointer-events: none; }
 .bsite__flag { position: absolute; top: 0; left: 0; right: 0; padding: 5px 12px; font-size: 0.72rem; font-weight: 600; color: #fff; }
@@ -162,3 +162,31 @@
 .annonce__x { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; color: var(--cms-muted, #6e6b85); font-size: 1.2rem; cursor: pointer; }
 .annonce__x:hover { background: #f1f0f6; }
 @media (max-width: 640px) { .annonce { grid-template-columns: 1fr; } }
+/* Menu « ⋮ » des cartes de sites */
+.smenu { position: absolute; top: 8px; right: 8px; z-index: 5; }
+.board__list .smenu { top: 50%; transform: translateY(-50%); }
+.board__list .bsite__body { padding-right: 52px; }
+.smenu__btn { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--cms-line); border-radius: 10px; background: var(--cms-card); color: var(--cms-ink); cursor: pointer; box-shadow: 0 2px 8px rgba(20, 16, 40, 0.12); }
+.smenu__btn:hover, .smenu.open .smenu__btn { background: var(--cms-accent-soft); color: var(--cms-accent); }
+.smenu__list { position: absolute; top: 40px; right: 0; min-width: 220px; display: grid; padding: 6px; background: var(--cms-card); border: 1px solid var(--cms-line); border-radius: 14px; box-shadow: 0 18px 40px rgba(20, 16, 40, 0.18); }
+.smenu__list a, .smenu__list button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 9px; background: none; color: var(--cms-ink); font: 500 0.85rem var(--font-body); text-align: left; text-decoration: none; cursor: pointer; }
+.smenu__list span { width: 18px; text-align: center; color: var(--cms-muted); }
+.smenu__list a:hover, .smenu__list button:hover { background: var(--theme-elevation-50); }
+.smenu__list .danger, .smenu__list .danger span { color: #dc2626; }
+.smenu__list .danger { margin-top: 4px; border-top: 1px solid var(--cms-line); border-radius: 0 0 9px 9px; }
+
+/* Alerte stockage photo (agence) */
+.salert { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; padding: 14px 16px; border-radius: 14px; background: #fdecec; border: 1px solid #f5c2c2; color: #7f1d1d; }
+.salert--warn { background: #fff7e6; border-color: #f6d7a7; color: #7c4a03; }
+.salert--ok { background: #e8f8ef; border: 1px solid #b7e4c7; color: #14532d; padding: 12px 16px; border-radius: 14px; }
+.salert b { display: block; margin-bottom: 4px; }
+.salert p { margin: 4px 0 0; font-size: 0.86rem; }
+.salert code { display: block; margin-top: 6px; font-size: 0.75rem; white-space: pre-wrap; word-break: break-word; }
+.salert summary { cursor: pointer; font-size: 0.8rem; margin-top: 6px; }
+.salert__msg { font-weight: 600; }
+@media (max-width: 760px) { .salert { flex-direction: column; } }
+html[data-theme='dark'] .salert { background: #3b1414; border-color: #6b2121; color: #fecaca; }
+html[data-theme='dark'] .salert--warn { background: #3a2a0c; border-color: #6b4c12; color: #fde6b0; }
+
+/* Invitation à renseigner son prénom */
+.dash__name-link { margin-left: 10px; font-size: 0.8rem; font-weight: 600; color: var(--cms-accent); text-decoration: none; vertical-align: middle; padding: 3px 10px; border-radius: 999px; background: var(--cms-accent-soft); }

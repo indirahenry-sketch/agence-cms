@@ -95,9 +95,9 @@ describe('Client suspendu', () => {
 })
 
 describe('Catégories, pages et liens', () => {
-  it('un nouveau client reçoit 5 catégories renommables', async () => {
+  it('un nouveau client reçoit 4 catégories renommables (Blog fusionné dans Articles)', async () => {
     const cats = await payload.find({ collection: 'categories', where: { tenant: { equals: tenantA.id } }, ...(await as(adminA)) })
-    expect(cats.docs.map((c) => c.usage?.[0]).sort()).toEqual(['articles', 'blog', 'gallery', 'prices', 'services'])
+    expect(cats.docs.map((c) => c.usage?.[0]).sort()).toEqual(['articles', 'gallery', 'prices', 'services'])
     const photos = cats.docs.find((c) => c.usage?.includes('gallery'))!
     const renamed = await payload.update({ collection: 'categories', id: photos.id, data: { name: 'Nos chevaux' }, ...(await as(editorA)) })
     expect(renamed.name).toBe('Nos chevaux')

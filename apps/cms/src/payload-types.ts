@@ -223,6 +223,17 @@ export interface Tenant {
   labels?: string[] | null;
   languages?: ('fr' | 'en')[] | null;
   logo?: (number | null) | Media;
+  theme?: {
+    /**
+     * Boutons, liens, bandeaux.
+     */
+    primaryColor?: string | null;
+    /**
+     * Touches d’accent (badges, soulignés).
+     */
+    secondaryColor?: string | null;
+    font?: ('inter' | 'playfair' | 'poppins' | 'merriweather') | null;
+  };
   email?: string | null;
   phone?: string | null;
   address?: {
@@ -248,14 +259,6 @@ export interface Tenant {
         id?: string | null;
       }[]
     | null;
-  theme?: {
-    /**
-     * Format #RRGGBB
-     */
-    primaryColor?: string | null;
-    secondaryColor?: string | null;
-    font?: ('inter' | 'playfair' | 'poppins' | 'merriweather') | null;
-  };
   settings?: {
     showBlog?: boolean | null;
     showEvents?: boolean | null;
@@ -285,6 +288,7 @@ export interface Media {
    */
   isPublic?: boolean | null;
   inGallery?: boolean | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   deletedAt?: string | null;
@@ -335,9 +339,9 @@ export interface Category {
   tenant?: (number | null) | Tenant;
   name: string;
   /**
-   * Où cette catégorie est proposée (photos, services, tarifs, articles ou blog).
+   * Où cette catégorie est proposée (photos, services, tarifs ou articles).
    */
-  usage: ('gallery' | 'services' | 'prices' | 'articles' | 'blog')[];
+  usage: ('gallery' | 'services' | 'prices' | 'articles')[];
   description?: string | null;
   order?: number | null;
   updatedAt: string;
@@ -360,6 +364,9 @@ export interface Tag {
  */
 export interface User {
   id: number;
+  /**
+   * Le prénom s’affiche après « Bonjour » sur le tableau de bord.
+   */
   name?: string | null;
   roles: ('super-admin' | 'user')[];
   tenants?:
@@ -992,6 +999,7 @@ export interface MediaSelect<T extends boolean = true> {
   tags?: T;
   isPublic?: T;
   inGallery?: T;
+  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   deletedAt?: T;
@@ -1371,6 +1379,13 @@ export interface TenantsSelect<T extends boolean = true> {
   labels?: T;
   languages?: T;
   logo?: T;
+  theme?:
+    | T
+    | {
+        primaryColor?: T;
+        secondaryColor?: T;
+        font?: T;
+      };
   email?: T;
   phone?: T;
   address?:
@@ -1388,13 +1403,6 @@ export interface TenantsSelect<T extends boolean = true> {
     | {
         domain?: T;
         id?: T;
-      };
-  theme?:
-    | T
-    | {
-        primaryColor?: T;
-        secondaryColor?: T;
-        font?: T;
       };
   settings?:
     | T

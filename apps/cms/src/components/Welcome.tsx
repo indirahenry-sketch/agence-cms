@@ -3,12 +3,14 @@ import React from 'react'
 
 import { getTenantIDs, isSuperAdmin } from '@/access/roles'
 import { audienceFilter } from '@/collections/Announcements'
+import { getStorageStatus } from '@/lib/s3-check'
 import { statsSummary } from '@/sites/stats'
 import { safeHref } from '@/utilities/safeURL'
 
 import { AnnouncementCards, type AnnouncementItem } from './AnnouncementCards'
 import { LogoutLink } from './LogoutLink'
 import { SitesBoard, type BoardSite } from './SitesBoard'
+import { StorageAlert } from './StorageAlert'
 
 import './welcome.scss'
 
@@ -150,7 +152,19 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
     value: await count(collection, where),
     recent: await count(collection, { and: [where, { createdAt: { greater_than: since } }] }),
   })
-  const firstName = user.name ? ` ${String(user.name).split(' ')[0]}` : ''
+  const fullName = typeof user.name === 'string' ? user.name.trim() : ''
+  const firstName = fullName ? ` ${fullName.split(/\s+/)[0]}` : ''
+  // Sans nom renseigné : petit lien pour l'ajouter (il s'affichera ensuite après « Bonjour »)
+  const hello = (
+    <h2>
+      Bonjour{firstName} 👋
+      {!fullName && (
+        <a className="dash__name-link" href={`/admin/collections/users/${user.id}`}>
+          ✎ Ajouter mon prénom
+        </a>
+      )}
+    </h2>
+  )
   const stats = await statsSummary(payload, admin ? 'all' : tenantIDs).catch(() => null)
 
   // Dernière modification par client (journal d'audit)
@@ -196,7 +210,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
         <header className="dash__head">
           <div>
             <p className="dash__eyebrow">Vue d’ensemble</p>
-            <h2>Bonjour{firstName} 👋</h2>
+            {hello}
           </div>
           <div className="dash__actions">
             <a className="dash__btn" href="/admin/collections/announcements">Annonces aux clients{liveAnnouncements ? ` · ${liveAnnouncements}` : ''}</a>
@@ -211,6 +225,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
           <Stat href="/admin/collections/posts" label="Articles publiés" {...posts} icon="file" tone="orange" />
           <Stat href="/admin/collections/support-requests?where[status][not_equals]=resolved" label="Demandes ouvertes" value={open} icon="help" tone="pink" />
         </div>
+        <StorageAlert status={getStorageStatus()} />
         {stats && <Visits stats={stats} />}
         <div className="dash__section-head">
           <h3>Tous les sites</h3>
@@ -225,7 +240,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
   const { docs: tenants } = await payload.find({ collection: 'tenants', where: { id: { in: tenantIDs } }, depth: 0, limit: 10, overrideAccess: true })
   const site = tenants[0]
   const now = new Date().toISOString()
-  const [photos, lastPhoto, nextEvents, upcoming, lastPost, prices, info] = await Promise.all([
+  const [photos, lastPhoto, nextEvents, upcoming, lastPost, prices, info, articlesCat] = await Promise.all([
     count('media', { inGallery: { equals: true } }),
     payload.find({ collection: 'media', where: { and: [scope, { inGallery: { equals: true } }] }, sort: '-createdAt', limit: 1, depth: 0, overrideAccess: true }),
     payload.find({ collection: 'events', where: { and: [scope, { startsAt: { greater_than_equal: now } }] }, sort: 'startsAt', limit: 1, depth: 0, overrideAccess: true }),
@@ -233,7 +248,9 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
     payload.find({ collection: 'posts', where: { and: [scope, { _status: { equals: 'published' } }] }, sort: '-publishedAt', limit: 1, depth: 0, overrideAccess: true }),
     count('prices'),
     payload.find({ collection: 'site-info', where: scope, limit: 1, depth: 0, overrideAccess: true }),
+    payload.find({ collection: 'categories', where: { and: [scope, { usage: { in: ['articles'] } }] }, sort: 'order', limit: 1, depth: 0, overrideAccess: true }),
   ])
+  const articlesName = articlesCat.docs[0]?.name || 'Articles'
   const last = site ? lastByTenant.get(String(site.id)) : undefined
   const online = site && (site.status ?? 'active') === 'active' && !site.maintenance
   const siteURL = site ? (site.domains?.[0]?.domain ? `https://${site.domains[0].domain}` : `/sites/${site.slug}`) : '#'
@@ -285,7 +302,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
       <header className="dash__head">
         <div>
           <p className="dash__eyebrow">{tenants.map((t) => t.name).join(' · ')}</p>
-          <h2>Bonjour{firstName} 👋</h2>
+          {hello}
         </div>
         <div className="dash__actions">
           <a className="dash__btn" href="/admin/collections/support-requests/create">Contacter l’agence</a>
@@ -359,7 +376,7 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
             href="/admin/collections/posts"
             icon="file"
             tone="orange"
-            title="Blog"
+            title={articlesName}
             detail={post ? `Dernier article ${ago(post.publishedAt || post.createdAt)}` : 'Aucun article publié'}
             badge={postAge > 30 ? 'À relancer' : 'À jour'}
             badgeTone={postAge > 30 ? 'orange' : 'green'}

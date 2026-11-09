@@ -1,4 +1,4 @@
-import { HeadBucketCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, HeadBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import type { Payload } from 'payload'
 
 /** Résume une erreur S3 sur une seule ligne lisible dans les logs (nom, code HTTP, message). */
@@ -12,7 +12,7 @@ export function describeError(err: unknown): string {
 }
 
 /** Pistes de correction selon l'erreur renvoyée par le stockage. */
-function hint(text: string): string {
+export function hint(text: string): string {
   if (/NoSuchBucket|NotFound|HTTP 404/i.test(text)) return 'le bucket S3_BUCKET n\'existe pas (vérifie le nom exact dans Supabase → Storage)'
   if (/InvalidAccessKeyId|HTTP 403|Forbidden|AccessDenied/i.test(text)) return 'clés refusées : utilise les clés « S3 access keys » de Supabase, en paire'
   if (/SignatureDoesNotMatch/i.test(text)) return 'S3_SECRET_ACCESS_KEY ne correspond pas à S3_ACCESS_KEY_ID, ou S3_REGION est fausse'
@@ -23,6 +23,11 @@ function hint(text: string): string {
   return 'vérifie les variables S3_ dans Render'
 }
 
+/** Dernier résultat du test de stockage (affiché sur le tableau de bord de l'agence). */
+export type StorageStatus = { ok: boolean; mode: 's3' | 'disk'; error?: string; hint?: string; warnings: string[]; at: string }
+let lastStatus: StorageStatus | null = null
+export const getStorageStatus = () => lastStatus
+
 /**
  * Au démarrage : teste la connexion au stockage photo et écrit le résultat dans les logs,
  * avec la configuration (sans les secrets) et une piste de correction en cas d'échec.
@@ -31,6 +36,7 @@ export async function checkS3(payload: Payload): Promise<boolean> {
   const bucket = process.env.S3_BUCKET
   if (!bucket) {
     payload.logger.warn('Stockage photo : S3_BUCKET vide, les fichiers vont sur le disque du serveur')
+    lastStatus = { ok: true, mode: 'disk', warnings: ['S3_BUCKET vide : les fichiers vont sur le disque du serveur (effacés à chaque redéploiement sur Render)'], at: new Date().toISOString() }
     return false
   }
   const endpoint = process.env.S3_ENDPOINT || ''
@@ -58,11 +64,17 @@ export async function checkS3(payload: Payload): Promise<boolean> {
       credentials: { accessKeyId: keyId, secretAccessKey: secret },
     })
     await client.send(new HeadBucketCommand({ Bucket: bucket }))
-    payload.logger.info(`✔ Stockage photo S3 joignable (${summary})`)
+    // Écriture réelle d'un petit fichier puis suppression : vérifie aussi le droit d'envoyer des photos
+    const Key = `_test-cms/${Date.now()}.txt`
+    await client.send(new PutObjectCommand({ Bucket: bucket, Key, Body: 'ok', ContentType: 'text/plain' }))
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key })).catch(() => {})
+    payload.logger.info(`✔ Stockage photo S3 joignable, écriture OK (${summary})`)
     if (warnings.length) payload.logger.warn(`Stockage photo S3 : attention, ${warnings.join(' ; ')}`)
+    lastStatus = { ok: true, mode: 's3', warnings, at: new Date().toISOString() }
     return true
   } catch (err) {
     const text = describeError(err)
+    lastStatus = { ok: false, mode: 's3', error: `${text} (${summary})`, hint: hint(text), warnings, at: new Date().toISOString() }
     payload.logger.error(
       `✘ Stockage photo S3 inaccessible : ${text} → ${hint(text)}${warnings.length ? ` ; ${warnings.join(' ; ')}` : ''} (${summary})`,
     )

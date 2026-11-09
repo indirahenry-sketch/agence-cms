@@ -35,6 +35,8 @@ import { startKeepAwake } from './lib/keepAwake'
 import { startTrashPurge } from './lib/trashPurge'
 import { checkS3 } from './lib/s3-check'
 import { notifications } from './endpoints/notifications'
+import { storageCheck } from './endpoints/storage'
+import { readableErrors } from './hooks/readableErrors'
 import { livePreviewURL } from './utilities/preview'
 import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
 
@@ -62,7 +64,7 @@ export default buildConfig({
       beforeDashboard: ['@/components/Welcome#Welcome'],
       afterNavLinks: ['@/components/LogoutLink#LogoutLink'],
       actions: ['@/components/HeaderTools#HeaderTools'],
-      providers: ['@/components/MobileBar#MobileBar'],
+      providers: ['@/components/MobileBar#MobileBar', '@/components/ArticlesName#ArticlesNameNav'],
     },
     // Aperçu en direct : écran partagé formulaire / site, rechargé à chaque sauvegarde automatique
     livePreview: {
@@ -76,7 +78,10 @@ export default buildConfig({
     },
   },
 
-  endpoints: [notifications],
+  endpoints: [notifications, storageCheck],
+
+  // Messages d'erreur compréhensibles au lieu de « Something went wrong »
+  hooks: { afterError: [readableErrors] },
 
   collections: [
     // Contenus
@@ -201,6 +206,8 @@ export default buildConfig({
         ],
       },
       userHasAccessToAllTenants: (user) => isSuperAdmin(user),
+      // La liste « Clients » montre toujours tous les clients, même quand un client est choisi dans le sélecteur
+      useTenantsListFilter: false,
       tenantSelectorLabel: { fr: 'Client', en: 'Client' },
     }),
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 import { relative } from './admin/client'
 
@@ -20,6 +20,105 @@ const FLAGS: Record<string, [string, string]> = {
   maintenance: ['Mode maintenance', '#2563eb'],
   suspended: ['Client suspendu', '#e11d48'],
   archived: ['Client archivé', '#6b7280'],
+}
+
+/** Menu « ⋮ » d'une carte : modifier, ouvrir, dupliquer, exporter, maintenance, statut, supprimer. */
+const SiteMenu: React.FC<{ site: BoardSite; onViewAs: () => void }> = ({ site, onViewAs }) => {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent | TouchEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', close)
+    document.addEventListener('touchstart', close)
+    document.addEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('touchstart', close)
+      document.removeEventListener('keydown', esc)
+    }
+  }, [open])
+
+  const call = async (path: string, init: RequestInit, done?: (data: Record<string, unknown>) => void) => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/tenants/${site.id}${path}`, { credentials: 'include', ...init })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.errors?.[0]?.message || data?.message || `Erreur ${res.status}`)
+      if (done) done(data)
+      else window.location.reload()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Action impossible')
+    } finally {
+      setBusy(false)
+      setOpen(false)
+    }
+  }
+  const patch = (data: Record<string, unknown>) =>
+    call('', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) })
+
+  const duplicate = () => {
+    const name = window.prompt(`Nom du nouveau client (la structure de « ${site.name} » sera copiée : pages, menus, catégories, services, tarifs) :`)
+    if (!name?.trim()) return
+    void call('/duplicate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name }) }, (d) => {
+      window.location.href = `/admin/collections/tenants/${d.id}`
+    })
+  }
+  const remove = () => {
+    const typed = window.prompt(
+      `Supprimer définitivement « ${site.name} » ?\n\nSes pages, photos, articles, tarifs et comptes liés seront effacés. Conseil : exportez ses données avant.\n\nTapez le nom du client pour confirmer :`,
+    )
+    if (typed === null) return
+    if (typed.trim().toLowerCase() !== site.name.trim().toLowerCase()) return alert('Le nom ne correspond pas : rien n’a été supprimé.')
+    void call('', { method: 'DELETE' })
+  }
+
+  const items: ({ label: string; icon: string; danger?: boolean } & ({ href: string; blank?: boolean } | { run: () => void }))[] = [
+    { label: 'Modifier la fiche', icon: '✎', href: `/admin/collections/tenants/${site.id}` },
+    { label: 'Ouvrir le site', icon: '↗', href: site.domain ? `https://${site.domain.replace(/^https?:\/\//, '')}` : `/sites/${site.slug}`, blank: true },
+    { label: 'Voir comme le client', icon: '◉', run: onViewAs },
+    { label: 'Dupliquer comme modèle', icon: '⧉', run: duplicate },
+    { label: 'Exporter les données', icon: '⤓', href: `/api/tenants/${site.id}/export` },
+    { label: site.maintenance ? 'Remettre en ligne' : 'Mode maintenance', icon: '⚙', run: () => patch({ maintenance: !site.maintenance }) },
+    site.status === 'active'
+      ? { label: 'Suspendre le client', icon: '⏸', run: () => confirm(`Suspendre « ${site.name} » ? Son site passe hors ligne et ses comptes sont bloqués (contenus conservés).`) && patch({ status: 'suspended' }) }
+      : { label: 'Réactiver le client', icon: '▶', run: () => patch({ status: 'active' }) },
+    ...(site.status !== 'archived' ? [{ label: 'Archiver', icon: '▣', run: () => confirm(`Archiver « ${site.name} » ? Il sera masqué du tableau de bord (filtre « Archivés » pour le retrouver).`) && patch({ status: 'archived' }) }] : []),
+    { label: 'Supprimer', icon: '🗑', danger: true, run: remove },
+  ]
+
+  return (
+    <div className={`smenu${open ? ' open' : ''}`} ref={box}>
+      <button type="button" className="smenu__btn" aria-label={`Options pour ${site.name}`} aria-haspopup="menu" aria-expanded={open} disabled={busy} onClick={() => setOpen(!open)}>
+        {busy ? '…' : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <circle cx="12" cy="5" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="12" cy="19" r="2" />
+          </svg>
+        )}
+      </button>
+      {open && (
+        <div className="smenu__list" role="menu">
+          {items.map((it) =>
+            'href' in it ? (
+              <a key={it.label} role="menuitem" href={it.href} target={it.blank ? '_blank' : undefined} rel={it.blank ? 'noreferrer' : undefined} className={it.danger ? 'danger' : ''}>
+                <span aria-hidden>{it.icon}</span>
+                {it.label}
+              </a>
+            ) : (
+              <button key={it.label} type="button" role="menuitem" className={it.danger ? 'danger' : ''} onClick={() => (setOpen(false), it.run())}>
+                <span aria-hidden>{it.icon}</span>
+                {it.label}
+              </button>
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /**
@@ -108,6 +207,7 @@ export const SitesBoard: React.FC<{ sites: BoardSite[] }> = ({ sites }) => {
           const online = st === 'active'
           return (
             <article key={s.id} className="bsite">
+              <SiteMenu site={s} onViewAs={() => viewAs(s.id)} />
               {view === 'grid' && (
                 <a className="bsite__thumb" href={`/sites/${s.slug}`} target="_blank" rel="noreferrer" aria-label={`Ouvrir le site ${s.name}`}>
                   {st !== 'suspended' && st !== 'archived' ? <iframe src={`/sites/${s.slug}`} title={`Aperçu de ${s.name}`} loading="lazy" sandbox="allow-scripts" tabIndex={-1} /> : null}

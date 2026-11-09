@@ -12,8 +12,7 @@ export const CATEGORY_TYPES = [
   { label: 'Photos', value: 'gallery' },
   { label: 'Services', value: 'services' },
   { label: 'Tarifs', value: 'prices' },
-  { label: 'Articles (actualités)', value: 'articles' },
-  { label: 'Blog', value: 'blog' },
+  { label: 'Articles', value: 'articles' },
 ] as const
 
 export type CategoryType = (typeof CATEGORY_TYPES)[number]['value']
@@ -49,7 +48,7 @@ export const Categories: CollectionConfig = {
       required: true,
       defaultValue: ['gallery'],
       options: [...CATEGORY_TYPES],
-      admin: { description: 'Où cette catégorie est proposée (photos, services, tarifs, articles ou blog).' },
+      admin: { description: 'Où cette catégorie est proposée (photos, services, tarifs ou articles).' },
     },
     { name: 'description', label: 'Description (facultatif)', type: 'textarea', localized: true },
     { name: 'order', label: 'Ordre d’affichage', type: 'number', defaultValue: 0 },
