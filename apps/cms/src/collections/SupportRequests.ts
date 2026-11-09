@@ -102,6 +102,22 @@ export const SupportRequests: CollectionConfig = {
       access: { update: superAdminField },
     },
     {
+      name: 'reply',
+      label: 'Réponse de l’agence',
+      type: 'textarea',
+      admin: { position: 'sidebar', condition: (data, _sibling, { user }) => isSuperAdmin(user) || Boolean(data?.reply) },
+      access: { update: superAdminField, create: superAdminField },
+    },
+    {
+      name: 'repliedAt',
+      label: 'Répondu le',
+      type: 'date',
+      admin: { position: 'sidebar', readOnly: true, condition: (data) => Boolean(data?.repliedAt) },
+      hooks: {
+        beforeChange: [({ siblingData, originalDoc, value }) => (siblingData.reply && siblingData.reply !== originalDoc?.reply ? new Date().toISOString() : value)],
+      },
+    },
+    {
       name: 'requester',
       label: 'Demandée par',
       type: 'relationship',

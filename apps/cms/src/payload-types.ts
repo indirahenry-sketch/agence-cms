@@ -193,6 +193,7 @@ export interface Post {
   };
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
   _status?: ('draft' | 'published') | null;
 }
 /**
@@ -210,6 +211,14 @@ export interface Tenant {
    * Suspendu ou archivé : site hors ligne et comptes du client bloqués, contenus conservés. Archivé : client terminé, masqué du tableau de bord.
    */
   status?: ('active' | 'suspended' | 'archived') | null;
+  /**
+   * Les visiteurs voient « Site en travaux » ; vous et le client continuez à travailler dans le CMS.
+   */
+  maintenance?: boolean | null;
+  /**
+   * Pour trier vos clients : Équestre, Payé, Devis… Visibles par l’agence seulement.
+   */
+  labels?: string[] | null;
   languages?: ('fr' | 'en')[] | null;
   logo?: (number | null) | Media;
   email?: string | null;
@@ -262,6 +271,7 @@ export interface Tenant {
  */
 export interface Media {
   id: number;
+  _order?: string | null;
   tenant?: (number | null) | Tenant;
   alt: string;
   title?: string | null;
@@ -275,6 +285,7 @@ export interface Media {
   inGallery?: boolean | null;
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
   url?: string | null;
   thumbnailURL?: string | null;
   filename?: string | null;
@@ -382,6 +393,7 @@ export interface User {
  */
 export interface Service {
   id: number;
+  _order?: string | null;
   tenant?: (number | null) | Tenant;
   title: string;
   summary?: string | null;
@@ -400,6 +412,7 @@ export interface Service {
   audiences?: ('debutant' | 'loisir' | 'compet' | 'proprio')[] | null;
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -407,6 +420,7 @@ export interface Service {
  */
 export interface Price {
   id: number;
+  _order?: string | null;
   tenant?: (number | null) | Tenant;
   name: string;
   description?: string | null;
@@ -422,6 +436,7 @@ export interface Price {
   order?: number | null;
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -443,6 +458,7 @@ export interface Event {
   image?: (number | null) | Media;
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -628,6 +644,7 @@ export interface Page {
   };
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
   _status?: ('draft' | 'published') | null;
 }
 /**
@@ -680,6 +697,7 @@ export interface Menu {
     | null;
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -702,6 +720,7 @@ export interface Promotion {
   delay?: number | null;
   updatedAt: string;
   createdAt: string;
+  deletedAt?: string | null;
 }
 /**
  * Ancienne adresse → nouvelle adresse. Utile après un changement d’adresse de page ou la reprise d’un ancien site.
@@ -736,6 +755,8 @@ export interface SupportRequest {
   phone?: string | null;
   screenshot?: (number | null) | Media;
   status?: ('new' | 'in-progress' | 'resolved') | null;
+  reply?: string | null;
+  repliedAt?: string | null;
   requester?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
@@ -927,6 +948,7 @@ export interface PostsSelect<T extends boolean = true> {
       };
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
   _status?: T;
 }
 /**
@@ -934,6 +956,7 @@ export interface PostsSelect<T extends boolean = true> {
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
+  _order?: T;
   tenant?: T;
   alt?: T;
   title?: T;
@@ -944,6 +967,7 @@ export interface MediaSelect<T extends boolean = true> {
   inGallery?: T;
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
   url?: T;
   thumbnailURL?: T;
   filename?: T;
@@ -993,6 +1017,7 @@ export interface MediaSelect<T extends boolean = true> {
  * via the `definition` "services_select".
  */
 export interface ServicesSelect<T extends boolean = true> {
+  _order?: T;
   tenant?: T;
   title?: T;
   summary?: T;
@@ -1008,12 +1033,14 @@ export interface ServicesSelect<T extends boolean = true> {
   audiences?: T;
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "prices_select".
  */
 export interface PricesSelect<T extends boolean = true> {
+  _order?: T;
   tenant?: T;
   name?: T;
   description?: T;
@@ -1026,6 +1053,7 @@ export interface PricesSelect<T extends boolean = true> {
   order?: T;
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1043,6 +1071,7 @@ export interface EventsSelect<T extends boolean = true> {
   image?: T;
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1209,6 +1238,7 @@ export interface PagesSelect<T extends boolean = true> {
       };
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
   _status?: T;
 }
 /**
@@ -1243,6 +1273,7 @@ export interface MenusSelect<T extends boolean = true> {
       };
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1264,6 +1295,7 @@ export interface PromotionsSelect<T extends boolean = true> {
   delay?: T;
   updatedAt?: T;
   createdAt?: T;
+  deletedAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1308,6 +1340,8 @@ export interface TenantsSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
   status?: T;
+  maintenance?: T;
+  labels?: T;
   languages?: T;
   logo?: T;
   email?: T;
@@ -1390,6 +1424,8 @@ export interface SupportRequestsSelect<T extends boolean = true> {
   phone?: T;
   screenshot?: T;
   status?: T;
+  reply?: T;
+  repliedAt?: T;
   requester?: T;
   updatedAt?: T;
   createdAt?: T;

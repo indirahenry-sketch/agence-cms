@@ -20,14 +20,17 @@ export const SERVICE_ICONS = [
 export const Services: CollectionConfig = {
   slug: 'services',
   labels: { singular: 'Service', plural: 'Services' },
-  admin: { useAsTitle: 'title', defaultColumns: ['title', 'category', 'order'], group: 'Contenus' },
+  admin: { useAsTitle: 'title', defaultColumns: ['title', 'category'], group: 'Contenus' },
   access: tenantCollectionAccess(),
   hooks: {
     beforeChange: [enforceTenant()],
     afterChange: [auditChange('services')],
     afterDelete: [auditDelete('services')],
   },
-  defaultSort: 'order',
+  // Ordre par glisser-déposer dans la liste (poignée à gauche) ; corbeille de 30 jours
+  orderable: true,
+  trash: true,
+  defaultSort: '_order',
   fields: [
     { name: 'title', label: 'Nom du service', type: 'text', localized: true, required: true },
     { name: 'summary', label: 'Phrase de présentation', type: 'textarea', localized: true },
@@ -43,7 +46,7 @@ export const Services: CollectionConfig = {
       fields: [
         { name: 'icon', label: 'Icône', type: 'select', options: SERVICE_ICONS, defaultValue: 'star' },
         { name: 'category', label: 'Catégorie', type: 'relationship', relationTo: 'categories', filterOptions: categoriesOfType('services') },
-        { name: 'order', label: 'Ordre', type: 'number', defaultValue: 0 },
+        { name: 'order', label: 'Ordre', type: 'number', defaultValue: 0, admin: { hidden: true } },
       ],
     },
     {

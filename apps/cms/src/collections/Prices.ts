@@ -9,14 +9,17 @@ import { categoriesOfType } from './Categories'
 export const Prices: CollectionConfig = {
   slug: 'prices',
   labels: { singular: 'Tarif', plural: 'Tarifs' },
-  admin: { useAsTitle: 'name', defaultColumns: ['name', 'price', 'category', 'order'], group: 'Contenus' },
+  admin: { useAsTitle: 'name', defaultColumns: ['name', 'price', 'category'], group: 'Contenus' },
   access: tenantCollectionAccess(),
   hooks: {
     beforeChange: [enforceTenant()],
     afterChange: [auditChange('prices')],
     afterDelete: [auditDelete('prices')],
   },
-  defaultSort: 'order',
+  // Ordre par glisser-déposer dans la liste (poignée à gauche) ; corbeille de 30 jours
+  orderable: true,
+  trash: true,
+  defaultSort: '_order',
   fields: [
     { name: 'name', label: 'Nom de la prestation', type: 'text', localized: true, required: true },
     { name: 'description', label: 'Description', type: 'textarea', localized: true },
@@ -42,6 +45,6 @@ export const Prices: CollectionConfig = {
       ],
     },
     { name: 'category', label: 'Catégorie (onglet sur le site)', type: 'relationship', relationTo: 'categories', filterOptions: categoriesOfType('prices') },
-    { name: 'order', label: 'Ordre d’affichage', type: 'number', defaultValue: 0 },
+    { name: 'order', label: 'Ordre d’affichage', type: 'number', defaultValue: 0, admin: { hidden: true } },
   ],
 }

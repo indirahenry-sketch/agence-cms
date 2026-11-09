@@ -4,6 +4,7 @@ import * as migration_20261104_211500_ecuries_poigny from './20261104_211500_ecu
 import * as migration_20261105_163439_media_s3_object_key from './20261105_163439_media_s3_object_key';
 import * as migration_20261106_003543_cms_v2_menus_promos from './20261106_003543_cms_v2_menus_promos';
 import * as migration_20261109_032840_cms_v3 from './20261109_032840_cms_v3';
+import * as migration_20261109_035917_cms_v4_interface from './20261109_035917_cms_v4_interface';
 
 export const migrations = [
   {
@@ -34,6 +35,11 @@ export const migrations = [
   {
     up: migration_20261109_032840_cms_v3.up,
     down: migration_20261109_032840_cms_v3.down,
-    name: '20261109_032840_cms_v3'
+    name: '20261109_032840_cms_v3',
+  },
+  {
+    up: migration_20261109_035917_cms_v4_interface.up,
+    down: migration_20261109_035917_cms_v4_interface.down,
+    name: '20261109_035917_cms_v4_interface'
   },
 ];

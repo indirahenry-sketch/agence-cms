@@ -14,7 +14,8 @@ export const siteOptions = (req: Request): RenderOptions => (req.headers.get('x-
 
 export const htmlResponse = (html: string, status = 200) =>
   new Response(html, {
-    status,
+    // Site en maintenance : « indisponible temporairement » pour Google
+    status: html.startsWith('<!doctype html><html lang="fr" data-maintenance>') ? 503 : status,
     headers: {
       'content-type': 'text/html; charset=utf-8',
       'cache-control': 'no-cache',

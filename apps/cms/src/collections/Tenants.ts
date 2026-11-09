@@ -105,6 +105,22 @@ export const Tenants: CollectionConfig = {
       access: { update: superAdminField, create: superAdminField },
     },
     {
+      name: 'maintenance',
+      label: 'Mode maintenance',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { position: 'sidebar', description: 'Les visiteurs voient « Site en travaux » ; vous et le client continuez à travailler dans le CMS.' },
+      access: { update: superAdminField, create: superAdminField },
+    },
+    {
+      name: 'labels',
+      label: 'Étiquettes (agence)',
+      type: 'text',
+      hasMany: true,
+      admin: { position: 'sidebar', description: 'Pour trier vos clients : Équestre, Payé, Devis… Visibles par l’agence seulement.', condition: (_d, _s, { user }) => isSuperAdmin(user) },
+      access: { read: superAdminField, update: superAdminField, create: superAdminField },
+    },
+    {
       name: 'agencyTools',
       type: 'ui',
       admin: {

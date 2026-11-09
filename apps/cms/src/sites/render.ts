@@ -112,10 +112,10 @@ async function loadSite(payload: Payload, tenant: Tenant, full: boolean, opts: R
   const [info, prices, photos, events, posts, services, menus, promotions] = await Promise.all([
     payload.find({ collection: 'site-info', where: ofTenant, limit: 1, depth: 0, ...read }),
     full && settings.showPrices !== false
-      ? payload.find({ collection: 'prices', where: ofTenant, sort: 'order', limit: 200, depth: 1, ...read })
+      ? payload.find({ collection: 'prices', where: ofTenant, sort: '_order', limit: 200, depth: 1, ...read })
       : none,
     full && settings.showGallery !== false
-      ? payload.find({ collection: 'media', where: { and: [ofTenant, { inGallery: { equals: true } }] }, sort: 'createdAt', limit: 48, depth: 0, ...read })
+      ? payload.find({ collection: 'media', where: { and: [ofTenant, { inGallery: { equals: true } }] }, sort: '_order', limit: 48, depth: 0, ...read })
       : none,
     full && settings.showEvents !== false
       ? payload.find({
@@ -140,7 +140,7 @@ async function loadSite(payload: Payload, tenant: Tenant, full: boolean, opts: R
           ...read,
         })
       : none,
-    full ? payload.find({ collection: 'services', where: ofTenant, sort: 'order', limit: 50, depth: 0, ...read }) : none,
+    full ? payload.find({ collection: 'services', where: ofTenant, sort: '_order', limit: 50, depth: 0, ...read }) : none,
     payload.find({ collection: 'menus', where: ofTenant, limit: 10, depth: 1, ...read }),
     payload.find({
       collection: 'promotions',
@@ -335,9 +335,14 @@ const fill = (html: string, values: Record<string, string>) => html.replace(/\{\
 
 // ── Page d'accueil (la maquette complète) ────────────────────────────
 
+/** Page « site en travaux » (mode maintenance du client). Le marqueur data-maintenance donne un statut 503. */
+export const maintenancePage = (t: Tenant) =>
+  `<!doctype html><html lang="fr" data-maintenance><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(t.name)} · bientôt de retour</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.6 system-ui,sans-serif;background:#f6f4ef;color:#222;text-align:center;padding:24px}h1{font-size:clamp(1.8rem,6vw,2.6rem);margin:0 0 8px}</style></head><body><main><h1>${esc(t.name)}</h1><p>Notre site fait peau neuve. Revenez très bientôt !</p>${t.phone ? `<p><a href="tel:${esc(t.phone.replace(/\s/g, ''))}">${esc(t.phone)}</a></p>` : ''}</main></body></html>`
+
 export async function renderSite(payload: Payload, siteSlug: string, opts: RenderOptions = {}): Promise<string | null> {
   const tenant = await loadTenant(payload, siteSlug)
   if (!tenant) return null
+  if (tenant.maintenance) return maintenancePage(tenant)
   if (!hasSiteTemplate(siteSlug)) return renderGenericHome(payload, tenant, opts)
   const d = await loadSite(payload, tenant, true, opts)
   const { info } = d
@@ -565,6 +570,7 @@ async function blockHTML(payload: Payload, d: SiteData, b: Block): Promise<strin
       const { docs } = await payload.find({
         collection: 'media',
         where: { and: [{ tenant: { equals: d.tenant.id } }, { inGallery: { equals: true } }, ...(cat ? [{ category: { equals: cat } }] : [])] },
+        sort: '_order',
         limit: 48,
         depth: 0,
         ...read,
@@ -576,7 +582,7 @@ async function blockHTML(payload: Payload, d: SiteData, b: Block): Promise<strin
       const { docs } = await payload.find({
         collection: 'prices',
         where: { and: [{ tenant: { equals: d.tenant.id } }, ...(cat ? [{ category: { equals: cat } }] : [])] },
-        sort: 'order',
+        sort: '_order',
         limit: 100,
         depth: 0,
         ...read,
@@ -639,6 +645,7 @@ export async function renderPage(
 ): Promise<string | null> {
   const tenant = await loadTenant(payload, siteSlug)
   if (!tenant) return null
+  if (tenant.maintenance && opts.draftID === undefined) return maintenancePage(tenant)
   let page: Page | undefined
   if (opts.draftID !== undefined) {
     const doc = await payload.findByID({ collection: 'pages', id: opts.draftID, draft: true, depth: 2, disableErrors: true, ...read })
@@ -669,6 +676,7 @@ export async function renderPost(
 ): Promise<string | null> {
   const tenant = await loadTenant(payload, siteSlug)
   if (!tenant) return null
+  if (tenant.maintenance && opts.draftID === undefined) return maintenancePage(tenant)
   let post: Post | undefined
   if (opts.draftID !== undefined) {
     const doc = await payload.findByID({ collection: 'posts', id: opts.draftID, draft: true, depth: 1, disableErrors: true, ...read })

@@ -20,11 +20,14 @@ const setAuthorAndDate: CollectionBeforeChangeHook = ({ req, data, operation }) 
 
 export const Posts: CollectionConfig = {
   slug: 'posts',
+  // Corbeille : les éléments supprimés restent 30 jours, avec « Restaurer »
+  trash: true,
   labels: { singular: 'Article', plural: 'Articles et blog' },
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', '_status', 'publishedAt'],
+    defaultColumns: ['coverImage', 'title', 'category', 'statusBadge', 'modified'],
     group: 'Contenus',
+    components: { beforeListTable: ['@/components/StatusFilters#StatusFilters'] },
     preview: previewURL('posts'),
   },
   // Le rédacteur crée et modifie, mais ne supprime pas un article (il n'a pas la main sur ce qui est en ligne)
@@ -38,6 +41,18 @@ export const Posts: CollectionConfig = {
     afterDelete: [auditDelete('posts')],
   },
   fields: [
+    {
+      name: 'statusBadge',
+      label: 'Statut',
+      type: 'ui',
+      admin: { components: { Cell: '@/components/StatusCell#StatusCell' } },
+    },
+    {
+      name: 'modified',
+      label: 'Modifié',
+      type: 'ui',
+      admin: { components: { Cell: '@/components/StatusCell#RelativeDateCell' } },
+    },
     { name: 'title', label: 'Titre', type: 'text', localized: true, required: true },
     {
       name: 'slug',
@@ -62,7 +77,7 @@ export const Posts: CollectionConfig = {
         { name: 'tags', label: 'Tags', type: 'relationship', relationTo: 'tags', hasMany: true },
       ],
     },
-    { name: 'coverImage', label: 'Image de couverture', type: 'upload', relationTo: 'media' },
+    { name: 'coverImage', label: 'Image de couverture', type: 'upload', relationTo: 'media', admin: { components: { Cell: '@/components/CoverCell#CoverCell' } } },
     { name: 'excerpt', label: 'Résumé (2-3 phrases)', type: 'textarea', localized: true },
     { name: 'content', label: 'Texte de l’article', type: 'richText', localized: true },
     {

@@ -68,6 +68,8 @@ const linkFields: Field[] = [
 /** Menus de navigation : l'ordre des liens se change par glisser-déposer. */
 export const Menus: CollectionConfig = {
   slug: 'menus',
+  // Corbeille : les éléments supprimés restent 30 jours, avec « Restaurer »
+  trash: true,
   labels: { singular: 'Menu', plural: 'Menus' },
   admin: { useAsTitle: 'name', defaultColumns: ['name', 'location', 'updatedAt'], group: 'Site' },
   access: tenantCollectionAccess(),
@@ -89,7 +91,7 @@ export const Menus: CollectionConfig = {
       label: 'Liens',
       type: 'array',
       labels: { singular: 'Lien', plural: 'Liens' },
-      admin: { description: 'Faites glisser les liens pour changer leur ordre.' },
+      admin: { description: 'Faites glisser les liens pour changer leur ordre.', components: { RowLabel: '@/components/MenuRowLabel#MenuRowLabel' } },
       fields: [
         ...linkFields,
         {
@@ -97,6 +99,7 @@ export const Menus: CollectionConfig = {
           label: 'Sous-menu',
           type: 'array',
           labels: { singular: 'Sous-lien', plural: 'Sous-liens' },
+          admin: { components: { RowLabel: '@/components/MenuRowLabel#MenuRowLabel' } },
           fields: linkFields,
         },
       ],

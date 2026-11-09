@@ -5,6 +5,7 @@ import { getTenantIDs, isSuperAdmin } from '@/access/roles'
 import { statsSummary } from '@/sites/stats'
 
 import { LogoutLink } from './LogoutLink'
+import { SitesBoard, type BoardSite } from './SitesBoard'
 
 import './welcome.scss'
 
@@ -22,6 +23,7 @@ const ICONS: Record<string, React.ReactNode> = {
   file: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8" />,
   help: <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8M4.9 4.9l4.3 4.3M14.8 14.8l4.3 4.3M14.8 9.2l4.3-4.3M4.9 19.1l4.3-4.3" />,
   calendar: <path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18" />,
+  tag: <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01" />,
   chart: <path d="M3 3v18h18M7 15l4-4 3 3 5-6" />,
   layout: <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM3 9h18M9 21V9" />,
 }
@@ -46,38 +48,6 @@ const Stat = ({ href, label, value, recent, icon, tone = 'violet' }: StatProps) 
     )}
   </a>
 )
-
-type SiteCard = { id: number; name: string; slug: string; status?: string | null; domain?: string | null; visits?: number }
-
-const STATUS_FLAG: Record<string, string> = { suspended: 'Client suspendu', archived: 'Client archivé' }
-
-const Site = ({ site }: { site: SiteCard }) => {
-  const url = site.domain ? `https://${site.domain}` : `/sites/${site.slug}`
-  const live = !site.status || site.status === 'active'
-  return (
-    <article className="dash__site">
-      <a className="dash__preview" href={live ? url : undefined} target="_blank" rel="noreferrer" aria-label={`Ouvrir le site ${site.name}`}>
-        {live ? (
-          <iframe src={`/sites/${site.slug}`} title={`Aperçu de ${site.name}`} loading="lazy" sandbox="allow-scripts" tabIndex={-1} />
-        ) : (
-          <span className="dash__placeholder">Site en préparation</span>
-        )}
-        {site.status && STATUS_FLAG[site.status] && <span className="dash__flag">{STATUS_FLAG[site.status]}</span>}
-      </a>
-      <div className="dash__site-body">
-        <span className={`dash__dot ${live ? '' : 'off'}`} />
-        <div>
-          <strong>{site.name}</strong>
-          <small>
-            {site.domain || (live ? `/sites/${site.slug}` : 'hors ligne')}
-            {site.visits !== undefined && ` · ${site.visits.toLocaleString('fr-FR')} visite${site.visits > 1 ? 's' : ''} (30 j)`}
-          </small>
-        </div>
-        <a className="dash__mini" href={`/admin/collections/tenants/${site.id}`}>Fiche</a>
-      </div>
-    </article>
-  )
-}
 
 type Summary = Awaited<ReturnType<typeof statsSummary>>
 
@@ -139,9 +109,35 @@ const Visits = ({ stats }: { stats: Summary }) => {
   )
 }
 
+type Tone = 'green' | 'blue' | 'orange' | 'violet' | 'pink'
+const DAY = 864e5
+const ago = (iso?: string | null) => {
+  if (!iso) return null
+  const d = Math.round((Date.now() - new Date(iso).getTime()) / DAY)
+  return d <= 0 ? 'aujourd’hui' : d === 1 ? 'hier' : d < 30 ? `il y a ${d} jours` : d < 365 ? `il y a ${Math.round(d / 30)} mois` : `il y a ${Math.round(d / 365)} an(s)`
+}
+const inDays = (iso: string) => {
+  const d = Math.ceil((new Date(iso).getTime() - Date.now()) / DAY)
+  return d <= 0 ? 'aujourd’hui' : d === 1 ? 'demain' : `dans ${d} jours`
+}
+
+/** Carte d'une section du site avec son état (« À jour », « À relancer »…). */
+const Section = ({ href, icon, tone, title, detail, badge, badgeTone }: { href: string; icon: string; tone: Tone; title: string; detail: string; badge: string; badgeTone: Tone }) => (
+  <a className="sec" href={href}>
+    <span className={`dash__chip dash__chip--${tone}`}>
+      <Icon name={icon} />
+    </span>
+    <span className="sec__txt">
+      <b>{title}</b>
+      <span>{detail}</span>
+    </span>
+    <span className={`sec__badge sec__badge--${badgeTone}`}>{badge}</span>
+  </a>
+)
+
 export const Welcome = async ({ payload, user }: ServerProps) => {
   if (!user) return null
-  const since = new Date(Date.now() - 30 * 864e5).toISOString()
+  const since = new Date(Date.now() - 30 * DAY).toISOString()
   const admin = isSuperAdmin(user)
   const tenantIDs = getTenantIDs(user)
   const scope: Where = admin ? {} : { tenant: { in: tenantIDs } }
@@ -151,28 +147,39 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
     value: await count(collection, where),
     recent: await count(collection, { and: [where, { createdAt: { greater_than: since } }] }),
   })
-
-  const { docs: tenants } = await payload.find({
-    collection: 'tenants',
-    // L'agence ne voit pas les clients archivés sur l'accueil (ils restent dans la liste Clients)
-    where: admin ? { status: { not_equals: 'archived' } } : { id: { in: tenantIDs } },
-    depth: 0,
-    limit: 60,
-    overrideAccess: true,
-    select: { name: true, slug: true, status: true, domains: true },
-  })
-  const stats = await statsSummary(payload, admin ? 'all' : tenantIDs).catch(() => null)
-  const sites: SiteCard[] = tenants.map((t) => ({
-    id: t.id,
-    name: t.name,
-    slug: t.slug,
-    status: t.status,
-    domain: t.domains?.[0]?.domain,
-    visits: stats ? (stats.byTenant.get(String(t.id)) ?? 0) : undefined,
-  }))
   const firstName = user.name ? ` ${String(user.name).split(' ')[0]}` : ''
+  const stats = await statsSummary(payload, admin ? 'all' : tenantIDs).catch(() => null)
+
+  // Dernière modification par client (journal d'audit)
+  const { docs: logs } = await payload.find({
+    collection: 'audit-logs',
+    where: { and: [{ action: { not_equals: 'login' } }, ...(admin ? [] : [{ tenant: { in: tenantIDs } }])] },
+    sort: '-createdAt',
+    limit: 300,
+    depth: 1,
+    overrideAccess: true,
+  })
+  const lastByTenant = new Map<string, { at: string; by?: string }>()
+  for (const l of logs) {
+    const t = l.tenant ? String(typeof l.tenant === 'object' ? l.tenant.id : l.tenant) : null
+    if (!t || lastByTenant.has(t)) continue
+    const u = typeof l.user === 'object' && l.user ? l.user : null
+    lastByTenant.set(t, { at: l.createdAt, by: u ? (String(u.id) === String(user.id) ? 'vous' : u.name || u.email) : undefined })
+  }
 
   if (admin) {
+    const { docs: tenants } = await payload.find({ collection: 'tenants', depth: 0, limit: 200, pagination: false, overrideAccess: true })
+    const board: BoardSite[] = tenants.map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      status: t.status || 'active',
+      maintenance: Boolean(t.maintenance),
+      domain: t.domains?.[0]?.domain,
+      labels: (t.labels as string[] | null | undefined) ?? [],
+      lastChange: lastByTenant.get(String(t.id))?.at ?? t.updatedAt,
+      visits: stats ? (stats.byTenant.get(String(t.id)) ?? 0) : 0,
+    }))
     const [clients, users, media, posts, open] = await Promise.all([
       both('tenants'),
       both('users'),
@@ -188,7 +195,6 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
             <h2>Bonjour{firstName} 👋</h2>
           </div>
           <div className="dash__actions">
-            <a className="dash__btn dash__btn--primary" href="/admin/collections/tenants/create">+ Client</a>
             <a className="dash__btn" href="/admin/collections/users/create">+ Utilisateur</a>
             <LogoutLink variant="button" />
           </div>
@@ -202,37 +208,59 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
         </div>
         {stats && <Visits stats={stats} />}
         <div className="dash__section-head">
-          <h3>Sites</h3>
-          <span>{sites.length} client{sites.length > 1 ? 's' : ''}</span>
+          <h3>Tous les sites</h3>
+          <span>{tenants.length} client{tenants.length > 1 ? 's' : ''}</span>
         </div>
-        <div className="dash__sites">
-          {sites.map((s) => (
-            <Site key={s.id} site={s} />
-          ))}
-        </div>
+        <SitesBoard sites={board} />
       </section>
     )
   }
 
-  const [photos, posts, events, pages] = await Promise.all([
-    both('media', { inGallery: { equals: true } }),
-    both('posts'),
-    count('events', { startsAt: { greater_than_equal: new Date().toISOString() } }),
-    both('pages'),
+  // ── Accueil client : « mon site en un coup d'œil » ──
+  const { docs: tenants } = await payload.find({ collection: 'tenants', where: { id: { in: tenantIDs } }, depth: 0, limit: 10, overrideAccess: true })
+  const site = tenants[0]
+  const now = new Date().toISOString()
+  const [photos, lastPhoto, nextEvents, upcoming, lastPost, prices, info] = await Promise.all([
+    count('media', { inGallery: { equals: true } }),
+    payload.find({ collection: 'media', where: { and: [scope, { inGallery: { equals: true } }] }, sort: '-createdAt', limit: 1, depth: 0, overrideAccess: true }),
+    payload.find({ collection: 'events', where: { and: [scope, { startsAt: { greater_than_equal: now } }] }, sort: 'startsAt', limit: 1, depth: 0, overrideAccess: true }),
+    count('events', { startsAt: { greater_than_equal: now } }),
+    payload.find({ collection: 'posts', where: { and: [scope, { _status: { equals: 'published' } }] }, sort: '-publishedAt', limit: 1, depth: 0, overrideAccess: true }),
+    count('prices'),
+    payload.find({ collection: 'site-info', where: scope, limit: 1, depth: 0, overrideAccess: true }),
   ])
+  const last = site ? lastByTenant.get(String(site.id)) : undefined
+  const online = site && (site.status ?? 'active') === 'active' && !site.maintenance
+  const siteURL = site ? (site.domains?.[0]?.domain ? `https://${site.domains[0].domain}` : `/sites/${site.slug}`) : '#'
+  const photoAge = lastPhoto.docs[0] ? (Date.now() - new Date(lastPhoto.docs[0].createdAt).getTime()) / DAY : Infinity
+  const post = lastPost.docs[0]
+  const postAge = post ? (Date.now() - new Date(post.publishedAt || post.createdAt).getTime()) / DAY : Infinity
+  const next = nextEvents.docs[0]
+
+  // Assistant d'accueil : 4 étapes, disparaît une fois tout rempli
+  const steps = [
+    { done: Boolean(site?.logo), label: 'Logo et couleurs', hint: 'Ajoutez votre logo : il apparaît en haut du site.', href: site ? `/admin/collections/tenants/${site.id}` : '#' },
+    { done: Boolean(info.docs[0]?.openingHours?.length), label: 'Horaires', hint: 'Vos horaires s’affichent sur le site avec « Ouvert / Fermé ».', href: info.docs[0] ? `/admin/collections/site-info/${info.docs[0].id}` : '/admin/collections/site-info' },
+    { done: photos >= 3, label: 'Trois photos', hint: 'Trois photos suffisent pour une belle galerie.', href: '/admin/collections/media' },
+    { done: prices > 0, label: 'Premier tarif', hint: 'Indiquez au moins un prix pour vos visiteurs.', href: '/admin/collections/prices/create' },
+  ]
+  const doneCount = steps.filter((x) => x.done).length
+  const current = steps.find((x) => !x.done)
+
   const shortcuts = [
-    { href: '/admin/collections/prices', label: 'Modifier mes tarifs', icon: 'file' },
-    { href: '/admin/collections/media/create', label: 'Ajouter des photos', icon: 'image' },
+    { href: '/admin/collections/media', label: 'Ajouter des photos', icon: 'image' },
     { href: '/admin/collections/posts/create', label: 'Écrire un article', icon: 'file' },
-    { href: '/admin/collections/events/create', label: 'Ajouter un événement', icon: 'calendar' },
+    { href: '/admin/collections/events', label: 'Ajouter un événement', icon: 'calendar' },
+    { href: '/admin/collections/prices', label: 'Modifier mes tarifs', icon: 'file' },
     { href: '/admin/collections/menus', label: 'Gérer le menu', icon: 'layout' },
     { href: '/admin/collections/promotions', label: 'Bannières et pop-ups', icon: 'layout' },
   ]
+
   return (
     <section className="dash">
       <header className="dash__head">
         <div>
-          <p className="dash__eyebrow">{sites.map((s) => s.name).join(' · ')}</p>
+          <p className="dash__eyebrow">{tenants.map((t) => t.name).join(' · ')}</p>
           <h2>Bonjour{firstName} 👋</h2>
         </div>
         <div className="dash__actions">
@@ -240,27 +268,99 @@ export const Welcome = async ({ payload, user }: ServerProps) => {
           <LogoutLink variant="button" />
         </div>
       </header>
-      <div className="dash__stats">
-        <Stat href="/admin/collections/media?where[inGallery][equals]=true" label="Photos en galerie" {...photos} icon="image" tone="green" />
-        <Stat href="/admin/collections/posts" label="Articles" {...posts} icon="file" tone="orange" />
-        <Stat href="/admin/collections/events" label="Événements à venir" value={events} icon="calendar" tone="blue" />
-        <Stat href="/admin/collections/pages" label="Pages" {...pages} icon="layout" />
-      </div>
-      {stats && <Visits stats={stats} />}
-      <div className="dash__client">
-        <div className="dash__sites dash__sites--one">
-          {sites.map((s) => (
-            <Site key={s.id} site={s} />
-          ))}
+
+      {current && (
+        <div className="wizard">
+          <div className="wizard__head">
+            <div>
+              <p className="dash__eyebrow">Bien démarrer · {doneCount} étape{doneCount > 1 ? 's' : ''} sur 4 faite{doneCount > 1 ? 's' : ''}</p>
+              <h3>{current.label}</h3>
+              <p className="dash__muted">{current.hint}</p>
+            </div>
+            <a className="dash__btn dash__btn--primary" href={current.href}>Continuer</a>
+          </div>
+          <ol className="wizard__steps">
+            {steps.map((x, i) => (
+              <li key={x.label} className={x.done ? 'done' : x === current ? 'now' : ''}>
+                <a href={x.href}>
+                  <span className="wizard__bar" />
+                  <span>
+                    {x.done ? '✓' : i + 1} · {x.label}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ol>
         </div>
-        <div className="dash__shortcuts">
-          <h3>Raccourcis</h3>
-          {shortcuts.map((s) => (
-            <a key={s.href} href={s.href}>
+      )}
+
+      <div className="glance">
+        {site && (
+          <article className="glance__site">
+            <a className="glance__preview" href={siteURL} target="_blank" rel="noreferrer" aria-label="Ouvrir mon site">
+              {online ? <iframe src={`/sites/${site.slug}`} title="Aperçu de mon site" loading="lazy" sandbox="allow-scripts" tabIndex={-1} /> : <span className="dash__placeholder">{site.maintenance ? 'Site en maintenance' : 'Site hors ligne'}</span>}
+            </a>
+            <div className="glance__foot">
+              <span className={`dash__dot ${online ? '' : 'off'}`} />
+              <div>
+                <b>{online ? 'Votre site est en ligne' : site.maintenance ? 'Site en maintenance' : 'Site hors ligne'}</b>
+                <small>{last ? `Dernière modification ${ago(last.at)}${last.by ? `, par ${last.by}` : ''}` : 'Pas encore de modification'}</small>
+              </div>
+              <a className="dash__btn dash__btn--primary" href={siteURL} target="_blank" rel="noreferrer">Voir mon site</a>
+            </div>
+          </article>
+        )}
+        <div className="glance__sections">
+          <Section
+            href="/admin/collections/media"
+            icon="image"
+            tone="green"
+            title="Photos"
+            detail={photos ? `${photos} en galerie · ajoutées ${ago(lastPhoto.docs[0]?.createdAt)}` : 'Aucune photo en galerie'}
+            badge={photos === 0 ? 'À compléter' : photoAge > 120 ? 'À rafraîchir' : 'À jour'}
+            badgeTone={photos === 0 || photoAge > 120 ? 'orange' : 'green'}
+          />
+          <Section
+            href="/admin/collections/events"
+            icon="calendar"
+            tone="blue"
+            title="Agenda"
+            detail={next ? `Prochain : ${next.title} ${inDays(next.startsAt)}` : 'Aucun événement à venir'}
+            badge={upcoming ? `${upcoming} à venir` : 'À compléter'}
+            badgeTone={upcoming ? 'blue' : 'orange'}
+          />
+          <Section
+            href="/admin/collections/posts"
+            icon="file"
+            tone="orange"
+            title="Blog"
+            detail={post ? `Dernier article ${ago(post.publishedAt || post.createdAt)}` : 'Aucun article publié'}
+            badge={postAge > 30 ? 'À relancer' : 'À jour'}
+            badgeTone={postAge > 30 ? 'orange' : 'green'}
+          />
+          <Section
+            href="/admin/collections/prices"
+            icon="tag"
+            tone="violet"
+            title="Tarifs"
+            detail={prices ? `${prices} tarif${prices > 1 ? 's' : ''}` : 'Aucun tarif'}
+            badge={prices ? 'À jour' : 'À compléter'}
+            badgeTone={prices ? 'green' : 'orange'}
+          />
+        </div>
+      </div>
+
+      {stats && <Visits stats={stats} />}
+
+      <div className="dash__shortcuts dash__shortcuts--row">
+        <h3>Raccourcis</h3>
+        <div>
+          {shortcuts.map((x) => (
+            <a key={x.label} href={x.href}>
               <span className="dash__chip">
-                <Icon name={s.icon} />
+                <Icon name={x.icon} />
               </span>
-              {s.label}
+              {x.label}
             </a>
           ))}
         </div>

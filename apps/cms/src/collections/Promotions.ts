@@ -8,6 +8,8 @@ import { validateURL } from '@/utilities/safeURL'
 /** Bannières (bandeau en haut du site) et pop-ups promotionnels, avec dates de diffusion. */
 export const Promotions: CollectionConfig = {
   slug: 'promotions',
+  // Corbeille : les éléments supprimés restent 30 jours, avec « Restaurer »
+  trash: true,
   labels: { singular: 'Bannière ou pop-up', plural: 'Bannières et pop-ups' },
   admin: { useAsTitle: 'title', defaultColumns: ['title', 'kind', 'active', 'startsAt', 'endsAt'], group: 'Site' },
   access: tenantCollectionAccess(),

@@ -17,6 +17,18 @@ Espace de gestion centralisé pour les sites de tes clients : **Payload CMS 3 + 
 | 9. Sécurité | 62 tests automatiques à chaque envoi, rôles rédacteur/lecteur, en-têtes de sécurité | ✅ |
 | 10. Production | Render + Supabase, réveil automatique, sauvegarde nocturne avec test de restauration | 🟡 secrets de sauvegarde à ajouter |
 
+### Interface 4 (9 novembre 2026)
+
+- **Accueil client** « mon site en un coup d'œil » : grande vignette du site, une carte par section (Photos, Agenda, Blog, Tarifs) avec son état, et un **assistant « Bien démarrer »** en 4 étapes (logo, horaires, 3 photos, premier tarif) qui disparaît une fois fait.
+- **Tous les sites** (agence) : recherche, filtres par étiquette et statut, tri, bandeaux Maintenance / Suspendu, bouton « Voir comme le client ». Nouveaux champs de fiche client : étiquettes et mode maintenance.
+- **Médiathèque en grille** : aperçus, filtres par type et catégorie, envoi multiple par glisser-déposer, actions groupées ; **recadrage et point focal** des photos.
+- **Agenda en calendrier** coloré par type ; clic sur un jour pour créer un événement ce jour-là.
+- **Listes** : miniature, pastille Publié / Brouillon / Programmé, date relative, filtres en un clic. **Menus** : chaque lien affiche son texte et sa destination.
+- **Ordre par glisser-déposer** des tarifs, services et photos ; **corbeille** de 30 jours avec « Restaurer ».
+- **Aperçu en direct** : écran partagé formulaire / site (téléphone, tablette, ordinateur), rechargé à chaque sauvegarde automatique.
+- **Barre du haut** : recherche globale (Ctrl+K), cloche de notifications, bouton soleil / lune (thème sombre). Réponse de l'agence sur les demandes de support.
+- **Téléphone** : barre en bas (Accueil, Photos, +, Agenda, Plus) et listes en cartes.
+
 ### Version 3 (9 novembre 2026)
 
 - **Nouveau client sans code** : un client sans maquette a automatiquement un site à ses couleurs, sa police et son logo (fiche client → onglet « Site et domaine »). S'il a une page publiée d'adresse `accueil`, elle devient l'accueil ; sinon l'accueil est composé de ses services, tarifs, photos, actualités, coordonnées et horaires.

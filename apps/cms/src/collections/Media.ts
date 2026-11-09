@@ -27,7 +27,11 @@ export const Media: CollectionConfig = {
     defaultColumns: ['filename', 'title', 'mimeType', 'category', 'inGallery'],
     group: 'Contenus',
     description: 'Photos, vidéos (MP4, WebM, MOV) et documents (PDF, Word, Excel, PowerPoint). 50 Mo maximum par fichier.',
+    components: { beforeListTable: ['@/components/MediaGrid#MediaGrid'] },
   },
+  // Ordre de la galerie par glisser-déposer, corbeille de 30 jours
+  orderable: true,
+  trash: true,
   access: tenantCollectionAccess(),
   hooks: {
     beforeOperation: [randomFilename],
@@ -60,12 +64,17 @@ export const Media: CollectionConfig = {
     ],
     // Versions redimensionnées générées automatiquement
     imageSizes: [
-      { name: 'thumbnail', width: 400, height: 300, position: 'centre' },
+      // Recadrées autour du point focal choisi par le client (le point important reste visible)
+      { name: 'thumbnail', width: 400, height: 300 },
       { name: 'card', width: 800 },
       { name: 'hero', width: 1920 },
     ],
     adminThumbnail: 'thumbnail',
     focalPoint: true,
+    // Recadrer et tourner l'image sans quitter le CMS
+    crop: true,
+    // Envoi de plusieurs fichiers à la fois (glisser-déposer)
+    bulkUpload: true,
   },
   fields: [
     { name: 'alt', label: 'Texte alternatif (accessibilité)', type: 'text', localized: true, required: true },

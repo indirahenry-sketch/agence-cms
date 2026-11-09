@@ -36,7 +36,8 @@ export const TENANT_COLLECTIONS = [
  */
 export const deleteTenantContent: CollectionBeforeDeleteHook = async ({ req, id }) => {
   for (const collection of TENANT_COLLECTIONS) {
-    await req.payload.delete({ collection, where: { tenant: { equals: id } }, overrideAccess: true, req })
+    // trash: true → supprime aussi ce qui était dans la corbeille
+    await req.payload.delete({ collection, where: { tenant: { equals: id } }, overrideAccess: true, req, trash: true })
   }
   const { docs: members } = await req.payload.find({
     collection: 'users',
@@ -71,7 +72,7 @@ export const removeOrphans = async (payload: Payload, req?: Partial<PayloadReque
   let total = 0
   for (const collection of TENANT_COLLECTIONS) {
     try {
-      const { docs } = await payload.delete({ collection, where: { tenant: { exists: false } }, overrideAccess: true, req })
+      const { docs } = await payload.delete({ collection, where: { tenant: { exists: false } }, overrideAccess: true, req, trash: true })
       total += docs.length
     } catch (err) {
       payload.logger.warn({ err }, `Nettoyage des contenus orphelins impossible (${collection})`)

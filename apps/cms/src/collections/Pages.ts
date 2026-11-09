@@ -137,8 +137,16 @@ const VideoBlock: Block = {
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
+  // Corbeille : les éléments supprimés restent 30 jours, avec « Restaurer »
+  trash: true,
   labels: { singular: 'Page', plural: 'Pages' },
-  admin: { useAsTitle: 'title', defaultColumns: ['title', 'slug', '_status', 'updatedAt'], group: 'Site', preview: previewURL('pages') },
+  admin: {
+    useAsTitle: 'title',
+    defaultColumns: ['title', 'slug', 'statusBadge', 'modified'],
+    group: 'Site',
+    preview: previewURL('pages'),
+    components: { beforeListTable: ['@/components/StatusFilters#StatusFilters'] },
+  },
   // Les éditeurs peuvent lire les pages, seuls les administrateurs clients les modifient
   access: { ...tenantCollectionAccess(ADMIN_ONLY), read: tenantCollectionAccess().read },
   versions: { drafts: { autosave: { interval: 2000 } }, maxPerDoc: 20 },
@@ -148,6 +156,18 @@ export const Pages: CollectionConfig = {
     afterDelete: [auditDelete('pages')],
   },
   fields: [
+    {
+      name: 'statusBadge',
+      label: 'Statut',
+      type: 'ui',
+      admin: { components: { Cell: '@/components/StatusCell#StatusCell' } },
+    },
+    {
+      name: 'modified',
+      label: 'Modifié',
+      type: 'ui',
+      admin: { components: { Cell: '@/components/StatusCell#RelativeDateCell' } },
+    },
     { name: 'title', label: 'Titre', type: 'text', localized: true, required: true },
     {
       name: 'slug',

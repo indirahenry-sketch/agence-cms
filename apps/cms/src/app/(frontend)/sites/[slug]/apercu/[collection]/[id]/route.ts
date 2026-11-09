@@ -28,7 +28,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   if (!html) return notFoundPage()
   const banner =
     '<div style="position:sticky;top:0;z-index:999;background:#6d28d9;color:#fff;font:600 14px/1.4 system-ui;padding:8px 14px;text-align:center">Aperçu du brouillon — non visible des visiteurs</div>'
-  const res = htmlResponse(html.replace(/<body([^>]*)>/, `<body$1>${banner}`))
+  const live = new URL(req.url).searchParams.has('live')
+  // Dans l'écran partagé : rechargement à chaque sauvegarde (même position de défilement)
+  const liveScript = live
+    ? `<script>(function(){var k='apercu-scroll:'+location.pathname;try{var y=sessionStorage.getItem(k);if(y)addEventListener('load',function(){scrollTo(0,+y)})}catch(e){}
+var t;addEventListener('message',function(e){if(e.origin!==location.origin||!e.data||e.data.type!=='payload-document-event')return;clearTimeout(t);t=setTimeout(function(){try{sessionStorage.setItem(k,String(scrollY))}catch(e){}location.reload()},250)});
+try{parent.postMessage({type:'payload-live-preview',ready:true},location.origin)}catch(e){}})();</script>`
+    : ''
+  const res = htmlResponse(html.replace(/<body([^>]*)>/, `<body$1>${live ? '' : banner}`).replace('</body>', `${liveScript}</body>`))
   res.headers.set('x-robots-tag', 'noindex, nofollow')
   res.headers.set('cache-control', 'private, no-store')
   return res

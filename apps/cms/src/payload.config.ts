@@ -31,7 +31,10 @@ import { Users } from './collections/Users'
 import { migrations } from './migrations'
 import { removeOrphans } from './hooks/tenantCleanup'
 import { startKeepAwake } from './lib/keepAwake'
+import { startTrashPurge } from './lib/trashPurge'
 import { checkS3 } from './lib/s3-check'
+import { notifications } from './endpoints/notifications'
+import { livePreviewURL } from './utilities/preview'
 import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -51,14 +54,28 @@ export default buildConfig({
   admin: {
     user: Users.slug,
     meta: { titleSuffix: ' · Espace de gestion' },
-    // Thème clair imposé (styles dans app/(payload)/custom.scss)
-    theme: 'light',
+    // Thème clair par défaut, sombre au choix (bouton soleil / lune) ; styles dans app/(payload)/custom.scss
+    theme: 'all',
     importMap: { baseDir: path.resolve(dirname) },
     components: {
       beforeDashboard: ['@/components/Welcome#Welcome'],
       afterNavLinks: ['@/components/LogoutLink#LogoutLink'],
+      actions: ['@/components/HeaderTools#HeaderTools'],
+      providers: ['@/components/MobileBar#MobileBar'],
+    },
+    // Aperçu en direct : écran partagé formulaire / site, rechargé à chaque sauvegarde automatique
+    livePreview: {
+      collections: ['pages', 'posts'],
+      breakpoints: [
+        { label: 'Téléphone', name: 'mobile', width: 390, height: 844 },
+        { label: 'Tablette', name: 'tablet', width: 820, height: 1180 },
+        { label: 'Ordinateur', name: 'desktop', width: 1366, height: 860 },
+      ],
+      url: livePreviewURL,
     },
   },
+
+  endpoints: [notifications],
 
   collections: [
     // Contenus
@@ -126,6 +143,7 @@ export default buildConfig({
     if (process.env.NODE_ENV !== 'production') return
     startKeepAwake(payload)
     await removeOrphans(payload)
+    startTrashPurge(payload)
     // Diagnostic du stockage photo, écrit en clair dans les logs (configuration sans les secrets + erreur exacte)
     await checkS3(payload)
     if (process.env.SKIP_DEMO_IMPORT === 'true') return
