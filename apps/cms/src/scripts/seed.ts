@@ -7,6 +7,7 @@ import config from '@payload-config'
 import { getPayload } from 'payload'
 
 import { importEcuriesPoigny } from '../sites/ecuries-poigny/seed'
+import { importHarasMontesugui } from '../sites/haras-montesugui/seed'
 
 const payload = await getPayload({ config })
 
@@ -77,5 +78,8 @@ if (demo.docs.length === 0) {
 
 // Site réel de démonstration : Les Écuries de Poigny (voir /sites/ecuries-poigny)
 await importEcuriesPoigny(payload)
+
+// Haras de Montesugui : duplication classique de la maquette Poigny (voir /sites/haras-montesugui)
+await importHarasMontesugui(payload)
 
 process.exit(0)

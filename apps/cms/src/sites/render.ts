@@ -7,6 +7,7 @@ import { safeHref } from '@/utilities/safeURL'
 import { escapeHTML } from '@/utilities/serverURL'
 
 import { fallbackLogo, serviceIcons, template as poignyTemplate } from './ecuries-poigny/template'
+import { fallbackLogo as montesuguiLogo, template as montesuguiTemplate } from './haras-montesugui/template'
 
 /**
  * Sites publics des clients, servis par le CMS à l'adresse /sites/<identifiant>.
@@ -28,7 +29,19 @@ import { fallbackLogo, serviceIcons, template as poignyTemplate } from './ecurie
  */
 const TEMPLATES: Record<string, string> = {
   'ecuries-poigny': poignyTemplate,
+  'haras-montesugui': montesuguiTemplate,
 }
+
+/** Logo affiché tant que le client n'a pas choisi le sien. */
+const TEMPLATE_LOGOS: Record<string, string> = {
+  'haras-montesugui': montesuguiLogo,
+}
+
+/** Petits textes générés par le CMS qui suivent le ton de la maquette (tutoiement / vouvoiement). */
+const TEMPLATE_TEXTS: Record<string, { forYou: string; blog: string }> = {
+  'haras-montesugui': { forYou: 'Pour vous', blog: 'Actualités' },
+}
+const textsOf = (slug: string) => TEMPLATE_TEXTS[slug] ?? { forYou: 'Pour toi', blog: 'Blog' }
 
 export const hasSiteTemplate = (slug: string) => Object.hasOwn(TEMPLATES, slug)
 
@@ -39,6 +52,7 @@ export const hasSiteTemplate = (slug: string) => Object.hasOwn(TEMPLATES, slug)
  */
 const TEMPLATE_COLORS: Record<string, { primary: string; secondary: string; vars: { primary: string[]; secondary: string[] } }> = {
   'ecuries-poigny': { primary: '#4C6E2A', secondary: '#EDC655', vars: { primary: ['--flot', '--pre'], secondary: ['--paille'] } },
+  'haras-montesugui': { primary: '#74231E', secondary: '#B8913A', vars: { primary: ['--bdx', '--flot', '--pre'], secondary: ['--or', '--paille'] } },
 }
 
 function templateThemeCSS(t: Tenant): string {
@@ -289,7 +303,7 @@ function commonValues(d: SiteData, title: string, description: string) {
   const { tenant, info } = d
   const addr = info?.address?.street ? info.address : tenant.address
   const insta = info?.socials?.find((s) => s.network === 'instagram')?.url
-  const blogLink = d.posts.length || d.events.length || !hasRenderedData(d) ? `<a class="nav-blog" href="${esc(d.base || '/')}#blog" data-v="blog">Blog</a>` : ''
+  const blogLink = d.posts.length || d.events.length || !hasRenderedData(d) ? `<a class="nav-blog" href="${esc(d.base || '/')}#blog" data-v="blog">${esc(textsOf(tenant.slug).blog)}</a>` : ''
   return {
     TITLE: esc(title),
     META_DESCRIPTION: esc(description),
@@ -297,7 +311,7 @@ function commonValues(d: SiteData, title: string, description: string) {
     CITY: esc(addr?.city || ''),
     YEAR: String(new Date().getFullYear()),
     HOME_URL: esc(d.base || '/'),
-    LOGO_SRC: isMedia(tenant.logo) ? mediaURL(d, tenant.logo) : fallbackLogo,
+    LOGO_SRC: isMedia(tenant.logo) ? mediaURL(d, tenant.logo) : (TEMPLATE_LOGOS[tenant.slug] ?? fallbackLogo),
     NAV_LINKS: navLinks(d),
     NAV_BLOG: tenant.settings?.showBlog === false ? '' : blogLink,
     FOOTER_LINKS: footerLinks(d, insta),
@@ -411,7 +425,7 @@ export async function renderSite(payload: Payload, siteSlug: string, opts: Rende
     .map((s) => {
       const audiences = s.audiences?.length ? s.audiences.join(' ') : 'debutant loisir compet proprio'
       const points = (s.points ?? []).map((p) => `<li>${esc(p.text)}</li>`).join('')
-      return `<article class="svc" data-for="${esc(audiences)}"><span class="tag">Pour toi</span><div class="ico">${serviceIcons[s.icon || ''] ?? serviceIcons.person}</div><h3>${esc(s.title)}</h3>${s.summary ? `<p>${esc(s.summary)}</p>` : ''}${points ? `<ul>${points}</ul>` : ''}</article>`
+      return `<article class="svc" data-for="${esc(audiences)}"><span class="tag">${esc(textsOf(siteSlug).forYou)}</span><div class="ico">${serviceIcons[s.icon || ''] ?? serviceIcons.person}</div><h3>${esc(s.title)}</h3>${s.summary ? `<p>${esc(s.summary)}</p>` : ''}${points ? `<ul>${points}</ul>` : ''}</article>`
     })
     .join('\n')
 

@@ -39,6 +39,7 @@ import { storageCheck } from './endpoints/storage'
 import { readableErrors } from './hooks/readableErrors'
 import { livePreviewURL } from './utilities/preview'
 import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
+import { importHarasMontesugui } from './sites/haras-montesugui/seed'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -144,7 +145,7 @@ export default buildConfig({
 
   sharp,
 
-  // Au démarrage : crée le client de démonstration « Les Écuries de Poigny » s'il n'existe pas
+  // Au démarrage : crée les clients « Les Écuries de Poigny » et « Haras de Montesugui » s'ils n'existent pas
   onInit: async (payload) => {
     if (process.env.NODE_ENV !== 'production') return
     startKeepAwake(payload)
@@ -157,6 +158,11 @@ export default buildConfig({
       await importEcuriesPoigny(payload)
     } catch (err) {
       payload.logger.error({ err }, 'Import des Écuries de Poigny impossible')
+    }
+    try {
+      await importHarasMontesugui(payload)
+    } catch (err) {
+      payload.logger.error({ err }, 'Import du Haras de Montesugui impossible')
     }
   },
 
