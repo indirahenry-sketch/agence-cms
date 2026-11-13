@@ -47,6 +47,14 @@ describe('Haras de Montesugui', () => {
     expect(html).toContain('>Actualités</a>')
   })
 
+  it('les photos du haras ouvrent la galerie, sans les vues aériennes de Poigny', () => {
+    const gallery = html.slice(html.indexOf('<div class="galerie">'), html.indexOf('<!--GALLERY_END-->'))
+    expect(gallery.indexOf('Le haras vu du ciel')).toBeGreaterThan(-1)
+    expect(gallery.indexOf('Le haras vu du ciel')).toBeLessThan(gallery.indexOf('Au manège'))
+    expect(gallery).toContain('L&#39;allée des boxes')
+    expect(gallery).not.toContain('Le domaine vu du ciel')
+  })
+
   it('sans logo envoyé, le logo par défaut du haras s’affiche', () => {
     expect(html).toMatch(/<img class="logo" src="data:image\/svg\+xml,/)
   })

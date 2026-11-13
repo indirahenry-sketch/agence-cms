@@ -6,6 +6,8 @@ import { describeError } from '@/lib/s3-check'
 import { seedEvents, seedServices } from '../ecuries-poigny/seedContent'
 import { seedGallery } from '../ecuries-poigny/seedImages'
 
+import { montesuguiPhotos } from './seedImages'
+
 export const MONTESUGUI_SLUG = 'haras-montesugui'
 
 const base = { overrideAccess: true, context: { skipInvite: true } } as const
@@ -192,11 +194,18 @@ async function ensureMenus(payload: Payload, tenantID: number) {
   // Pas de lien « Mentions légales » au pied de page tant que la page (brouillon, à compléter) n'est pas publiée
 }
 
-/** Photos de démonstration (celles de la maquette d'origine), à remplacer par celles du haras. */
+/** Vues aériennes de Poigny : elles montrent un autre domaine, on ne les reprend pas. */
+const POIGNY_SKIPPED = new Set(['Le domaine vu du ciel', 'Au milieu des champs'])
+
+/**
+ * Photos du haras en tête de galerie, puis photos de démonstration de la maquette d'origine
+ * (à remplacer au fil de l'eau par celles du client).
+ */
 async function ensurePhotos(payload: Payload, tenantID: number) {
   const { docs: existing } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 200, depth: 0, ...base })
   const haveAlt = new Set(existing.map((m) => m.alt))
-  const missing = seedGallery.map((img, i) => ({ img, i })).filter(({ img }) => !haveAlt.has(img.alt))
+  const photos = [...montesuguiPhotos, ...seedGallery.filter((img) => !POIGNY_SKIPPED.has(img.alt))]
+  const missing = photos.map((img, i) => ({ img, i })).filter(({ img }) => !haveAlt.has(img.alt))
   if (!missing.length) return
   const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['gallery'] } }] }, limit: 1, ...base })
   for (const { img, i } of missing) {
