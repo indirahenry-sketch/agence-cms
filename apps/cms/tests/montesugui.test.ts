@@ -58,4 +58,25 @@ describe('Haras de Montesugui', () => {
   it('sans logo envoyé, le logo par défaut du haras s’affiche', () => {
     expect(html).toMatch(/<img class="logo" src="data:image\/svg\+xml,/)
   })
+
+  it('modifier les coordonnées dans la fiche client change le site (même pour un client créé par une ancienne version)', async () => {
+    const { docs } = await payload.find({ collection: 'tenants', where: { slug: { equals: MONTESUGUI_SLUG } }, depth: 0, overrideAccess: true })
+    const id = docs[0].id
+    // État laissé par la première version de l'import : coordonnées provisoires dans les « Informations »
+    const { docs: infos } = await payload.find({ collection: 'site-info', where: { tenant: { equals: id } }, depth: 0, overrideAccess: true })
+    await payload.update({ collection: 'site-info', id: infos[0].id, data: { phone: '06 00 00 00 00', email: 'contact@haras-montesugui.fr', address: { street: 'Adresse à compléter' } }, overrideAccess: true })
+    await payload.update({
+      collection: 'tenants',
+      id,
+      data: { phone: '01 64 00 11 22', email: 'bonjour@montesugui.test', address: { street: '3 allée des Tilleuls', postalCode: '77000', city: 'Melun' } },
+      overrideAccess: true,
+    })
+    await importHarasMontesugui(payload) // lancé à chaque démarrage du CMS
+    const page = (await renderSite(payload, MONTESUGUI_SLUG))!
+    expect(page).toContain('01 64 00 11 22')
+    expect(page).toContain('bonjour@montesugui.test')
+    expect(page).toContain('3 allée des Tilleuls')
+    expect(page).not.toContain('06 00 00 00 00')
+    expect(page).not.toContain('Adresse à compléter')
+  })
 })
