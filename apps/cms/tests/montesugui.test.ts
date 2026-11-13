@@ -68,7 +68,7 @@ describe('Haras de Montesugui', () => {
     await payload.update({
       collection: 'tenants',
       id,
-      data: { phone: '01 64 00 11 22', email: 'bonjour@montesugui.test', address: { street: '3 allée des Tilleuls', postalCode: '77000', city: 'Melun' } },
+      data: { phone: '06 11 22 33 44', landline: '01 64 00 11 22', email: 'bonjour@montesugui.test', address: { street: '3 allée des Tilleuls', postalCode: '77000', city: 'Melun' } },
       overrideAccess: true,
     })
     await importHarasMontesugui(payload) // lancé à chaque démarrage du CMS
@@ -78,5 +78,11 @@ describe('Haras de Montesugui', () => {
     expect(page).toContain('3 allée des Tilleuls')
     expect(page).not.toContain('06 00 00 00 00')
     expect(page).not.toContain('Adresse à compléter')
+    // Bandeau du haut : fixe, portable, e-mail et adresse
+    const topbar = page.slice(page.indexOf('<div class="topbar">'), page.indexOf('<nav class="nav"'))
+    expect(topbar.indexOf('01 64 00 11 22')).toBeLessThan(topbar.indexOf('06 11 22 33 44'))
+    expect(topbar).toContain('href="tel:0164001122"')
+    expect(topbar).toContain('bonjour@montesugui.test')
+    expect(topbar).toContain('3 allée des Tilleuls – 77000 Melun')
   })
 })

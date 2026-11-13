@@ -8,6 +8,7 @@ import * as migration_20261109_035917_cms_v4_interface from './20261109_035917_c
 import * as migration_20261109_053121_cms_v5_annonces from './20261109_053121_cms_v5_annonces';
 import * as migration_20261109_054500_cms_v6_articles from './20261109_054500_cms_v6_articles';
 import * as migration_20261113_084741_cms_v7_sourdun from './20261113_084741_cms_v7_sourdun';
+import * as migration_20261113_094102_cms_v8_telephone_fixe from './20261113_094102_cms_v8_telephone_fixe';
 
 export const migrations = [
   {
@@ -59,5 +60,10 @@ export const migrations = [
     up: migration_20261113_084741_cms_v7_sourdun.up,
     down: migration_20261113_084741_cms_v7_sourdun.down,
     name: '20261113_084741_cms_v7_sourdun',
+  },
+  {
+    up: migration_20261113_094102_cms_v8_telephone_fixe.up,
+    down: migration_20261113_094102_cms_v8_telephone_fixe.down,
+    name: '20261113_094102_cms_v8_telephone_fixe',
   },
 ];
