@@ -412,13 +412,13 @@ export interface Service {
         id?: string | null;
       }[]
     | null;
-  icon?: ('person' | 'medal' | 'home' | 'heart' | 'chart' | 'calendar' | 'star') | null;
+  icon?: ('person' | 'medal' | 'home' | 'heart' | 'chart' | 'calendar' | 'star' | 'group' | 'trail' | 'barn') | null;
   category?: (number | null) | Category;
   order?: number | null;
   /**
-   * Sert au filtre « Trouve ce qui te correspond » du site.
+   * Sert au filtre « Trouve ce qui te correspond » du site (chaque maquette affiche ses propres profils).
    */
-  audiences?: ('debutant' | 'loisir' | 'compet' | 'proprio')[] | null;
+  audiences?: ('debutant' | 'loisir' | 'compet' | 'proprio' | 'enfant' | 'cavalier' | 'groupe' | 'adapte')[] | null;
   updatedAt: string;
   createdAt: string;
   deletedAt?: string | null;
@@ -674,7 +674,20 @@ export interface Menu {
         type: 'page' | 'anchor' | 'url';
         page?: (number | null) | Page;
         anchor?:
-          | ('top' | 'galerie' | 'services' | 'tarifs' | 'installations' | 'stages' | 'blog' | 'actualites' | 'contact')
+          | (
+              | 'top'
+              | 'galerie'
+              | 'services'
+              | 'activites'
+              | 'tarifs'
+              | 'installations'
+              | 'stages'
+              | 'horaires'
+              | 'reserver'
+              | 'blog'
+              | 'actualites'
+              | 'contact'
+            )
           | null;
         url?: string | null;
         newTab?: boolean | null;
@@ -688,9 +701,12 @@ export interface Menu {
                     | 'top'
                     | 'galerie'
                     | 'services'
+                    | 'activites'
                     | 'tarifs'
                     | 'installations'
                     | 'stages'
+                    | 'horaires'
+                    | 'reserver'
                     | 'blog'
                     | 'actualites'
                     | 'contact'

@@ -40,6 +40,7 @@ import { readableErrors } from './hooks/readableErrors'
 import { livePreviewURL } from './utilities/preview'
 import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
 import { importHarasMontesugui } from './sites/haras-montesugui/seed'
+import { importCentreEquestreSourdun } from './sites/centre-equestre-sourdun/seed'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -145,7 +146,7 @@ export default buildConfig({
 
   sharp,
 
-  // Au démarrage : crée les clients « Les Écuries de Poigny » et « Haras de Montesugui » s'ils n'existent pas
+  // Au démarrage : crée les clients « Les Écuries de Poigny », « Haras de Montesugui » et « Centre Équestre de Sourdun » s'ils n'existent pas
   onInit: async (payload) => {
     if (process.env.NODE_ENV !== 'production') return
     startKeepAwake(payload)
@@ -163,6 +164,11 @@ export default buildConfig({
       await importHarasMontesugui(payload)
     } catch (err) {
       payload.logger.error({ err }, 'Import du Haras de Montesugui impossible')
+    }
+    try {
+      await importCentreEquestreSourdun(payload)
+    } catch (err) {
+      payload.logger.error({ err }, 'Import du Centre Équestre de Sourdun impossible')
     }
   },
 

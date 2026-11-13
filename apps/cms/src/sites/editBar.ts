@@ -20,7 +20,7 @@ const TARGETS: [selector: string, label: string, href: string][] = [
   ['.promo-banner', 'Bannière', '/admin/collections/promotions'],
   ['nav .links, .site-nav, header nav', 'Menu', '/admin/collections/menus'],
   ['#galerie', 'Photos', '/admin/collections/media'],
-  ['#services', 'Services', '/admin/collections/services'],
+  ['#services, #activites', 'Services', '/admin/collections/services'],
   ['#tarifs', 'Tarifs', '/admin/collections/prices'],
   ['#stages', 'Agenda', '/admin/collections/events'],
   ['#calGrid', 'Agenda', '/admin/collections/events'],

@@ -8,6 +8,7 @@ import { escapeHTML } from '@/utilities/serverURL'
 
 import { fallbackLogo, serviceIcons, template as poignyTemplate } from './ecuries-poigny/template'
 import { fallbackLogo as montesuguiLogo, template as montesuguiTemplate } from './haras-montesugui/template'
+import { extraServiceIcons, fallbackLogo as sourdunLogo, template as sourdunTemplate } from './centre-equestre-sourdun/template'
 
 /**
  * Sites publics des clients, servis par le CMS à l'adresse /sites/<identifiant>.
@@ -30,11 +31,16 @@ import { fallbackLogo as montesuguiLogo, template as montesuguiTemplate } from '
 const TEMPLATES: Record<string, string> = {
   'ecuries-poigny': poignyTemplate,
   'haras-montesugui': montesuguiTemplate,
+  'centre-equestre-sourdun': sourdunTemplate,
 }
+
+/** Icônes des services, toutes maquettes confondues. */
+const ICONS: Record<string, string> = { ...serviceIcons, ...extraServiceIcons }
 
 /** Logo affiché tant que le client n'a pas choisi le sien. */
 const TEMPLATE_LOGOS: Record<string, string> = {
   'haras-montesugui': montesuguiLogo,
+  'centre-equestre-sourdun': sourdunLogo,
 }
 
 /** Petits textes générés par le CMS qui suivent le ton de la maquette (tutoiement / vouvoiement). */
@@ -53,6 +59,7 @@ export const hasSiteTemplate = (slug: string) => Object.hasOwn(TEMPLATES, slug)
 const TEMPLATE_COLORS: Record<string, { primary: string; secondary: string; vars: { primary: string[]; secondary: string[] } }> = {
   'ecuries-poigny': { primary: '#4C6E2A', secondary: '#EDC655', vars: { primary: ['--flot', '--pre'], secondary: ['--paille'] } },
   'haras-montesugui': { primary: '#74231E', secondary: '#B8913A', vars: { primary: ['--bdx', '--flot', '--pre'], secondary: ['--or', '--paille'] } },
+  'centre-equestre-sourdun': { primary: '#3E9A1E', secondary: '#E8C15A', vars: { primary: ['--flot', '--pre'], secondary: ['--paille'] } },
 }
 
 function templateThemeCSS(t: Tenant): string {
@@ -230,7 +237,9 @@ const linkHref = (d: SiteData, l: MenuLink): string => {
   return safeHref(l.url)
 }
 const linkHTML = (d: SiteData, l: MenuLink, extra = '') => {
-  const blogAttr = l.type === 'anchor' && l.anchor === 'blog' ? ' data-v="blog"' : ''
+  // Sections qui sont des « pages » dans certaines maquettes (lien souligné quand la page est ouverte)
+  const view = l.type === 'anchor' ? (l.anchor === 'top' ? 'accueil' : l.anchor) : ''
+  const blogAttr = view && ['accueil', 'blog', 'horaires', 'tarifs', 'reserver'].includes(view) ? ` data-v="${view}"` : ''
   const target = l.newTab ? ' target="_blank" rel="noopener"' : ''
   return `<a href="${esc(linkHref(d, l))}"${blogAttr}${target}${extra}>${esc(l.label)}</a>`
 }
@@ -425,7 +434,7 @@ export async function renderSite(payload: Payload, siteSlug: string, opts: Rende
     .map((s) => {
       const audiences = s.audiences?.length ? s.audiences.join(' ') : 'debutant loisir compet proprio'
       const points = (s.points ?? []).map((p) => `<li>${esc(p.text)}</li>`).join('')
-      return `<article class="svc" data-for="${esc(audiences)}"><span class="tag">${esc(textsOf(siteSlug).forYou)}</span><div class="ico">${serviceIcons[s.icon || ''] ?? serviceIcons.person}</div><h3>${esc(s.title)}</h3>${s.summary ? `<p>${esc(s.summary)}</p>` : ''}${points ? `<ul>${points}</ul>` : ''}</article>`
+      return `<article class="svc" data-for="${esc(audiences)}"><span class="tag">${esc(textsOf(siteSlug).forYou)}</span><div class="ico">${ICONS[s.icon || ''] ?? ICONS.person}</div><h3>${esc(s.title)}</h3>${s.summary ? `<p>${esc(s.summary)}</p>` : ''}${points ? `<ul>${points}</ul>` : ''}</article>`
     })
     .join('\n')
 
