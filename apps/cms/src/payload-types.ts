@@ -236,6 +236,10 @@ export interface Tenant {
   };
   email?: string | null;
   phone?: string | null;
+  /**
+   * Facultatif : affiché à côté du portable.
+   */
+  landline?: string | null;
   address?: {
     street?: string | null;
     postalCode?: string | null;
@@ -288,7 +292,6 @@ export interface Media {
    */
   isPublic?: boolean | null;
   inGallery?: boolean | null;
-  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   deletedAt?: string | null;
@@ -499,6 +502,10 @@ export interface SiteInfo {
       }[]
     | null;
   phone?: string | null;
+  /**
+   * Facultatif : affiché à côté du portable.
+   */
+  landline?: string | null;
   email?: string | null;
   address?: {
     street?: string | null;
@@ -1015,7 +1022,6 @@ export interface MediaSelect<T extends boolean = true> {
   tags?: T;
   isPublic?: T;
   inGallery?: T;
-  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   deletedAt?: T;
@@ -1153,6 +1159,7 @@ export interface SiteInfoSelect<T extends boolean = true> {
         id?: T;
       };
   phone?: T;
+  landline?: T;
   email?: T;
   address?:
     | T
@@ -1404,6 +1411,7 @@ export interface TenantsSelect<T extends boolean = true> {
       };
   email?: T;
   phone?: T;
+  landline?: T;
   address?:
     | T
     | {

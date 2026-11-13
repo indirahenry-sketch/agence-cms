@@ -306,11 +306,39 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!el.hidden)
 setTimeout(function(){el.hidden=false},c.delay*1000)})();</script>`
 }
 
+// ── Bandeau de coordonnées (haut de page) ────────────────────────────
+
+const TOPBAR_ICONS = {
+  phone: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+}
+const telHref = (n: string) => `tel:${n.replace(/[^\d+]/g, '')}`
+
+/** Téléphone fixe, portable, e-mail et adresse (seulement ceux qui sont renseignés), séparés par un filet. */
+function topbarHTML(c: { landline: string; phone: string; email: string; address: string; mapsURL: string }): string {
+  const items = [
+    c.landline && `<a class="tb-item" href="${esc(telHref(c.landline))}">${TOPBAR_ICONS.phone}<span>${esc(c.landline)}</span></a>`,
+    c.phone && c.phone !== c.landline && `<a class="tb-item" href="${esc(telHref(c.phone))}">${TOPBAR_ICONS.phone}<span>${esc(c.phone)}</span></a>`,
+    c.email && `<a class="tb-item" href="mailto:${esc(c.email)}">${TOPBAR_ICONS.mail}<span>${esc(c.email)}</span></a>`,
+    c.address && `<a class="tb-item tb-adr" href="${esc(c.mapsURL)}" target="_blank" rel="noopener">${TOPBAR_ICONS.pin}<span>${esc(c.address)}</span></a>`,
+  ].filter(Boolean)
+  return items.join('')
+}
+
 // ── Valeurs communes à toutes les pages du site ──────────────────────
 
 function commonValues(d: SiteData, title: string, description: string) {
   const { tenant, info } = d
   const addr = info?.address?.street ? info.address : tenant.address
+  const addrQuery = [addr?.street, addr?.postalCode, addr?.city].filter(Boolean).join(' ')
+  const topbar = topbarHTML({
+    landline: info?.landline || tenant.landline || '',
+    phone: info?.phone || tenant.phone || '',
+    email: info?.email || tenant.email || '',
+    address: [addr?.street, [addr?.postalCode, addr?.city].filter(Boolean).join(' ')].filter(Boolean).join(' – '),
+    mapsURL: safeHref(info?.address?.mapsUrl) !== '#' ? safeHref(info?.address?.mapsUrl) : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrQuery)}`,
+  })
   const insta = info?.socials?.find((s) => s.network === 'instagram')?.url
   const blogLink = d.posts.length || d.events.length || !hasRenderedData(d) ? `<a class="nav-blog" href="${esc(d.base || '/')}#blog" data-v="blog">${esc(textsOf(tenant.slug).blog)}</a>` : ''
   return {
@@ -320,6 +348,7 @@ function commonValues(d: SiteData, title: string, description: string) {
     CITY: esc(addr?.city || ''),
     YEAR: String(new Date().getFullYear()),
     HOME_URL: esc(d.base || '/'),
+    TOPBAR: topbar,
     LOGO_SRC: isMedia(tenant.logo) ? mediaURL(d, tenant.logo) : (TEMPLATE_LOGOS[tenant.slug] ?? fallbackLogo),
     NAV_LINKS: navLinks(d),
     NAV_BLOG: tenant.settings?.showBlog === false ? '' : blogLink,

@@ -204,6 +204,7 @@ export const Tenants: CollectionConfig = {
               fields: [
                 { name: 'email', label: 'E-mail', type: 'email' },
                 { name: 'phone', label: 'Téléphone', type: 'text' },
+                { name: 'landline', label: 'Téléphone fixe', type: 'text', admin: { description: 'Facultatif : affiché à côté du portable.' } },
               ],
             },
             {

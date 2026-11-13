@@ -29,6 +29,7 @@ export async function importHarasMontesugui(payload: Payload): Promise<void> {
       payload.logger.error({ err }, `Haras de Montesugui : étape « ${name} » impossible : ${describeError(err)}`)
     }
   }
+  await step('coordonnées provisoires', () => clearPlaceholderInfo(payload, tenantID))
   await step('tarifs', () => ensurePrices(payload, tenantID))
   await step('services', () => ensureServices(payload, tenantID))
   await step('agenda', () => ensureEvents(payload, tenantID))
@@ -37,11 +38,32 @@ export async function importHarasMontesugui(payload: Payload): Promise<void> {
   await step('photos', () => ensurePhotos(payload, tenantID))
 }
 
+/** Valeurs provisoires mises à la création : elles ne doivent jamais masquer celles de la fiche client. */
+const PLACEHOLDERS = { phone: '06 00 00 00 00', email: 'contact@haras-montesugui.fr', street: 'Adresse à compléter' }
+
+/**
+ * Les « Informations » priment sur la fiche client. Les premières versions de l'import y mettaient
+ * les coordonnées provisoires : modifier la fiche client ne changeait alors rien sur le site.
+ * On efface ces valeurs provisoires (et seulement elles) : la fiche client reprend la main.
+ */
+async function clearPlaceholderInfo(payload: Payload, tenantID: number) {
+  const { docs } = await payload.find({ collection: 'site-info', where: { tenant: { equals: tenantID } }, limit: 1, depth: 0, ...base })
+  const info = docs[0]
+  if (!info) return
+  const data: Record<string, unknown> = {}
+  if (info.phone === PLACEHOLDERS.phone) data.phone = null
+  if (info.email === PLACEHOLDERS.email) data.email = null
+  if (info.address?.street === PLACEHOLDERS.street) data.address = { ...info.address, street: null }
+  if (!Object.keys(data).length) return
+  await payload.update({ collection: 'site-info', id: info.id, data, ...base })
+  payload.logger.info('✔ Haras de Montesugui : coordonnées provisoires retirées des Informations')
+}
+
 const countOf = async (payload: Payload, collection: 'prices' | 'services' | 'events' | 'menus' | 'media', tenantID: number) =>
   (await payload.count({ collection, where: { tenant: { equals: tenantID } }, overrideAccess: true })).totalDocs
 
 async function createTenant(payload: Payload): Promise<number> {
-  const contact = { email: 'contact@haras-montesugui.fr', phone: '06 00 00 00 00' }
+  const contact = { email: PLACEHOLDERS.email, phone: PLACEHOLDERS.phone }
   const tenant = await payload.create({
     collection: 'tenants',
     data: {
@@ -49,7 +71,7 @@ async function createTenant(payload: Payload): Promise<number> {
       slug: MONTESUGUI_SLUG,
       languages: ['fr'],
       ...contact,
-      address: { street: 'Adresse à compléter', country: 'France' },
+      address: { street: PLACEHOLDERS.street, country: 'France' },
       theme: { primaryColor: '#74231E', secondaryColor: '#B8913A', font: 'playfair' },
       settings: { showBlog: true, showEvents: true, showPrices: true, showGallery: true },
       labels: ['Équestre', 'Maquette'],
@@ -61,8 +83,6 @@ async function createTenant(payload: Payload): Promise<number> {
     collection: 'site-info',
     data: {
       tenant: tenant.id,
-      ...contact,
-      address: { street: 'Adresse à compléter' },
       openingHours: [
         { day: 'monday', ...weekday },
         { day: 'tuesday', ...weekday },

@@ -91,6 +91,7 @@ export const SiteInfo: CollectionConfig = {
               type: 'row',
               fields: [
                 { name: 'phone', label: 'Téléphone', type: 'text' },
+                { name: 'landline', label: 'Téléphone fixe', type: 'text', admin: { description: 'Facultatif : affiché à côté du portable.' } },
                 { name: 'email', label: 'E-mail de contact', type: 'email' },
               ],
             },
