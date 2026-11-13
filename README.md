@@ -236,6 +236,8 @@ Pour les Écuries de Poigny, le CMS pilote : nom, logo, téléphone, e-mail, adr
 - Le site est marqué « Maquette » et masqué des moteurs de recherche tant que le client n'a pas validé.
 - Le client est créé par la migration `20261104_211500_ecuries_poigny` (rien n'est recréé s'il existe déjà).
 
+**Haras de Montesugui** (`/sites/haras-montesugui`) : duplication de la V10 de Poigny avec un habillage classique (bordeaux, ivoire et or, polices Cormorant Garamond / EB Garamond / Cinzel, vouvoiement). Mêmes sections pilotées par le CMS. Créé au démarrage du CMS et par `pnpm seed` (fichier `src/sites/haras-montesugui/seed.ts`), avec les tarifs, services, agenda et photos de démonstration de Poigny. **À compléter dans la fiche client** : téléphone, e-mail et adresse (valeurs provisoires `06 00 00 00 00` / `contact@haras-montesugui.fr`), logo (le logo du haras — sceau bordeaux et or, tête de cheval — est affiché tant qu'aucun autre n'est envoyé), photos (la vue aérienne, l'allée des boxes et le cheval au paddock ouvrent la galerie ; les autres viennent de Poigny), puis publication des mentions légales. La bannière d'accueil est la vue aérienne du haras.
+
 ---
 
 ## Version 2 (6 novembre 2026)
