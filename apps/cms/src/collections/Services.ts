@@ -14,6 +14,9 @@ export const SERVICE_ICONS = [
   { label: 'Progression', value: 'chart' },
   { label: 'Calendrier', value: 'calendar' },
   { label: 'Étoile', value: 'star' },
+  { label: 'Groupe', value: 'group' },
+  { label: 'Balade (sapin)', value: 'trail' },
+  { label: 'Écurie', value: 'barn' },
 ]
 
 /** Prestations du client (cours, pension, soins…), affichées dans la section Services du site. */
@@ -59,8 +62,12 @@ export const Services: CollectionConfig = {
         { label: 'Je monte en loisir', value: 'loisir' },
         { label: 'Je sors en concours', value: 'compet' },
         { label: 'J’ai mon cheval', value: 'proprio' },
+        { label: 'Pour mon enfant', value: 'enfant' },
+        { label: 'Je suis cavalier', value: 'cavalier' },
+        { label: 'École ou groupe', value: 'groupe' },
+        { label: 'Besoin adapté', value: 'adapte' },
       ],
-      admin: { description: 'Sert au filtre « Trouve ce qui te correspond » du site.' },
+      admin: { description: 'Sert au filtre « Trouve ce qui te correspond » du site (chaque maquette affiche ses propres profils).' },
     },
   ],
 }

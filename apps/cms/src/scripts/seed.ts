@@ -8,6 +8,7 @@ import { getPayload } from 'payload'
 
 import { importEcuriesPoigny } from '../sites/ecuries-poigny/seed'
 import { importHarasMontesugui } from '../sites/haras-montesugui/seed'
+import { importCentreEquestreSourdun } from '../sites/centre-equestre-sourdun/seed'
 
 const payload = await getPayload({ config })
 
@@ -81,5 +82,8 @@ await importEcuriesPoigny(payload)
 
 // Haras de Montesugui : duplication classique de la maquette Poigny (voir /sites/haras-montesugui)
 await importHarasMontesugui(payload)
+
+// Centre Équestre de Sourdun : dernière version de sa maquette (voir /sites/centre-equestre-sourdun)
+await importCentreEquestreSourdun(payload)
 
 process.exit(0)
