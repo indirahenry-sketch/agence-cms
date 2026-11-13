@@ -53,7 +53,7 @@ export const Posts: CollectionConfig = {
       type: 'ui',
       admin: { components: { Cell: '@/components/StatusCell#RelativeDateCell' } },
     },
-    { name: 'title', label: 'Titre', type: 'text', localized: true, required: true },
+    { name: 'title', label: 'Titre', type: 'text', localized: true, required: true, admin: { components: { Cell: '@/components/TitleLinkCell#TitleLinkCell' } } },
     {
       name: 'slug',
       label: 'Adresse de l’article',

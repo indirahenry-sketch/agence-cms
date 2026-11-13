@@ -392,6 +392,10 @@ body.events-cal-on .collection-list__tables, body.events-cal-on .collection-list
 
 .cover-cell { display: block; width: 64px; height: 44px; border-radius: 8px; object-fit: cover; }
 .cover-cell--empty { display: grid; place-items: center; background: var(--theme-elevation-100); color: var(--cms-muted); }
+.cover-cell-link { display: inline-block; border-radius: 8px; }
+.cover-cell-link:hover .cover-cell { outline: 2px solid var(--theme-success-500); outline-offset: 2px; }
+.title-cell-link { font-weight: 600; color: inherit; text-decoration: none; }
+.title-cell-link:hover { text-decoration: underline; }
 
 /* Champ couleur (Logo et couleurs) */
 .color-field { margin-bottom: 18px; }

@@ -1,6 +1,7 @@
 import { TenantField as TenantField_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { StatusCell as StatusCell_de67b6ed4e705b9838b8ef1a6356bbf7 } from '@/components/StatusCell'
 import { RelativeDateCell as RelativeDateCell_de67b6ed4e705b9838b8ef1a6356bbf7 } from '@/components/StatusCell'
+import { TitleLinkCell as TitleLinkCell_b64164d73f5c70f31efcc1c37b7d9cdc } from '@/components/TitleLinkCell'
 import { CoverCell as CoverCell_1b8a74e0fb08ea21b674e06d2eed1ba4 } from '@/components/CoverCell'
 import { RscEntryLexicalCell as RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { RscEntryLexicalField as RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
@@ -50,6 +51,7 @@ export const importMap = {
   "@payloadcms/plugin-multi-tenant/client#TenantField": TenantField_1d0591e3cf4f332c83a86da13a0de59a,
   "@/components/StatusCell#StatusCell": StatusCell_de67b6ed4e705b9838b8ef1a6356bbf7,
   "@/components/StatusCell#RelativeDateCell": RelativeDateCell_de67b6ed4e705b9838b8ef1a6356bbf7,
+  "@/components/TitleLinkCell#TitleLinkCell": TitleLinkCell_b64164d73f5c70f31efcc1c37b7d9cdc,
   "@/components/CoverCell#CoverCell": CoverCell_1b8a74e0fb08ea21b674e06d2eed1ba4,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalField": RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e,
