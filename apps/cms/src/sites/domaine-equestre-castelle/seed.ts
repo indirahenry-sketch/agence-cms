@@ -244,12 +244,12 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
   const missing = castellePhotos.filter((p) => !haveAlt.has(p.alt))
   if (!missing.length) return
   const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['gallery'] } }] }, limit: 1, ...base })
-  for (const [i, img] of missing.entries()) {
+  for (const img of missing) {
     const data = Buffer.from(img.b64, 'base64')
     await payload.create({
       collection: 'media',
       data: { tenant: tenantID, alt: img.alt, title: img.caption, inGallery: true, isPublic: true, ...(cats[0] ? { category: cats[0].id } : {}) },
-      file: { data, mimetype: img.mime, name: `castelle-${i + 1}.jpg`, size: data.length },
+      file: { data, mimetype: img.mime, name: `castelle-${castellePhotos.indexOf(img) + 1}.jpg`, size: data.length },
       ...base,
     })
   }
