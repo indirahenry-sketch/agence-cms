@@ -61,7 +61,9 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(html).toContain('Écurie de propriétaires')
     expect(html).toContain('Première nuit')
     expect(html).toContain('Abonnement annuel « Enfant »')
-    expect(html).toContain('>Cours &amp; abonnements</button>')
+    expect(html).toContain('>Adhésion, licence &amp; cours</button>')
+    expect(html).not.toContain('>Cours &amp; abonnements</button>')
+    expect(html.indexOf('Licence adulte')).toBeLessThan(html.indexOf('Abonnement annuel « Enfant »'))
     expect(html).toContain('id="calGrid"')
     expect(html).toContain('Planning des cours 2026-2027')
     expect(html).toContain('>Planning</a>')
@@ -71,6 +73,17 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(html).toContain('dedc34@yahoo.com')
     expect(html).toContain('>Le domaine</a>')
     expect(html).toMatch(new RegExp(`<figure class="pola r1" tabindex="0"><img src="/sites/${SLUG}/media/\\d+`))
+  })
+
+  it('fusionne l’ancien onglet « Cours & abonnements » dans l’adhésion, à la suite', async () => {
+    const of = { tenant: { equals: tenantID } }
+    const old = await payload.create({ collection: 'categories', data: { tenant: tenantID, name: 'Cours & abonnements', usage: ['prices'], order: 1 }, overrideAccess: true })
+    await payload.create({ collection: 'prices', data: { tenant: tenantID, category: old.id, name: 'Tarif déplacé', price: 12 }, overrideAccess: true })
+    await importDomaineCastelle(payload)
+    expect((await payload.count({ collection: 'categories', where: { and: [of, { name: { equals: 'Cours & abonnements' } }] }, overrideAccess: true })).totalDocs).toBe(0)
+    const page = (await renderSite(payload, SLUG))!
+    expect(page.indexOf('Demi-pension')).toBeLessThan(page.indexOf('Tarif déplacé'))
+    expect((await payload.count({ collection: 'prices', where: of, overrideAccess: true })).totalDocs).toBe(27)
   })
 
   it('sans photo dans le CMS, la galerie de la maquette reste affichée', async () => {

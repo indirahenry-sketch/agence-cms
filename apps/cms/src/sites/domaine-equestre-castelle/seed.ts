@@ -197,30 +197,29 @@ async function ensureServices(payload: Payload, tenantID: number) {
   }
 }
 
+/** Onglet unique : adhésion et licence d'abord, puis les cours et abonnements à la suite. */
+const MERGED_TAB = 'Adhésion, licence & cours'
+const OLD_COURSES_TAB = 'Cours & abonnements'
+const OLD_ADHESION_TAB = 'Adhésion & licence'
+
 type P = { name: string; description?: string; price: number; unit?: string; displayPrice?: string; highlight?: boolean }
 /** Grille 2026-2027 du poney-club (affiche « Tarifications du Poney-Club du DEDC ») et tarifs pensionnaires. */
 const PRICE_GROUPS: { name: string; order: number; prices: P[] }[] = [
   {
-    name: 'Cours & abonnements',
+    name: MERGED_TAB,
     order: 1,
-    prices: [
-      { name: 'Abonnement annuel « Enfant »', description: 'Cotisation et licence incluses, soit 16 € le cours', price: 749, unit: 'par an', highlight: true },
-      { name: 'Abonnement annuel « Adulte »', description: 'Cotisation et licence incluses, soit 18 € le cours', price: 840, unit: 'par an' },
-      { name: 'Carte 10 cours collectifs', description: 'Valable jusqu’à fin juin', price: 200, unit: 'les 10 cours' },
-      { name: 'Cours particulier', description: 'Sur réservation', price: 30, unit: 'l’heure' },
-      { name: 'Cours particulier en duo', description: 'Sur réservation', price: 50, unit: 'l’heure, pour deux' },
-      { name: 'Demi-pension', description: '2 séances par semaine', price: 150, unit: 'par mois' },
-    ],
-  },
-  {
-    name: 'Adhésion & licence',
-    order: 2,
     prices: [
       { name: 'Adhésion annuelle', description: '1er membre de la famille', price: 80, unit: 'par an' },
       { name: 'Adhésion annuelle, 2e membre', description: 'Même famille · gratuit à partir du 3e', price: 75, unit: 'par an' },
       { name: 'Licence enfant', description: 'Moins de 18 ans', price: 29, unit: 'par an' },
       { name: 'Licence adulte', price: 40, unit: 'par an' },
       { name: 'Licence compétition', description: 'Club : gratuite', price: 80, displayPrice: 'Amateur : 80 €', unit: 'par an' },
+      { name: 'Abonnement annuel « Enfant »', description: 'Cotisation et licence incluses, soit 16 € le cours', price: 749, unit: 'par an', highlight: true },
+      { name: 'Abonnement annuel « Adulte »', description: 'Cotisation et licence incluses, soit 18 € le cours', price: 840, unit: 'par an' },
+      { name: 'Carte 10 cours collectifs', description: 'Valable jusqu’à fin juin', price: 200, unit: 'les 10 cours' },
+      { name: 'Cours particulier', description: 'Sur réservation', price: 30, unit: 'l’heure' },
+      { name: 'Cours particulier en duo', description: 'Sur réservation', price: 50, unit: 'l’heure, pour deux' },
+      { name: 'Demi-pension', description: '2 séances par semaine', price: 150, unit: 'par mois' },
     ],
   },
   {
@@ -269,9 +268,29 @@ const PRICE_GROUPS: { name: string; order: number; prices: P[] }[] = [
  * seules les catégories manquantes sont ajoutées, avec leurs tarifs.
  */
 async function ensurePrices(payload: Payload, tenantID: number) {
-  const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['prices'] } }] }, limit: 100, depth: 0, ...base })
+  const ofTenant = { tenant: { equals: tenantID } }
+  const findCats = () => payload.find({ collection: 'categories', where: { and: [ofTenant, { usage: { in: ['prices'] } }] }, limit: 100, depth: 0, ...base })
+  let { docs: cats } = await findCats()
+  // Fusion demandée : l'onglet « Cours & abonnements » disparaît, ses tarifs passent à la suite de l'adhésion
+  const oldCourses = cats.find((c) => c.name === OLD_COURSES_TAB)
+  const adhesion = cats.find((c) => c.name === OLD_ADHESION_TAB || c.name === MERGED_TAB)
+  if (oldCourses && adhesion) {
+    const { docs: toMove } = await payload.find({ collection: 'prices', where: { and: [ofTenant, { category: { equals: oldCourses.id } }] }, sort: '_order', limit: 200, depth: 0, ...base })
+    for (const p of toMove) {
+      // Recréé (puis l'original supprimé) pour se placer à la fin de l'onglet, avec les valeurs actuelles
+      await payload.create({
+        collection: 'prices',
+        data: { tenant: tenantID, category: adhesion.id, name: p.name, description: p.description, price: p.price, unit: p.unit, isFrom: p.isFrom, displayPrice: p.displayPrice, highlight: p.highlight },
+        ...base,
+      })
+      await payload.delete({ collection: 'prices', id: p.id, ...base })
+    }
+    await payload.update({ collection: 'categories', id: adhesion.id, data: { name: MERGED_TAB, order: 1 }, ...base })
+    await payload.delete({ collection: 'categories', id: oldCourses.id, ...base })
+    ;({ docs: cats } = await findCats())
+  }
   const used = new Set<number>()
-  const { docs: existingPrices } = await payload.find({ collection: 'prices', where: { tenant: { equals: tenantID } }, limit: 500, depth: 0, ...base })
+  const { docs: existingPrices } = await payload.find({ collection: 'prices', where: ofTenant, limit: 500, depth: 0, ...base })
   for (const p of existingPrices) if (typeof p.category === 'number') used.add(p.category)
   // Catégorie par défaut de la fiche client (« Tarifs »), encore vide : réutilisée pour le premier onglet
   let spare = cats.find((c) => !used.has(c.id) && !PRICE_GROUPS.some((g) => g.name === c.name))
