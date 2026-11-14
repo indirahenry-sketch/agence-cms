@@ -346,6 +346,10 @@ async function ensurePrices(payload: Payload, tenantID: number) {
 const OLD_MENUS = [
   ['Activités', 'Le domaine', 'Tarifs', 'Agenda', 'Photos', 'Contact'],
   ['Le domaine', 'Activités', 'Planning', 'Tarifs', 'Agenda', 'Photos', 'Contact'],
+  // Fiche créée en dupliquant le Haras de Montesugui : son menu de démonstration
+  ['Le haras', 'Prestations', 'Tarifs', 'Actualités', 'Contact'],
+  ['Galerie', 'Prestations', 'Tarifs', 'Actualités', 'Contact'],
+  ['Le haras', 'Prestations', 'Installations', 'Stages', 'Tarifs', 'Actualités', 'Contact'],
 ]
 /**
  * Échange demandé : la vue aérienne de la carrière (avec le ciel) illustre « Le domaine »,
