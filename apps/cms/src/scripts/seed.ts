@@ -9,6 +9,7 @@ import { getPayload } from 'payload'
 import { importEcuriesPoigny } from '../sites/ecuries-poigny/seed'
 import { importHarasMontesugui } from '../sites/haras-montesugui/seed'
 import { importCentreEquestreSourdun } from '../sites/centre-equestre-sourdun/seed'
+import { importDomaineCastelle } from '../sites/domaine-equestre-castelle/seed'
 
 const payload = await getPayload({ config })
 
@@ -85,5 +86,8 @@ await importHarasMontesugui(payload)
 
 // Centre Équestre de Sourdun : dernière version de sa maquette (voir /sites/centre-equestre-sourdun)
 await importCentreEquestreSourdun(payload)
+
+// Domaine Équestre de la Castelle : client créé depuis le CMS, complété ici (voir /sites/<identifiant>)
+await importDomaineCastelle(payload)
 
 process.exit(0)

@@ -41,6 +41,7 @@ import { livePreviewURL } from './utilities/preview'
 import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
 import { importHarasMontesugui } from './sites/haras-montesugui/seed'
 import { importCentreEquestreSourdun } from './sites/centre-equestre-sourdun/seed'
+import { importDomaineCastelle } from './sites/domaine-equestre-castelle/seed'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -169,6 +170,11 @@ export default buildConfig({
       await importCentreEquestreSourdun(payload)
     } catch (err) {
       payload.logger.error({ err }, 'Import du Centre Équestre de Sourdun impossible')
+    }
+    try {
+      await importDomaineCastelle(payload)
+    } catch (err) {
+      payload.logger.error({ err }, 'Import du Domaine Équestre de la Castelle impossible')
     }
   },
 
