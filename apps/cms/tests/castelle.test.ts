@@ -102,6 +102,23 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(page).not.toContain('>Le haras</a>')
   })
 
+  it('retire les activités et tarifs de démonstration hérités du Haras de Montesugui', async () => {
+    const of = { tenant: { equals: tenantID } }
+    const { seedServices } = await import('@/sites/ecuries-poigny/seedContent')
+    const demo = seedServices[0]
+    await payload.create({ collection: 'services', data: { tenant: tenantID, title: demo.title, summary: demo.summary }, overrideAccess: true })
+    const tab = await payload.create({ collection: 'categories', data: { tenant: tenantID, name: 'Pensions', usage: ['prices'], order: 2 }, overrideAccess: true })
+    await payload.create({ collection: 'prices', data: { tenant: tenantID, category: tab.id, name: 'Pension box', price: 420 }, overrideAccess: true })
+    const before = (await payload.count({ collection: 'prices', where: of, overrideAccess: true })).totalDocs
+    await importDomaineCastelle(payload)
+    const page = (await renderSite(payload, SLUG))!
+    expect(page).not.toContain('Pension box')
+    expect(page).not.toContain('>Pensions</button>')
+    expect(page).not.toContain(`<h3>${demo.title}</h3>`)
+    expect(page).toContain('Écurie de propriétaires')
+    expect((await payload.count({ collection: 'prices', where: of, overrideAccess: true })).totalDocs).toBe(before - 1)
+  })
+
   it('sans photo dans le CMS, la galerie de la maquette reste affichée', async () => {
     const { docs } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 50, depth: 0, overrideAccess: true })
     for (const m of docs) await payload.update({ collection: 'media', id: m.id, data: { inGallery: false }, overrideAccess: true })
