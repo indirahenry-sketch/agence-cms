@@ -4,6 +4,7 @@ import type { Service, SiteInfo, Tenant } from '@/payload-types'
 import { describeError } from '@/lib/s3-check'
 import { createLegalPages } from '@/sites/legalPages'
 
+import { seedServices as demoServices } from '../ecuries-poigny/seedContent'
 import { castellePhotos } from './seedImages'
 
 export const CASTELLE_SLUG = 'domaine-equestre-castelle'
@@ -112,6 +113,7 @@ async function runImport(payload: Payload): Promise<void> {
   }
   await step('fiche client', () => completeTenant(payload, tenant))
   await step('informations', () => ensureSiteInfo(payload, tenant.id))
+  await step('contenu de démonstration', () => removeDemoContent(payload, tenant.id))
   await step('activités', () => ensureServices(payload, tenant.id))
   await step('tarifs', () => ensurePrices(payload, tenant.id))
   await step('menus', () => ensureMenus(payload, tenant.id))
@@ -127,6 +129,49 @@ const slug = (v: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 40)
+
+/** Tarifs de démonstration du Haras de Montesugui (repris des Écuries de Poigny), copiés à la duplication. */
+const DEMO_PRICES: [name: string, price: number][] = [
+  ['Baby poney', 450],
+  ['Poney / double poney', 660],
+  ['Cours cheval', 825],
+  ['Abonnement compétition', 1350],
+  ['Pension pré', 250],
+  ['Pension box', 420],
+  ['Pension débourrage', 630],
+  ['Demi-journée de stage', 35],
+  ['Journée de stage', 52],
+  ['Événements spéciaux', 10],
+]
+const DEMO_TABS = ['Cours et abonnements', 'Pensions', 'Stages et animations']
+
+/**
+ * La fiche a été créée en dupliquant le Haras de Montesugui : ses activités et tarifs de démonstration
+ * sont retirés (reconnus à leur nom ET à leur contenu d'origine ; tout ce qui a été modifié est gardé).
+ */
+async function removeDemoContent(payload: Payload, tenantID: number) {
+  const ofTenant = { tenant: { equals: tenantID } }
+  const mine = new Set(SERVICES.map((x) => x.title))
+  const { docs: services } = await payload.find({ collection: 'services', where: ofTenant, limit: 200, depth: 0, ...base })
+  for (const sv of services) {
+    const demo = demoServices.find((d) => d.title === sv.title)
+    if (demo && !mine.has(sv.title) && (sv.summary ?? '') === demo.summary) await payload.delete({ collection: 'services', id: sv.id, ...base })
+  }
+  const { docs: prices } = await payload.find({ collection: 'prices', where: ofTenant, limit: 500, depth: 0, ...base })
+  let removed = 0
+  for (const p of prices) {
+    if (DEMO_PRICES.some(([name, price]) => name === p.name && price === p.price)) {
+      await payload.delete({ collection: 'prices', id: p.id, ...base })
+      removed++
+    }
+  }
+  const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [ofTenant, { usage: { in: ['prices'] } }, { name: { in: DEMO_TABS } }] }, limit: 50, depth: 0, ...base })
+  for (const c of cats) {
+    const left = await payload.count({ collection: 'prices', where: { and: [ofTenant, { category: { equals: c.id } }] }, overrideAccess: true })
+    if (!left.totalDocs) await payload.delete({ collection: 'categories', id: c.id, ...base })
+  }
+  if (removed) payload.logger.info(`✔ Domaine de la Castelle : ${removed} tarif(s) de démonstration retiré(s)`)
+}
 
 const countOf = async (payload: Payload, collection: 'services' | 'menus', tenantID: number) =>
   (await payload.count({ collection, where: { tenant: { equals: tenantID } }, overrideAccess: true })).totalDocs
