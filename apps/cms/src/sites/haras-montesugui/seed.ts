@@ -35,6 +35,7 @@ export async function importHarasMontesugui(payload: Payload): Promise<void> {
   await step('agenda', () => ensureEvents(payload, tenantID))
   await step('pages légales', async () => void (await createLegalPages(payload, tenantID)))
   await step('menus', () => ensureMenus(payload, tenantID))
+  await step('lien Galerie', () => renameGalleryLink(payload, tenantID))
   await step('photos', () => ensurePhotos(payload, tenantID))
 }
 
@@ -192,6 +193,15 @@ async function ensureEvents(payload: Payload, tenantID: number) {
   }
 }
 
+/** Le lien « Le haras » ouvre désormais la page Galerie : on le renomme (seulement s'il n'a pas été modifié). */
+async function renameGalleryLink(payload: Payload, tenantID: number) {
+  const { docs } = await payload.find({ collection: 'menus', where: { and: [{ tenant: { equals: tenantID } }, { location: { equals: 'main' } }] }, limit: 1, depth: 0, ...base })
+  const menu = docs[0]
+  if (!menu?.items?.some((it) => it.label === 'Le haras' && it.anchor === 'galerie')) return
+  const items = menu.items.map((it) => (it.label === 'Le haras' && it.anchor === 'galerie' ? { ...it, label: 'Galerie' } : it))
+  await payload.update({ collection: 'menus', id: menu.id, data: { items }, ...base })
+}
+
 async function ensureMenus(payload: Payload, tenantID: number) {
   if (await countOf(payload, 'menus', tenantID)) return
   const anchor = (label: string, a: 'galerie' | 'services' | 'tarifs' | 'blog' | 'contact' | 'installations' | 'stages') => ({ label, type: 'anchor' as const, anchor: a })
@@ -202,7 +212,7 @@ async function ensureMenus(payload: Payload, tenantID: number) {
       name: 'Menu principal',
       location: 'main',
       items: [
-        anchor('Le haras', 'galerie'),
+        anchor('Galerie', 'galerie'),
         { ...anchor('Prestations', 'services'), children: [anchor('Installations', 'installations'), anchor('Stages', 'stages')] },
         anchor('Tarifs', 'tarifs'),
         anchor('Actualités', 'blog'),

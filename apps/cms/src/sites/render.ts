@@ -259,7 +259,7 @@ const linkHref = (d: SiteData, l: MenuLink): string => {
 const linkHTML = (d: SiteData, l: MenuLink, extra = '') => {
   // Sections qui sont des « pages » dans certaines maquettes (lien souligné quand la page est ouverte)
   const view = l.type === 'anchor' ? (l.anchor === 'top' ? 'accueil' : l.anchor) : ''
-  const blogAttr = view && ['accueil', 'blog', 'horaires', 'tarifs', 'reserver'].includes(view) ? ` data-v="${view}"` : ''
+  const blogAttr = view && ['accueil', 'blog', 'galerie', 'horaires', 'tarifs', 'reserver'].includes(view) ? ` data-v="${view}"` : ''
   const target = l.newTab ? ' target="_blank" rel="noopener"' : ''
   return `<a href="${esc(linkHref(d, l))}"${blogAttr}${target}${extra}>${esc(l.label)}</a>`
 }

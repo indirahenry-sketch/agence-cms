@@ -53,6 +53,12 @@ describe('Haras de Montesugui', () => {
     expect(gallery.indexOf('Le haras vu du ciel')).toBeLessThan(gallery.indexOf('Au manège'))
     expect(gallery).toContain('L&#39;allée des boxes')
     expect(gallery).not.toContain('Le domaine vu du ciel')
+    expect(gallery).toContain('Le manège couvert')
+    // Page Galerie dédiée + aperçu sur l'accueil
+    expect(html).toContain('data-view="galerie"')
+    expect(html).toContain('id="apercuGrid"')
+    expect(html).toContain('>Galerie</a>')
+    expect(gallery).toContain('Saut d&#39;obstacle en carrière')
   })
 
   it('sans logo envoyé, le logo par défaut du haras s’affiche', () => {
