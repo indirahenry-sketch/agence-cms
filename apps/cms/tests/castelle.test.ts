@@ -35,9 +35,9 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(all.totalDocs).toBe(1)
     const of = { tenant: { equals: tenantID } }
     expect((await payload.count({ collection: 'services', where: of, overrideAccess: true })).totalDocs).toBe(7)
-    expect((await payload.count({ collection: 'prices', where: of, overrideAccess: true })).totalDocs).toBe(2)
+    expect((await payload.count({ collection: 'prices', where: of, overrideAccess: true })).totalDocs).toBe(26)
     expect((await payload.count({ collection: 'menus', where: of, overrideAccess: true })).totalDocs).toBe(2)
-    expect((await payload.count({ collection: 'media', where: of, overrideAccess: true })).totalDocs).toBe(6)
+    expect((await payload.count({ collection: 'media', where: of, overrideAccess: true })).totalDocs).toBe(9)
   })
 
   it('complète la fiche sans écraser ce qui était saisi', async () => {
@@ -60,10 +60,24 @@ describe('Domaine Équestre de la Castelle', () => {
   it('les contenus du CMS remplissent la maquette', () => {
     expect(html).toContain('Écurie de propriétaires')
     expect(html).toContain('Première nuit')
+    expect(html).toContain('Abonnement annuel « Enfant »')
+    expect(html).toContain('>Cours &amp; abonnements</button>')
+    expect(html).toContain('id="calGrid"')
+    expect(html).toContain('Planning des cours 2026-2027')
+    expect(html).toContain('>Planning</a>')
     expect(html).toContain('06 10 44 25 77')
     expect(html).toContain('dedc34@yahoo.com')
     expect(html).toContain('>Le domaine</a>')
     expect(html).toMatch(new RegExp(`<figure class="pola r1" tabindex="0"><img src="/sites/${SLUG}/media/\\d+`))
+  })
+
+  it('sans photo dans le CMS, la galerie de la maquette reste affichée', async () => {
+    const { docs } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 50, depth: 0, overrideAccess: true })
+    for (const m of docs) await payload.update({ collection: 'media', id: m.id, data: { inGallery: false }, overrideAccess: true })
+    const bare = (await renderSite(payload, SLUG))!
+    expect(bare).toContain('id="galerie"')
+    expect(bare).toContain('<figure class="pola r1" tabindex="0"><img src="data:image/jpeg;base64,')
+    for (const m of docs) await payload.update({ collection: 'media', id: m.id, data: { inGallery: true }, overrideAccess: true })
   })
 
   it('les pages du client gardent l’en-tête et le pied de page de la maquette', async () => {

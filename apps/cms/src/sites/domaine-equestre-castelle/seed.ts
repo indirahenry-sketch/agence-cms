@@ -82,7 +82,7 @@ const SERVICES: S[] = [
  *
  * Retrouve le client (identifiant ou nom contenant « castelle » / « dedc »), sinon le crée, puis
  * complète SEULEMENT ce qui manque : coordonnées, horaires, couleurs (si encore celles par défaut),
- * activités, tarifs écurie relais, menus, photos et pages légales. Rien n'est écrasé.
+ * activités, grille tarifaire, menus, photos et pages légales. Rien n'est écrasé.
  * Lancé au démarrage du CMS (onInit) et par `pnpm seed`.
  */
 export async function importDomaineCastelle(payload: Payload): Promise<void> {
@@ -110,7 +110,16 @@ export async function importDomaineCastelle(payload: Payload): Promise<void> {
   await step('pages légales', async () => void (await createLegalPages(payload, tenant.id)))
 }
 
-const countOf = async (payload: Payload, collection: 'services' | 'menus' | 'prices', tenantID: number) =>
+const slug = (v: string) =>
+  v
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40)
+
+const countOf = async (payload: Payload, collection: 'services' | 'menus', tenantID: number) =>
   (await payload.count({ collection, where: { tenant: { equals: tenantID } }, overrideAccess: true })).totalDocs
 
 async function createTenant(payload: Payload): Promise<Tenant> {
@@ -188,44 +197,131 @@ async function ensureServices(payload: Payload, tenantID: number) {
   }
 }
 
-/** Seuls tarifs connus : l'écurie relais. La grille des cours (2026-2027) est à saisir dans le CMS. */
+type P = { name: string; description?: string; price: number; unit?: string; displayPrice?: string; highlight?: boolean }
+/** Grille 2026-2027 du poney-club (affiche « Tarifications du Poney-Club du DEDC ») et tarifs pensionnaires. */
+const PRICE_GROUPS: { name: string; order: number; prices: P[] }[] = [
+  {
+    name: 'Cours & abonnements',
+    order: 1,
+    prices: [
+      { name: 'Abonnement annuel « Enfant »', description: 'Cotisation et licence incluses, soit 16 € le cours', price: 749, unit: 'par an', highlight: true },
+      { name: 'Abonnement annuel « Adulte »', description: 'Cotisation et licence incluses, soit 18 € le cours', price: 840, unit: 'par an' },
+      { name: 'Carte 10 cours collectifs', description: 'Valable jusqu’à fin juin', price: 200, unit: 'les 10 cours' },
+      { name: 'Cours particulier', description: 'Sur réservation', price: 30, unit: 'l’heure' },
+      { name: 'Cours particulier en duo', description: 'Sur réservation', price: 50, unit: 'l’heure, pour deux' },
+      { name: 'Demi-pension', description: '2 séances par semaine', price: 150, unit: 'par mois' },
+    ],
+  },
+  {
+    name: 'Adhésion & licence',
+    order: 2,
+    prices: [
+      { name: 'Adhésion annuelle', description: '1er membre de la famille', price: 80, unit: 'par an' },
+      { name: 'Adhésion annuelle, 2e membre', description: 'Même famille · gratuit à partir du 3e', price: 75, unit: 'par an' },
+      { name: 'Licence enfant', description: 'Moins de 18 ans', price: 29, unit: 'par an' },
+      { name: 'Licence adulte', price: 40, unit: 'par an' },
+      { name: 'Licence compétition', description: 'Club : gratuite', price: 80, displayPrice: 'Amateur : 80 €', unit: 'par an' },
+    ],
+  },
+  {
+    name: 'Stages & loisirs',
+    order: 3,
+    prices: [
+      { name: 'Stage à la demi-journée', description: 'Vacances scolaires', price: 30, unit: 'la demi-journée' },
+      { name: 'Stage à la journée', description: 'Vacances scolaires', price: 60, unit: 'la journée' },
+      { name: 'Semaine de stage', description: 'Adhérent · 300 € pour les non-adhérents', price: 250, unit: 'la semaine', highlight: true },
+      { name: 'Promenade à poney', description: 'Mercredi et samedi, sur réservation', price: 15, unit: 'les 30 minutes' },
+      { name: 'Anniversaire au poney-club', description: 'Sur réservation, 10 enfants minimum', price: 20, unit: 'par enfant' },
+    ],
+  },
+  {
+    name: 'Compétition',
+    order: 4,
+    prices: [
+      { name: 'Concours interne', description: '1 parcours · 50 € les 2 parcours', price: 30, unit: 'l’engagement' },
+      { name: 'Concours départemental', description: '1 parcours · 100 € les 2 parcours', price: 70, unit: 'l’engagement' },
+      { name: 'Concours extérieur', description: 'Engagement et coaching', price: 0, displayPrice: 'Sur demande', unit: 'conditions au bureau' },
+    ],
+  },
+  {
+    name: 'Pensionnaires',
+    order: 5,
+    prices: [
+      { name: 'Cours collectif', description: 'À partir de 4 cavaliers', price: 20, unit: 'le cours' },
+      { name: 'Cours particulier', price: 30, unit: 'le cours' },
+      { name: 'Cours particulier « Duo »', price: 50, unit: 'le cours' },
+      { name: 'Carte 10 cours particuliers', price: 250, unit: 'les 10 cours' },
+      { name: 'Travail du cheval', description: 'Par nos soins', price: 280, unit: 'par mois', highlight: true },
+    ],
+  },
+  {
+    name: 'Écurie relais',
+    order: 6,
+    prices: [
+      { name: 'Première nuit', description: 'Box ou paddock avec abri', price: 50, unit: 'par cheval', highlight: true },
+      { name: 'Nuit supplémentaire', description: 'Box ou paddock avec abri', price: 30, unit: 'par cheval et par nuit' },
+    ],
+  },
+]
+
+/**
+ * Un onglet de tarifs par catégorie. Une catégorie qui existe déjà (même nom) n'est pas touchée :
+ * seules les catégories manquantes sont ajoutées, avec leurs tarifs.
+ */
 async function ensurePrices(payload: Payload, tenantID: number) {
-  if (await countOf(payload, 'prices', tenantID)) return
-  const name = 'Écurie relais'
-  const { docs } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['prices'] } }] }, limit: 1, ...base })
-  const category = docs[0]
-    ? await payload.update({ collection: 'categories', id: docs[0].id, data: { name }, ...base })
-    : await payload.create({ collection: 'categories', data: { tenant: tenantID, name, usage: ['prices'], order: 1 }, ...base })
-  const prices = [
-    { name: 'Première nuit', description: 'Box ou paddock avec abri', price: 50, unit: 'par cheval', highlight: true },
-    { name: 'Nuit supplémentaire', description: 'Box ou paddock avec abri', price: 30, unit: 'par cheval et par nuit' },
-  ]
-  for (const [i, p] of prices.entries()) {
-    await payload.create({ collection: 'prices', data: { tenant: tenantID, category: category.id, order: i + 1, ...p }, ...base })
+  const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['prices'] } }] }, limit: 100, depth: 0, ...base })
+  const used = new Set<number>()
+  const { docs: existingPrices } = await payload.find({ collection: 'prices', where: { tenant: { equals: tenantID } }, limit: 500, depth: 0, ...base })
+  for (const p of existingPrices) if (typeof p.category === 'number') used.add(p.category)
+  // Catégorie par défaut de la fiche client (« Tarifs »), encore vide : réutilisée pour le premier onglet
+  let spare = cats.find((c) => !used.has(c.id) && !PRICE_GROUPS.some((g) => g.name === c.name))
+  let order = existingPrices.length
+  for (const group of PRICE_GROUPS) {
+    const same = cats.find((c) => c.name === group.name)
+    if (same) {
+      // Onglet déjà en place : on ne recrée rien, on le range seulement à sa place s'il a été créé par l'import
+      if (used.has(same.id)) {
+        if (group.name === 'Écurie relais' && (same.order ?? 0) < group.order) await payload.update({ collection: 'categories', id: same.id, data: { order: group.order }, ...base })
+        continue
+      }
+    }
+    const category =
+      same ??
+      (spare
+        ? await payload.update({ collection: 'categories', id: spare.id, data: { name: group.name, order: group.order }, ...base })
+        : await payload.create({ collection: 'categories', data: { tenant: tenantID, name: group.name, usage: ['prices'], order: group.order }, ...base }))
+    if (!same) spare = undefined
+    for (const p of group.prices) {
+      await payload.create({ collection: 'prices', data: { tenant: tenantID, category: category.id, order: ++order, ...p }, ...base })
+    }
   }
 }
 
+const MENU_V1 = ['Activités', 'Le domaine', 'Tarifs', 'Agenda', 'Photos', 'Contact']
+
 async function ensureMenus(payload: Payload, tenantID: number) {
-  if (await countOf(payload, 'menus', tenantID)) return
-  type A = 'top' | 'activites' | 'installations' | 'tarifs' | 'blog' | 'galerie' | 'contact'
+  type A = 'top' | 'activites' | 'installations' | 'horaires' | 'tarifs' | 'blog' | 'galerie' | 'contact'
   const anchor = (label: string, a: A) => ({ label, type: 'anchor' as const, anchor: a })
-  await payload.create({
-    collection: 'menus',
-    data: {
-      tenant: tenantID,
-      name: 'Menu principal',
-      location: 'main',
-      items: [
-        anchor('Activités', 'activites'),
-        anchor('Le domaine', 'installations'),
-        anchor('Tarifs', 'tarifs'),
-        anchor('Agenda', 'blog'),
-        anchor('Photos', 'galerie'),
-        anchor('Contact', 'contact'),
-      ],
-    },
-    ...base,
-  })
+  const items = [
+    anchor('Le domaine', 'installations'),
+    anchor('Activités', 'activites'),
+    anchor('Planning', 'horaires'),
+    anchor('Tarifs', 'tarifs'),
+    anchor('Agenda', 'blog'),
+    anchor('Photos', 'galerie'),
+    anchor('Contact', 'contact'),
+  ]
+  const { docs } = await payload.find({ collection: 'menus', where: { tenant: { equals: tenantID } }, limit: 10, depth: 0, ...base })
+  if (docs.length) {
+    // Menu posé par la première version de l'import et jamais modifié : on y ajoute le planning
+    const main = docs.find((m) => m.location === 'main')
+    const labels = (main?.items ?? []).map((i) => i.label)
+    if (main && labels.length === MENU_V1.length && labels.every((l, i) => l === MENU_V1[i])) {
+      await payload.update({ collection: 'menus', id: main.id, data: { items }, ...base })
+    }
+    return
+  }
+  await payload.create({ collection: 'menus', data: { tenant: tenantID, name: 'Menu principal', location: 'main', items }, ...base })
   await payload.create({
     collection: 'menus',
     data: {
@@ -249,7 +345,7 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
     await payload.create({
       collection: 'media',
       data: { tenant: tenantID, alt: img.alt, title: img.caption, inGallery: true, isPublic: true, ...(cats[0] ? { category: cats[0].id } : {}) },
-      file: { data, mimetype: img.mime, name: `castelle-${castellePhotos.indexOf(img) + 1}.jpg`, size: data.length },
+      file: { data, mimetype: img.mime, name: `castelle-${slug(img.alt)}.jpg`, size: data.length },
       ...base,
     })
   }

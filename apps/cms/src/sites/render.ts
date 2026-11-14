@@ -9,6 +9,7 @@ import { escapeHTML } from '@/utilities/serverURL'
 import { fallbackLogo, serviceIcons, template as poignyTemplate } from './ecuries-poigny/template'
 import { fallbackLogo as montesuguiLogo, template as montesuguiTemplate } from './haras-montesugui/template'
 import { extraServiceIcons, fallbackLogo as sourdunLogo, template as sourdunTemplate } from './centre-equestre-sourdun/template'
+import { fallbackGallery as castelleGallery } from './domaine-equestre-castelle/galleryFallback'
 import { fallbackLogo as castelleLogo, template as castelleTemplate } from './domaine-equestre-castelle/template'
 
 /**
@@ -47,6 +48,11 @@ const TEMPLATE_LOGOS: Record<string, string> = {
 }
 
 /** Petits textes générés par le CMS qui suivent le ton de la maquette (tutoiement / vouvoiement). */
+/** Photos de la maquette, affichées tant que le client n'a coché aucune photo « Afficher dans la galerie ». */
+const TEMPLATE_GALLERIES: Record<string, { src: string; alt: string; caption: string }[]> = {
+  'domaine-equestre-castelle': castelleGallery,
+}
+
 const TEMPLATE_TEXTS: Record<string, { forYou: string; blog: string }> = {
   'haras-montesugui': { forYou: 'Pour vous', blog: 'Actualités' },
   'domaine-equestre-castelle': { forYou: 'Pour vous', blog: 'Agenda' },
@@ -465,7 +471,7 @@ export async function renderSite(payload: Payload, siteSlug: string, opts: Rende
 
   // Galerie
   const tilts = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6']
-  const galleryHTML = d.photos
+  let galleryHTML = d.photos
     .map(
       (m, i) =>
         `<figure class="pola ${tilts[i % tilts.length]}" tabindex="0"><img src="${mediaURL(d, m, 'card')}" data-full="${mediaURL(d, m, 'hero')}" alt="${esc(m.alt)}" loading="lazy"><figcaption>${esc(m.title || m.alt)}</figcaption></figure>`,
@@ -541,7 +547,12 @@ export async function renderSite(payload: Payload, siteSlug: string, opts: Rende
   }
 
   // Sections masquées si vides ou désactivées
-  if (!d.photos.length) html = html.replace(/<!--GALLERY_START-->[\s\S]*?<!--GALLERY_END-->/, '')
+  const builtIn = tenant.settings?.showGallery === false ? undefined : TEMPLATE_GALLERIES[keyOf(tenant)]
+  if (!d.photos.length && builtIn?.length) {
+    galleryHTML = builtIn
+      .map((p, i) => `<figure class="pola ${tilts[i % tilts.length]}" tabindex="0"><img src="${p.src}" data-full="${p.src}" alt="${esc(p.alt)}" loading="lazy"><figcaption>${esc(p.caption)}</figcaption></figure>`)
+      .join('\n')
+  } else if (!d.photos.length) html = html.replace(/<!--GALLERY_START-->[\s\S]*?<!--GALLERY_END-->/, '')
   if (!d.prices.length) html = html.replace(/<!--PRICES_START-->[\s\S]*?<!--PRICES_END-->/, '')
   if (!d.services.length) html = html.replace(/<!--SERVICES_START-->[\s\S]*?<!--SERVICES_END-->/, '')
   if (!stageDay) html = html.replace(/<div class="simu">[\s\S]*?<\/div>\s*<\/div>\s*<p class="note">/, '<p class="note">')
