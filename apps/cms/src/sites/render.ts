@@ -9,6 +9,7 @@ import { escapeHTML } from '@/utilities/serverURL'
 import { fallbackLogo, serviceIcons, template as poignyTemplate } from './ecuries-poigny/template'
 import { fallbackLogo as montesuguiLogo, template as montesuguiTemplate } from './haras-montesugui/template'
 import { extraServiceIcons, fallbackLogo as sourdunLogo, template as sourdunTemplate } from './centre-equestre-sourdun/template'
+import { fallbackLogo as castelleLogo, template as castelleTemplate } from './domaine-equestre-castelle/template'
 
 /**
  * Sites publics des clients, servis par le CMS à l'adresse /sites/<identifiant>.
@@ -32,6 +33,7 @@ const TEMPLATES: Record<string, string> = {
   'ecuries-poigny': poignyTemplate,
   'haras-montesugui': montesuguiTemplate,
   'centre-equestre-sourdun': sourdunTemplate,
+  'domaine-equestre-castelle': castelleTemplate,
 }
 
 /** Icônes des services, toutes maquettes confondues. */
@@ -41,15 +43,26 @@ const ICONS: Record<string, string> = { ...serviceIcons, ...extraServiceIcons }
 const TEMPLATE_LOGOS: Record<string, string> = {
   'haras-montesugui': montesuguiLogo,
   'centre-equestre-sourdun': sourdunLogo,
+  'domaine-equestre-castelle': castelleLogo,
 }
 
 /** Petits textes générés par le CMS qui suivent le ton de la maquette (tutoiement / vouvoiement). */
 const TEMPLATE_TEXTS: Record<string, { forYou: string; blog: string }> = {
   'haras-montesugui': { forYou: 'Pour vous', blog: 'Actualités' },
+  'domaine-equestre-castelle': { forYou: 'Pour vous', blog: 'Agenda' },
 }
-const textsOf = (slug: string) => TEMPLATE_TEXTS[slug] ?? { forYou: 'Pour toi', blog: 'Blog' }
 
-export const hasSiteTemplate = (slug: string) => Object.hasOwn(TEMPLATES, slug)
+/**
+ * Maquette d'un client. Le Domaine Équestre de la Castelle a été créé depuis le CMS : sa maquette
+ * s'applique quel que soit l'identifiant court choisi, tant qu'il contient « castelle » ou « dedc ».
+ */
+export const templateKey = (slug: string, name?: string | null) =>
+  Object.hasOwn(TEMPLATES, slug) ? slug : /castelle|dedc/i.test(`${slug} ${name ?? ''}`) ? 'domaine-equestre-castelle' : slug
+const keyOf = (t: Pick<Tenant, 'slug' | 'name'>) => templateKey(t.slug, t.name)
+
+const textsOf = (t: Pick<Tenant, 'slug' | 'name'>) => TEMPLATE_TEXTS[keyOf(t)] ?? { forYou: 'Pour toi', blog: 'Blog' }
+
+export const hasSiteTemplate = (t: Pick<Tenant, 'slug' | 'name'>) => Object.hasOwn(TEMPLATES, keyOf(t))
 
 /**
  * Couleurs d'origine des maquettes sur mesure. Tant que le client garde ces couleurs, le dessin
@@ -60,10 +73,11 @@ const TEMPLATE_COLORS: Record<string, { primary: string; secondary: string; vars
   'ecuries-poigny': { primary: '#4C6E2A', secondary: '#EDC655', vars: { primary: ['--flot', '--pre'], secondary: ['--paille'] } },
   'haras-montesugui': { primary: '#74231E', secondary: '#B8913A', vars: { primary: ['--bdx', '--flot', '--pre'], secondary: ['--or', '--paille'] } },
   'centre-equestre-sourdun': { primary: '#3E9A1E', secondary: '#E8C15A', vars: { primary: ['--flot', '--pre'], secondary: ['--paille'] } },
+  'domaine-equestre-castelle': { primary: '#1F3F99', secondary: '#D6B262', vars: { primary: ['--flot'], secondary: ['--paille'] } },
 }
 
 function templateThemeCSS(t: Tenant): string {
-  const base = TEMPLATE_COLORS[t.slug]
+  const base = TEMPLATE_COLORS[keyOf(t)]
   if (!base) return ''
   const primary = t.theme?.primaryColor && HEX.test(t.theme.primaryColor) ? t.theme.primaryColor : base.primary
   const secondary = t.theme?.secondaryColor && HEX.test(t.theme.secondaryColor) ? t.theme.secondaryColor : base.secondary
@@ -340,7 +354,7 @@ function commonValues(d: SiteData, title: string, description: string) {
     mapsURL: safeHref(info?.address?.mapsUrl) !== '#' ? safeHref(info?.address?.mapsUrl) : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrQuery)}`,
   })
   const insta = info?.socials?.find((s) => s.network === 'instagram')?.url
-  const blogLink = d.posts.length || d.events.length || !hasRenderedData(d) ? `<a class="nav-blog" href="${esc(d.base || '/')}#blog" data-v="blog">${esc(textsOf(tenant.slug).blog)}</a>` : ''
+  const blogLink = d.posts.length || d.events.length || !hasRenderedData(d) ? `<a class="nav-blog" href="${esc(d.base || '/')}#blog" data-v="blog">${esc(textsOf(tenant).blog)}</a>` : ''
   return {
     TITLE: esc(title),
     META_DESCRIPTION: esc(description),
@@ -349,7 +363,7 @@ function commonValues(d: SiteData, title: string, description: string) {
     YEAR: String(new Date().getFullYear()),
     HOME_URL: esc(d.base || '/'),
     TOPBAR: topbar,
-    LOGO_SRC: isMedia(tenant.logo) ? mediaURL(d, tenant.logo) : (TEMPLATE_LOGOS[tenant.slug] ?? fallbackLogo),
+    LOGO_SRC: isMedia(tenant.logo) ? mediaURL(d, tenant.logo) : (TEMPLATE_LOGOS[keyOf(tenant)] ?? fallbackLogo),
     NAV_LINKS: navLinks(d),
     NAV_BLOG: tenant.settings?.showBlog === false ? '' : blogLink,
     FOOTER_LINKS: footerLinks(d, insta),
@@ -421,10 +435,10 @@ export async function renderSite(payload: Payload, siteSlug: string, opts: Rende
   const tenant = await loadTenant(payload, siteSlug)
   if (!tenant) return null
   if (tenant.maintenance) return maintenancePage(tenant)
-  if (!hasSiteTemplate(siteSlug)) return renderGenericHome(payload, tenant, opts)
+  if (!hasSiteTemplate(tenant)) return renderGenericHome(payload, tenant, opts)
   const d = await loadSite(payload, tenant, true, opts)
   const { info } = d
-  let html = TEMPLATES[siteSlug]
+  let html = TEMPLATES[keyOf(tenant)]
 
   // Coordonnées (les « Informations » priment sur la fiche client)
   const phone = info?.phone || tenant.phone || ''
@@ -463,7 +477,7 @@ export async function renderSite(payload: Payload, siteSlug: string, opts: Rende
     .map((s) => {
       const audiences = s.audiences?.length ? s.audiences.join(' ') : 'debutant loisir compet proprio'
       const points = (s.points ?? []).map((p) => `<li>${esc(p.text)}</li>`).join('')
-      return `<article class="svc" data-for="${esc(audiences)}"><span class="tag">${esc(textsOf(siteSlug).forYou)}</span><div class="ico">${ICONS[s.icon || ''] ?? ICONS.person}</div><h3>${esc(s.title)}</h3>${s.summary ? `<p>${esc(s.summary)}</p>` : ''}${points ? `<ul>${points}</ul>` : ''}</article>`
+      return `<article class="svc" data-for="${esc(audiences)}"><span class="tag">${esc(textsOf(tenant).forYou)}</span><div class="ico">${ICONS[s.icon || ''] ?? ICONS.person}</div><h3>${esc(s.title)}</h3>${s.summary ? `<p>${esc(s.summary)}</p>` : ''}${points ? `<ul>${points}</ul>` : ''}</article>`
     })
     .join('\n')
 
@@ -691,7 +705,7 @@ async function blockHTML(payload: Payload, d: SiteData, b: Block): Promise<strin
 
 /** Habille un contenu avec l'en-tête et le pied de page du thème du client. */
 function inShell(d: SiteData, body: string, title: string, description: string, extraHead = ''): string | null {
-  const tpl = TEMPLATES[d.tenant.slug] ?? GENERIC_TEMPLATE
+  const tpl = TEMPLATES[keyOf(d.tenant)] ?? GENERIC_TEMPLATE
   const headEnd = tpl.indexOf('<div class="view" data-view="accueil">')
   const footStart = tpl.search(/<footer[\s>]/)
   const footEnd = tpl.indexOf('</footer>') + '</footer>'.length
@@ -933,7 +947,7 @@ function genericValues(d: SiteData): Record<string, string> {
     FOOT_CONTACT: contact,
   }
   // Menu principal par défaut : les sections présentes sur l'accueil générique
-  if (!menuOf(d, 'main')?.items?.length && !hasSiteTemplate(tenant.slug)) {
+  if (!menuOf(d, 'main')?.items?.length && !hasSiteTemplate(tenant)) {
     const links = [
       d.services.length && ['Services', 'services'],
       d.prices.length && ['Tarifs', 'tarifs'],
