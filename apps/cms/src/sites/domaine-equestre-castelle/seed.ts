@@ -1,3 +1,6 @@
+import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import fs from 'fs/promises'
+import path from 'path'
 import type { Payload } from 'payload'
 
 import type { Service, SiteInfo, Tenant } from '@/payload-types'
@@ -241,8 +244,12 @@ async function ensureSiteInfo(payload: Payload, tenantID: number) {
 }
 
 async function ensureServices(payload: Payload, tenantID: number) {
-  if (await countOf(payload, 'services', tenantID)) return
+  const { docs } = await payload.find({ collection: 'services', where: { tenant: { equals: tenantID } }, limit: 200, depth: 0, ...base })
+  // Liste déjà en place : on n'y touche pas. Vide, ou restée à une ou deux activités après un import interrompu : on la complète.
+  if (docs.length > 2) return
+  const have = new Set(docs.map((d) => d.title))
   for (const [i, s] of SERVICES.entries()) {
+    if (have.has(s.title)) continue
     await payload.create({
       collection: 'services',
       data: { tenant: tenantID, title: s.title, summary: s.summary, points: s.points.map((text) => ({ text })), icon: s.icon, audiences: s.for, order: i + 1 },
@@ -452,6 +459,29 @@ async function ensureMenus(payload: Payload, tenantID: number) {
   })
 }
 
+let s3: S3Client | null = null
+/** Le fichier de cette photo existe-t-il encore dans le stockage ? Dans le doute (erreur d'accès), on répond oui. */
+async function fileExists(m: { filename?: string | null; prefix?: string | null }): Promise<boolean> {
+  if (!m.filename) return false
+  try {
+    if (process.env.S3_BUCKET) {
+      s3 ??= new S3Client({
+        endpoint: process.env.S3_ENDPOINT,
+        region: process.env.S3_REGION || 'auto',
+        forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
+        credentials: { accessKeyId: process.env.S3_ACCESS_KEY_ID || '', secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '' },
+      })
+      await s3.send(new HeadObjectCommand({ Bucket: process.env.S3_BUCKET, Key: path.posix.join(m.prefix || '', m.filename) }))
+    } else {
+      await fs.access(path.join(process.env.MEDIA_DIR || path.resolve(process.cwd(), 'media'), m.filename))
+    }
+    return true
+  } catch (err) {
+    const e = err as { name?: string; code?: string; $metadata?: { httpStatusCode?: number } }
+    return !(e.name === 'NotFound' || e.name === 'NoSuchKey' || e.code === 'ENOENT' || e.$metadata?.httpStatusCode === 404)
+  }
+}
+
 async function ensurePhotos(payload: Payload, tenantID: number) {
   const { docs: existing } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 300, depth: 0, ...base })
   // Fait une seule fois : tant que l'ancienne vue est encore dans la galerie
@@ -461,15 +491,22 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
     const back = existing.find((m) => m.alt === AERIAL_IN && !m.inGallery)
     if (back) await payload.update({ collection: 'media', id: back.id, data: { inGallery: true }, ...base })
   }
-  // Photos importées deux fois (même texte alternatif, parmi celles de l'import) : on garde la première
+  // Photos de l'import présentes deux fois : la seconde est seulement retirée de la galerie (jamais supprimée,
+  // deux fiches créées au même instant pouvant partager le même fichier).
   const ours = new Set(castellePhotos.map((p) => p.alt))
   const seen = new Set<string>()
+  const gone = new Set<number>()
   for (const m of [...existing].sort((a, b) => a.id - b.id)) {
     if (!ours.has(m.alt)) continue
-    if (seen.has(m.alt)) await payload.delete({ collection: 'media', id: m.id, ...base }).catch(() => undefined)
-    else seen.add(m.alt)
+    if (!(await fileExists(m))) {
+      // Fichier disparu du stockage (image cassée sur le site) : la fiche est retirée, la photo sera réimportée
+      await payload.delete({ collection: 'media', id: m.id, ...base }).catch(() => undefined)
+      gone.add(m.id)
+    } else if (seen.has(m.alt)) {
+      if (m.inGallery) await payload.update({ collection: 'media', id: m.id, data: { inGallery: false }, ...base })
+    } else seen.add(m.alt)
   }
-  const haveAlt = new Set(existing.map((m) => m.alt))
+  const haveAlt = new Set(existing.filter((m) => !gone.has(m.id)).map((m) => m.alt))
   const missing = castellePhotos.filter((p) => !haveAlt.has(p.alt))
   if (!missing.length) return
   const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['gallery'] } }] }, limit: 1, ...base })
@@ -478,7 +515,7 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
     await payload.create({
       collection: 'media',
       data: { tenant: tenantID, alt: img.alt, title: img.caption, inGallery: true, isPublic: true, ...(cats[0] ? { category: cats[0].id } : {}) },
-      file: { data, mimetype: img.mime, name: `castelle-${slug(img.alt)}.jpg`, size: data.length },
+      file: { data, mimetype: img.mime, name: `castelle-${slug(img.alt)}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}.jpg`, size: data.length },
       ...base,
     })
   }
