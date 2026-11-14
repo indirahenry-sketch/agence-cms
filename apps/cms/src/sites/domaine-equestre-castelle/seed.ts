@@ -302,8 +302,12 @@ const OLD_MENUS = [
   ['Activités', 'Le domaine', 'Tarifs', 'Agenda', 'Photos', 'Contact'],
   ['Le domaine', 'Activités', 'Planning', 'Tarifs', 'Agenda', 'Photos', 'Contact'],
 ]
-/** Vue aérienne lointaine de toute la propriété : retirée de la galerie (elle reste dans « Le domaine »). */
-const FAR_AERIAL = 'Le Domaine Équestre de la Castelle vu du ciel'
+/**
+ * Échange demandé : la vue aérienne de la carrière (avec le ciel) illustre « Le domaine »,
+ * la vue de haut de toute la propriété va dans la galerie.
+ */
+const AERIAL_OUT = 'Vue aérienne du Domaine Équestre de la Castelle'
+const AERIAL_IN = 'Le Domaine Équestre de la Castelle vu du ciel'
 
 async function ensureMenus(payload: Payload, tenantID: number) {
   type A = 'top' | 'activites' | 'installations' | 'horaires' | 'tarifs' | 'blog' | 'galerie' | 'contact'
@@ -342,8 +346,12 @@ async function ensureMenus(payload: Payload, tenantID: number) {
 
 async function ensurePhotos(payload: Payload, tenantID: number) {
   const { docs: existing } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 300, depth: 0, ...base })
-  for (const m of existing) {
-    if (m.alt === FAR_AERIAL && m.inGallery) await payload.update({ collection: 'media', id: m.id, data: { inGallery: false }, ...base })
+  // Fait une seule fois : tant que l'ancienne vue est encore dans la galerie
+  const out = existing.find((m) => m.alt === AERIAL_OUT && m.inGallery)
+  if (out) {
+    await payload.update({ collection: 'media', id: out.id, data: { inGallery: false }, ...base })
+    const back = existing.find((m) => m.alt === AERIAL_IN && !m.inGallery)
+    if (back) await payload.update({ collection: 'media', id: back.id, data: { inGallery: true }, ...base })
   }
   const haveAlt = new Set(existing.map((m) => m.alt))
   const missing = castellePhotos.filter((p) => !haveAlt.has(p.alt))
