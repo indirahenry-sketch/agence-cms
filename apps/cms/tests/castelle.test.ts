@@ -73,6 +73,24 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(html).toMatch(new RegExp(`<figure class="pola r1" tabindex="0"><img src="/sites/${SLUG}/media/\\d+`))
   })
 
+  it('deux onglets « Cours & abonnements » : le premier passe à la suite dans le second', async () => {
+    const of = { tenant: { equals: tenantID } }
+    const { docs } = await payload.find({ collection: 'categories', where: { and: [of, { name: { equals: 'Cours & abonnements' } }] }, depth: 0, overrideAccess: true })
+    const first = docs[0]
+    // On simule le doublon : un second onglet du même nom, avec un tarif en commun et un tarif en plus
+    const second = await payload.create({ collection: 'categories', data: { tenant: tenantID, name: 'Cours et abonnements', usage: ['prices'], order: 1 }, overrideAccess: true })
+    await payload.create({ collection: 'prices', data: { tenant: tenantID, category: second.id, name: 'Demi-pension', price: 150 }, overrideAccess: true })
+    await payload.create({ collection: 'prices', data: { tenant: tenantID, category: second.id, name: 'Tarif du second onglet', price: 12 }, overrideAccess: true })
+    await importDomaineCastelle(payload)
+    const after = await payload.find({ collection: 'categories', where: { and: [of, { usage: { in: ['prices'] } }] }, depth: 0, limit: 50, overrideAccess: true })
+    expect(after.docs.filter((c) => /^Cours (&|et) abonnements$/.test(c.name)).map((c) => c.id)).toEqual([second.id])
+    expect(after.docs.some((c) => c.id === first.id)).toBe(false)
+    const page = (await renderSite(payload, SLUG))!
+    expect(page.indexOf('Tarif du second onglet')).toBeLessThan(page.indexOf('Abonnement annuel « Enfant »'))
+    expect(page.match(/<h3>Demi-pension<\/h3>/g)?.length).toBe(1)
+    expect((await payload.count({ collection: 'prices', where: of, overrideAccess: true })).totalDocs).toBe(27)
+  })
+
   it('sans photo dans le CMS, la galerie de la maquette reste affichée', async () => {
     const { docs } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 50, depth: 0, overrideAccess: true })
     for (const m of docs) await payload.update({ collection: 'media', id: m.id, data: { inGallery: false }, overrideAccess: true })
