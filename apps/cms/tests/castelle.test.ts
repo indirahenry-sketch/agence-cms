@@ -91,6 +91,17 @@ describe('Domaine Équestre de la Castelle', () => {
     expect((await payload.count({ collection: 'prices', where: of, overrideAccess: true })).totalDocs).toBe(27)
   })
 
+  it('remplace le menu de démonstration hérité d’une duplication du Haras de Montesugui', async () => {
+    const { docs } = await payload.find({ collection: 'menus', where: { and: [{ tenant: { equals: tenantID } }, { location: { equals: 'main' } }] }, depth: 0, overrideAccess: true })
+    const a = (label: string, anchor: 'galerie' | 'services' | 'tarifs' | 'blog' | 'contact') => ({ label, type: 'anchor' as const, anchor })
+    await payload.update({ collection: 'menus', id: docs[0].id, data: { items: [a('Le haras', 'galerie'), a('Prestations', 'services'), a('Tarifs', 'tarifs'), a('Actualités', 'blog'), a('Contact', 'contact')] }, overrideAccess: true })
+    await importDomaineCastelle(payload)
+    const page = (await renderSite(payload, SLUG))!
+    expect(page).toContain('>Planning</a>')
+    expect(page).toContain('>Galerie</a>')
+    expect(page).not.toContain('>Le haras</a>')
+  })
+
   it('sans photo dans le CMS, la galerie de la maquette reste affichée', async () => {
     const { docs } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 50, depth: 0, overrideAccess: true })
     for (const m of docs) await payload.update({ collection: 'media', id: m.id, data: { inGallery: false }, overrideAccess: true })
