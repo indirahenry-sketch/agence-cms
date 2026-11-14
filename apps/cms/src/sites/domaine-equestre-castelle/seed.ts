@@ -85,7 +85,16 @@ const SERVICES: S[] = [
  * activités, grille tarifaire, menus, photos et pages légales. Rien n'est écrasé.
  * Lancé au démarrage du CMS (onInit) et par `pnpm seed`.
  */
-export async function importDomaineCastelle(payload: Payload): Promise<void> {
+let running: Promise<void> | null = null
+/** Un seul import à la fois : deux démarrages simultanés créaient chaque onglet et chaque photo en double. */
+export function importDomaineCastelle(payload: Payload): Promise<void> {
+  running ??= runImport(payload).finally(() => {
+    running = null
+  })
+  return running
+}
+
+async function runImport(payload: Payload): Promise<void> {
   const found = await payload.find({
     collection: 'tenants',
     where: { or: [{ slug: { like: 'castelle' } }, { slug: { like: 'dedc' } }, { name: { like: 'castelle' } }] },
@@ -197,29 +206,30 @@ async function ensureServices(payload: Payload, tenantID: number) {
   }
 }
 
-/** Onglet unique : adhésion et licence d'abord, puis les cours et abonnements à la suite. */
-const MERGED_TAB = 'Adhésion, licence & cours'
-const OLD_COURSES_TAB = 'Cours & abonnements'
-const OLD_ADHESION_TAB = 'Adhésion & licence'
-
 type P = { name: string; description?: string; price: number; unit?: string; displayPrice?: string; highlight?: boolean }
 /** Grille 2026-2027 du poney-club (affiche « Tarifications du Poney-Club du DEDC ») et tarifs pensionnaires. */
 const PRICE_GROUPS: { name: string; order: number; prices: P[] }[] = [
   {
-    name: MERGED_TAB,
+    name: 'Cours & abonnements',
     order: 1,
     prices: [
-      { name: 'Adhésion annuelle', description: '1er membre de la famille', price: 80, unit: 'par an' },
-      { name: 'Adhésion annuelle, 2e membre', description: 'Même famille · gratuit à partir du 3e', price: 75, unit: 'par an' },
-      { name: 'Licence enfant', description: 'Moins de 18 ans', price: 29, unit: 'par an' },
-      { name: 'Licence adulte', price: 40, unit: 'par an' },
-      { name: 'Licence compétition', description: 'Club : gratuite', price: 80, displayPrice: 'Amateur : 80 €', unit: 'par an' },
       { name: 'Abonnement annuel « Enfant »', description: 'Cotisation et licence incluses, soit 16 € le cours', price: 749, unit: 'par an', highlight: true },
       { name: 'Abonnement annuel « Adulte »', description: 'Cotisation et licence incluses, soit 18 € le cours', price: 840, unit: 'par an' },
       { name: 'Carte 10 cours collectifs', description: 'Valable jusqu’à fin juin', price: 200, unit: 'les 10 cours' },
       { name: 'Cours particulier', description: 'Sur réservation', price: 30, unit: 'l’heure' },
       { name: 'Cours particulier en duo', description: 'Sur réservation', price: 50, unit: 'l’heure, pour deux' },
       { name: 'Demi-pension', description: '2 séances par semaine', price: 150, unit: 'par mois' },
+    ],
+  },
+  {
+    name: 'Adhésion & licence',
+    order: 2,
+    prices: [
+      { name: 'Adhésion annuelle', description: '1er membre de la famille', price: 80, unit: 'par an' },
+      { name: 'Adhésion annuelle, 2e membre', description: 'Même famille · gratuit à partir du 3e', price: 75, unit: 'par an' },
+      { name: 'Licence enfant', description: 'Moins de 18 ans', price: 29, unit: 'par an' },
+      { name: 'Licence adulte', price: 40, unit: 'par an' },
+      { name: 'Licence compétition', description: 'Club : gratuite', price: 80, displayPrice: 'Amateur : 80 €', unit: 'par an' },
     ],
   },
   {
@@ -263,40 +273,56 @@ const PRICE_GROUPS: { name: string; order: number; prices: P[] }[] = [
   },
 ]
 
+/** Nom comparable : sans accents, sans « & » ni « et », sans espaces. */
+const tabKey = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\bet\b|&/g, '').replace(/[^a-z0-9]+/g, '')
+
+/**
+ * Deux onglets de tarifs du même nom (ex. deux « Cours & abonnements ») : les tarifs du premier
+ * passent à la suite dans le dernier, sauf ceux qui y sont déjà (même nom), puis le premier est supprimé.
+ */
+async function mergeDuplicateTabs(payload: Payload, tenantID: number) {
+  const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['prices'] } }] }, sort: 'id', limit: 100, depth: 0, ...base })
+  const byName = new Map<string, typeof cats>()
+  for (const c of cats) byName.set(tabKey(c.name), [...(byName.get(tabKey(c.name)) ?? []), c])
+  for (const group of byName.values()) {
+    if (group.length < 2) continue
+    const target = group[group.length - 1]
+    const pricesOf = async (id: number) =>
+      (await payload.find({ collection: 'prices', where: { and: [{ tenant: { equals: tenantID } }, { category: { equals: id } }] }, sort: '_order', limit: 200, depth: 0, ...base })).docs
+    const have = new Set((await pricesOf(target.id)).map((p) => tabKey(p.name)))
+    for (const source of group.slice(0, -1)) {
+      for (const p of await pricesOf(source.id)) {
+        if (!have.has(tabKey(p.name))) {
+          // Recréé pour se placer à la fin de l'onglet gardé, avec ses valeurs actuelles
+          await payload.create({
+            collection: 'prices',
+            data: { tenant: tenantID, category: target.id, name: p.name, description: p.description, price: p.price, unit: p.unit, isFrom: p.isFrom, displayPrice: p.displayPrice, highlight: p.highlight },
+            ...base,
+          })
+          have.add(tabKey(p.name))
+        }
+        await payload.delete({ collection: 'prices', id: p.id, ...base })
+      }
+      await payload.delete({ collection: 'categories', id: source.id, ...base })
+    }
+  }
+}
+
 /**
  * Un onglet de tarifs par catégorie. Une catégorie qui existe déjà (même nom) n'est pas touchée :
  * seules les catégories manquantes sont ajoutées, avec leurs tarifs.
  */
 async function ensurePrices(payload: Payload, tenantID: number) {
-  const ofTenant = { tenant: { equals: tenantID } }
-  const findCats = () => payload.find({ collection: 'categories', where: { and: [ofTenant, { usage: { in: ['prices'] } }] }, limit: 100, depth: 0, ...base })
-  let { docs: cats } = await findCats()
-  // Fusion demandée : l'onglet « Cours & abonnements » disparaît, ses tarifs passent à la suite de l'adhésion
-  const oldCourses = cats.find((c) => c.name === OLD_COURSES_TAB)
-  const adhesion = cats.find((c) => c.name === OLD_ADHESION_TAB || c.name === MERGED_TAB)
-  if (oldCourses && adhesion) {
-    const { docs: toMove } = await payload.find({ collection: 'prices', where: { and: [ofTenant, { category: { equals: oldCourses.id } }] }, sort: '_order', limit: 200, depth: 0, ...base })
-    for (const p of toMove) {
-      // Recréé (puis l'original supprimé) pour se placer à la fin de l'onglet, avec les valeurs actuelles
-      await payload.create({
-        collection: 'prices',
-        data: { tenant: tenantID, category: adhesion.id, name: p.name, description: p.description, price: p.price, unit: p.unit, isFrom: p.isFrom, displayPrice: p.displayPrice, highlight: p.highlight },
-        ...base,
-      })
-      await payload.delete({ collection: 'prices', id: p.id, ...base })
-    }
-    await payload.update({ collection: 'categories', id: adhesion.id, data: { name: MERGED_TAB, order: 1 }, ...base })
-    await payload.delete({ collection: 'categories', id: oldCourses.id, ...base })
-    ;({ docs: cats } = await findCats())
-  }
+  await mergeDuplicateTabs(payload, tenantID)
+  const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['prices'] } }] }, limit: 100, depth: 0, ...base })
   const used = new Set<number>()
-  const { docs: existingPrices } = await payload.find({ collection: 'prices', where: ofTenant, limit: 500, depth: 0, ...base })
+  const { docs: existingPrices } = await payload.find({ collection: 'prices', where: { tenant: { equals: tenantID } }, limit: 500, depth: 0, ...base })
   for (const p of existingPrices) if (typeof p.category === 'number') used.add(p.category)
   // Catégorie par défaut de la fiche client (« Tarifs »), encore vide : réutilisée pour le premier onglet
-  let spare = cats.find((c) => !used.has(c.id) && !PRICE_GROUPS.some((g) => g.name === c.name))
+  let spare = cats.find((c) => !used.has(c.id) && !PRICE_GROUPS.some((g) => tabKey(g.name) === tabKey(c.name)))
   let order = existingPrices.length
   for (const group of PRICE_GROUPS) {
-    const same = cats.find((c) => c.name === group.name)
+    const same = cats.find((c) => tabKey(c.name) === tabKey(group.name))
     if (same) {
       // Onglet déjà en place : on ne recrée rien, on le range seulement à sa place s'il a été créé par l'import
       if (used.has(same.id)) {
@@ -340,13 +366,27 @@ async function ensureMenus(payload: Payload, tenantID: number) {
     anchor('Planning', 'horaires'),
     anchor('Galerie', 'galerie'),
   ]
-  const { docs } = await payload.find({ collection: 'menus', where: { tenant: { equals: tenantID } }, limit: 10, depth: 0, ...base })
+  const { docs } = await payload.find({ collection: 'menus', where: { tenant: { equals: tenantID } }, sort: 'id', limit: 20, depth: 0, ...base })
   if (docs.length) {
-    // Menu posé par la première version de l'import et jamais modifié : on y ajoute le planning
-    const main = docs.find((m) => m.location === 'main')
-    const labels = (main?.items ?? []).map((i) => i.label)
-    if (main && OLD_MENUS.some((old) => labels.length === old.length && labels.every((l, i) => l === old[i]))) {
+    const mains = docs.filter((m) => m.location === 'main')
+    // Menus principaux en double (deux démarrages simultanés) : on garde le premier, celui que le site affiche
+    for (const extra of mains.slice(1)) await payload.delete({ collection: 'menus', id: extra.id, ...base })
+    const main = mains[0]
+    if (!main) return
+    const current = main.items ?? []
+    const labels = current.map((i) => i.label)
+    if (OLD_MENUS.some((old) => labels.length === old.length && labels.every((l, i) => l === old[i]))) {
+      // Menu posé par une version précédente de l'import et jamais modifié
       await payload.update({ collection: 'menus', id: main.id, data: { items }, ...base })
+      return
+    }
+    // Menu modifié : on ajoute seulement Planning et Galerie s'ils manquent, sans toucher au reste
+    const hasAnchor = (a: A) => current.some((i) => i.type === 'anchor' && i.anchor === a)
+    const next = current.map((i) => (i.type === 'anchor' && i.anchor === 'galerie' && i.label === 'Photos' ? { ...i, label: 'Galerie' } : i))
+    if (!hasAnchor('horaires')) next.push(anchor('Planning', 'horaires'))
+    if (!hasAnchor('galerie')) next.push(anchor('Galerie', 'galerie'))
+    if (next.length !== current.length || next.some((i, n) => i.label !== current[n].label)) {
+      await payload.update({ collection: 'menus', id: main.id, data: { items: next }, ...base })
     }
     return
   }
@@ -371,6 +411,14 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
     await payload.update({ collection: 'media', id: out.id, data: { inGallery: false }, ...base })
     const back = existing.find((m) => m.alt === AERIAL_IN && !m.inGallery)
     if (back) await payload.update({ collection: 'media', id: back.id, data: { inGallery: true }, ...base })
+  }
+  // Photos importées deux fois (même texte alternatif, parmi celles de l'import) : on garde la première
+  const ours = new Set(castellePhotos.map((p) => p.alt))
+  const seen = new Set<string>()
+  for (const m of [...existing].sort((a, b) => a.id - b.id)) {
+    if (!ours.has(m.alt)) continue
+    if (seen.has(m.alt)) await payload.delete({ collection: 'media', id: m.id, ...base }).catch(() => undefined)
+    else seen.add(m.alt)
   }
   const haveAlt = new Set(existing.map((m) => m.alt))
   const missing = castellePhotos.filter((p) => !haveAlt.has(p.alt))
