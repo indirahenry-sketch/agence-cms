@@ -7,6 +7,7 @@ import { seedEvents, seedServices } from '../ecuries-poigny/seedContent'
 import { seedGallery } from '../ecuries-poigny/seedImages'
 
 import { montesuguiPhotos } from './seedImages'
+import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
 
 export const MONTESUGUI_SLUG = 'haras-montesugui'
 
@@ -232,9 +233,10 @@ const POIGNY_SKIPPED = new Set(['Le domaine vu du ciel', 'Au milieu des champs']
  * (à remplacer au fil de l'eau par celles du client).
  */
 async function ensurePhotos(payload: Payload, tenantID: number) {
+  const photos = [...montesuguiPhotos, ...seedGallery.filter((img) => !POIGNY_SKIPPED.has(img.alt))]
+  await dropSeedMediaWithoutFile(payload, tenantID, photos.map((p) => p.alt))
   const { docs: existing } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 200, depth: 0, ...base })
   const haveAlt = new Set(existing.map((m) => m.alt))
-  const photos = [...montesuguiPhotos, ...seedGallery.filter((img) => !POIGNY_SKIPPED.has(img.alt))]
   const missing = photos.map((img, i) => ({ img, i })).filter(({ img }) => !haveAlt.has(img.alt))
   if (!missing.length) return
   const { docs: cats } = await payload.find({ collection: 'categories', where: { and: [{ tenant: { equals: tenantID } }, { usage: { in: ['gallery'] } }] }, limit: 1, ...base })
