@@ -578,6 +578,8 @@ export async function renderSite(payload: Payload, siteSlug: string, opts: Rende
     HOURS_ROWS: hoursRows,
     SCHED_JSON: jsonForScript(sched),
     BLOG_JSON: jsonForScript(blog),
+    // Photos de secours de la maquette (par légende), si une photo du CMS ne se charge pas
+    GALLERY_FALLBACK_JSON: jsonForScript(d.photos.length ? Object.fromEntries((TEMPLATE_GALLERIES[keyOf(tenant)] ?? []).map((p) => [p.caption, p.src])) : {}),
   }))
 }
 

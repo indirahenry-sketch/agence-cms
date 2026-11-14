@@ -63,6 +63,7 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(html).toContain('Abonnement annuel « Enfant »')
     expect(html).toContain('>Cours &amp; abonnements</button>')
     expect(html).toContain('id="calGrid"')
+    expect(html).toMatch(/id="galSecours">\{"Le manège olympique couvert":"data:image\/jpeg;base64,/)
     expect(html).toContain('Planning des cours 2026-2027')
     expect(html).toContain('>Planning</a>')
     expect(html).toContain('>Galerie</a>')
