@@ -119,6 +119,21 @@ describe('Domaine Équestre de la Castelle', () => {
     expect((await payload.count({ collection: 'prices', where: of, overrideAccess: true })).totalDocs).toBe(before - 1)
   })
 
+  it('répare une liste d’activités restée à une seule, et une photo dont le fichier a disparu', async () => {
+    const of = { tenant: { equals: tenantID } }
+    const { docs: services } = await payload.find({ collection: 'services', where: of, limit: 50, depth: 0, overrideAccess: true })
+    for (const sv of services.slice(1)) await payload.delete({ collection: 'services', id: sv.id, overrideAccess: true })
+    const { docs: media } = await payload.find({ collection: 'media', where: of, limit: 50, depth: 0, overrideAccess: true })
+    const fsp = await import('fs/promises')
+    const pathMod = await import('path')
+    await fsp.unlink(pathMod.join(process.env.MEDIA_DIR || pathMod.resolve(process.cwd(), 'media'), media[0].filename!))
+    await importDomaineCastelle(payload)
+    expect((await payload.count({ collection: 'services', where: of, overrideAccess: true })).totalDocs).toBe(7)
+    const after = await payload.find({ collection: 'media', where: of, limit: 50, depth: 0, overrideAccess: true })
+    expect(after.docs.length).toBe(media.length)
+    expect(after.docs.some((m) => m.id === media[0].id)).toBe(false)
+  })
+
   it('sans photo dans le CMS, la galerie de la maquette reste affichée', async () => {
     const { docs } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 50, depth: 0, overrideAccess: true })
     for (const m of docs) await payload.update({ collection: 'media', id: m.id, data: { inGallery: false }, overrideAccess: true })
