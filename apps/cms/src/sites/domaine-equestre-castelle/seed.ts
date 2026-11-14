@@ -297,7 +297,13 @@ async function ensurePrices(payload: Payload, tenantID: number) {
   }
 }
 
-const MENU_V1 = ['Activités', 'Le domaine', 'Tarifs', 'Agenda', 'Photos', 'Contact']
+/** Menus posés par les versions précédentes de l'import : remplacés seulement s'ils n'ont pas été modifiés. */
+const OLD_MENUS = [
+  ['Activités', 'Le domaine', 'Tarifs', 'Agenda', 'Photos', 'Contact'],
+  ['Le domaine', 'Activités', 'Planning', 'Tarifs', 'Agenda', 'Photos', 'Contact'],
+]
+/** Vue aérienne lointaine de toute la propriété : retirée de la galerie (elle reste dans « Le domaine »). */
+const FAR_AERIAL = 'Le Domaine Équestre de la Castelle vu du ciel'
 
 async function ensureMenus(payload: Payload, tenantID: number) {
   type A = 'top' | 'activites' | 'installations' | 'horaires' | 'tarifs' | 'blog' | 'galerie' | 'contact'
@@ -305,18 +311,18 @@ async function ensureMenus(payload: Payload, tenantID: number) {
   const items = [
     anchor('Le domaine', 'installations'),
     anchor('Activités', 'activites'),
-    anchor('Planning', 'horaires'),
     anchor('Tarifs', 'tarifs'),
     anchor('Agenda', 'blog'),
-    anchor('Photos', 'galerie'),
     anchor('Contact', 'contact'),
+    anchor('Planning', 'horaires'),
+    anchor('Galerie', 'galerie'),
   ]
   const { docs } = await payload.find({ collection: 'menus', where: { tenant: { equals: tenantID } }, limit: 10, depth: 0, ...base })
   if (docs.length) {
     // Menu posé par la première version de l'import et jamais modifié : on y ajoute le planning
     const main = docs.find((m) => m.location === 'main')
     const labels = (main?.items ?? []).map((i) => i.label)
-    if (main && labels.length === MENU_V1.length && labels.every((l, i) => l === MENU_V1[i])) {
+    if (main && OLD_MENUS.some((old) => labels.length === old.length && labels.every((l, i) => l === old[i]))) {
       await payload.update({ collection: 'menus', id: main.id, data: { items }, ...base })
     }
     return
@@ -336,6 +342,9 @@ async function ensureMenus(payload: Payload, tenantID: number) {
 
 async function ensurePhotos(payload: Payload, tenantID: number) {
   const { docs: existing } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 300, depth: 0, ...base })
+  for (const m of existing) {
+    if (m.alt === FAR_AERIAL && m.inGallery) await payload.update({ collection: 'media', id: m.id, data: { inGallery: false }, ...base })
+  }
   const haveAlt = new Set(existing.map((m) => m.alt))
   const missing = castellePhotos.filter((p) => !haveAlt.has(p.alt))
   if (!missing.length) return

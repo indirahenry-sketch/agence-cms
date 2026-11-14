@@ -37,7 +37,7 @@ describe('Domaine Équestre de la Castelle', () => {
     expect((await payload.count({ collection: 'services', where: of, overrideAccess: true })).totalDocs).toBe(7)
     expect((await payload.count({ collection: 'prices', where: of, overrideAccess: true })).totalDocs).toBe(26)
     expect((await payload.count({ collection: 'menus', where: of, overrideAccess: true })).totalDocs).toBe(2)
-    expect((await payload.count({ collection: 'media', where: of, overrideAccess: true })).totalDocs).toBe(9)
+    expect((await payload.count({ collection: 'media', where: of, overrideAccess: true })).totalDocs).toBe(8)
   })
 
   it('complète la fiche sans écraser ce qui était saisi', async () => {
@@ -65,6 +65,8 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(html).toContain('id="calGrid"')
     expect(html).toContain('Planning des cours 2026-2027')
     expect(html).toContain('>Planning</a>')
+    expect(html).toContain('>Galerie</a>')
+    expect(html).toContain('Le Poney du DEDC')
     expect(html).toContain('06 10 44 25 77')
     expect(html).toContain('dedc34@yahoo.com')
     expect(html).toContain('>Le domaine</a>')
