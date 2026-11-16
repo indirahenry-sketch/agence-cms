@@ -28,6 +28,14 @@ jobs:
       PAYLOAD_SECRET: ci-secret
       DATABASE_URI: postgres://cms:cms@localhost:5432/cms
       DB_PUSH: "false"
+      # Stockage photos activé comme en production (sinon la colonne media._objectkey semble « en trop »).
+      # Valeurs factices : rien n'est envoyé, le stockage n'est pas contacté pendant la génération.
+      S3_BUCKET: media
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: auto
+      S3_ACCESS_KEY_ID: factice
+      S3_SECRET_ACCESS_KEY: factice
+      S3_FORCE_PATH_STYLE: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
