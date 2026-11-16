@@ -2,7 +2,11 @@
 #   1. copie complète de la base (pg_dump) ;
 #   2. restauration de cette copie dans une base vide, pour PROUVER qu'elle est utilisable ;
 #   3. le dimanche (ou au lancement manuel), copie de toutes les photos du stockage.
-# Les fichiers sont gardés 14 jours dans l'onglet « Actions » du dépôt (privé).
+# Les fichiers sont gardés 14 jours dans l'onglet « Actions » du dépôt.
+#
+# ATTENTION : le dépôt est PUBLIC. Sur un dépôt public, toute personne connectée à GitHub
+# peut télécharger les fichiers de l'onglet « Actions ». Les sauvegardes sont donc TOUJOURS
+# chiffrées : sans BACKUP_PASSPHRASE (20 caractères minimum), rien n'est copié ni déposé.
 #
 # À faire une seule fois (dépôt GitHub → Settings → Secrets and variables → Actions) :
 #   BACKUP_DATABASE_URI        chaîne de connexion Supabase (la même que DATABASE_URI sur Render)
@@ -11,8 +15,15 @@
 #   BACKUP_S3_SECRET_ACCESS_KEY}
 #   BACKUP_S3_BUCKET           }
 #   BACKUP_S3_REGION           }
-#   BACKUP_PASSPHRASE          (facultatif) chiffre les fichiers ; à garder précieusement
+#   BACKUP_PASSPHRASE          (OBLIGATOIRE, 20 caractères minimum) chiffre les fichiers.
+#                              À garder précieusement ailleurs (gestionnaire de mots de passe) :
+#                              sans elle, les sauvegardes sont illisibles, même pour toi.
 # Tant que BACKUP_DATABASE_URI n'existe pas, la sauvegarde s'arrête proprement sans erreur.
+# Si BACKUP_DATABASE_URI existe mais pas BACKUP_PASSPHRASE, la sauvegarde s'arrête en rouge
+# AVANT toute copie.
+#
+# Pour relire une sauvegarde (sur ton ordinateur, avec GnuPG) :
+#   gpg --decrypt base.dump.gpg > base.dump
 name: Sauvegarde
 
 on:
@@ -52,6 +63,11 @@ jobs:
           if [ -z "$DB" ]; then
             echo "::notice::Sauvegarde non configurée : ajoute le secret BACKUP_DATABASE_URI (voir l'en-tête de ce fichier)."
             echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif [ "${#PASSPHRASE}" -lt 20 ]; then
+            # Dépôt public : une copie non chiffrée serait téléchargeable par n'importe qui.
+            echo "::error::Sauvegarde bloquée : le secret BACKUP_PASSPHRASE est absent ou fait moins de 20 caractères. Le dépôt est public, une copie non chiffrée serait visible par tous. Rien n'a été copié."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 1
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
@@ -98,14 +114,25 @@ jobs:
           tar -czf out/photos.tar.gz -C out photos && rm -rf out/photos
           ls -lh out/photos.tar.gz
 
-      - name: Chiffrement (si BACKUP_PASSPHRASE)
-        if: steps.check.outputs.ready == 'true' && env.PASSPHRASE != ''
+      - name: Chiffrement (obligatoire)
+        if: steps.check.outputs.ready == 'true'
         run: |
-          for f in out/base.dump out/photos.tar.gz; do
+          for f in out/base.dump out/photos.tar.gz out/verification.txt; do
             [ -f "$f" ] || continue
             gpg --batch --yes --pinentry-mode loopback --passphrase "$PASSPHRASE" --symmetric --cipher-algo AES256 -o "$f.gpg" "$f"
             rm "$f"
           done
+
+      - name: Vérification, rien en clair
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          # Seuls les fichiers chiffrés (.gpg) et le compte-rendu chiffré du test peuvent partir.
+          clair=$(find out -type f ! -name '*.gpg' | wc -l)
+          if [ "$clair" -ne 0 ]; then
+            echo "::error::Fichier non chiffré détecté : dépôt annulé."
+            exit 1
+          fi
+          ls -lh out/
 
       - name: Conservation 14 jours
         if: steps.check.outputs.ready == 'true'
