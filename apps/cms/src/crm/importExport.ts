@@ -2,7 +2,7 @@ import type { Payload, PayloadRequest } from 'payload'
 
 import type { CrmProspect, CrmZone } from '@/payload-types'
 
-import { CRM_INFO_LEVELS, CRM_NEEDS, CRM_PRIORITIES, CRM_STATUSES, CRM_TYPES, CRM_VERIFICATION_LEVELS, CRM_WEBSITE_STATUSES } from './constants'
+import { CRM_INFO_LEVELS, CRM_NEEDS, CRM_PRIORITIES, CRM_PROJECT_STATUSES, CRM_STATUSES, CRM_TYPES, CRM_VERIFICATION_LEVELS, CRM_WEBSITE_STATUSES } from './constants'
 import { findOptOut, matchConditions } from './dedupe'
 import { crmKeys, domainKey, emailKey } from './normalize'
 
@@ -32,6 +32,7 @@ export const EXPORT_COLUMNS: { header: string; get: (p: CrmProspect) => unknown 
   { header: 'Besoin', get: (p) => label(CRM_NEEDS, p.need) },
   { header: 'Statut', get: (p) => label(CRM_STATUSES, p.status) },
   { header: 'Priorité', get: (p) => label(CRM_PRIORITIES, p.priority) },
+  { header: 'Statut du projet', get: (p) => label(CRM_PROJECT_STATUSES, p.projectStatus) },
   { header: 'Vérification', get: (p) => label(CRM_VERIFICATION_LEVELS, p.verificationLevel) },
   { header: 'Ne plus contacter', get: (p) => (p.doNotContact ? 'oui' : 'non') },
   { header: 'Prochaine relance', get: (p) => day(p.nextFollowUpAt) },

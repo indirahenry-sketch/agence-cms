@@ -136,3 +136,34 @@ export const FRENCH_DEPARTMENTS: { code: string; name: string; region: string }[
   { code: '974', name: 'La Réunion', region: 'La Réunion' },
   { code: '976', name: 'Mayotte', region: 'Mayotte' },
 ]
+
+/**
+ * Statut commercial SIMPLIFIÉ (Base de prospection) : 4 couleurs qui regroupent les 11 statuts
+ * détaillés. Changer le statut simplifié depuis le tableau garde le statut détaillé s'il est déjà
+ * dans le bon groupe, sinon il prend le statut « par défaut » du groupe.
+ */
+export const CRM_COMMERCIAL = [
+  { value: 'a-contacter', label: 'À contacter', tone: 'peach', set: 'nouveau', statuses: ['nouveau', 'a-verifier', 'qualifie', 'email-a-preparer', 'brouillon-cree'] },
+  { value: 'contacte', label: 'Contacté', tone: 'sky', set: 'en-attente', statuses: ['email-envoye', 'en-attente', 'relance'] },
+  { value: 'accepte', label: 'Accepté', tone: 'mint', set: 'client', statuses: ['client'] },
+  { value: 'refuse', label: 'Refusé', tone: 'rose', set: 'non-interesse', statuses: ['non-interesse', 'ne-plus-contacter'] },
+] as const
+
+export type CrmCommercial = (typeof CRM_COMMERCIAL)[number]['value']
+
+export const commercialOf = (status?: string | null): CrmCommercial =>
+  (CRM_COMMERCIAL.find((c) => (c.statuses as readonly string[]).includes(status ?? ''))?.value ?? 'a-contacter') as CrmCommercial
+
+/** Statut détaillé à enregistrer quand on choisit un statut simplifié. */
+export const statusForCommercial = (target: CrmCommercial, current?: string | null): CrmStatus => {
+  const group = CRM_COMMERCIAL.find((c) => c.value === target)!
+  return ((group.statuses as readonly string[]).includes(current ?? '') ? current : group.set) as CrmStatus
+}
+
+/** Avancement du site / projet. */
+export const CRM_PROJECT_STATUSES = [
+  { label: 'À faire', value: 'a-faire' },
+  { label: 'En cours', value: 'en-cours' },
+  { label: 'En livraison', value: 'en-livraison' },
+  { label: 'Livré', value: 'livre' },
+] as const satisfies readonly Option[]
