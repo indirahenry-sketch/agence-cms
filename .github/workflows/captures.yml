@@ -81,11 +81,13 @@ jobs:
           [ -d /tmp/captures ] || exit 0
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan captures-crm-etape-1
+          B="captures-crm-${{ github.run_id }}"
+          git checkout -q --orphan "$B"
           git rm -rq --cached . && rm -rf ./* .github .gitignore 2>/dev/null || true
           cp /tmp/captures/* .
           git add *.png verifications.txt
           git commit -qm "Captures de l'espace Prospection (données fictives)"
-          git push -f origin captures-crm-etape-1
+          git push -q origin "$B"
+          echo "::notice::Captures sur la branche $B"
       - name: Résultat
         run: '[ -z "$ECHEC" ]'
