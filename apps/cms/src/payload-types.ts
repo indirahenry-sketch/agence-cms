@@ -904,6 +904,10 @@ export interface CrmProspect {
   address?: string | null;
   postalCode?: string | null;
   need?: ('creation' | 'refonte' | 'a-determiner') | null;
+  /**
+   * À remplir quand un projet démarre avec ce prospect.
+   */
+  projectStatus?: ('a-faire' | 'en-cours' | 'en-livraison' | 'livre') | null;
   verificationLevel?: ('verifie' | 'partiel' | 'a-verifier') | null;
   notes?: string | null;
   phone?: string | null;
@@ -1782,6 +1786,7 @@ export interface CrmProspectsSelect<T extends boolean = true> {
   address?: T;
   postalCode?: T;
   need?: T;
+  projectStatus?: T;
   verificationLevel?: T;
   notes?: T;
   phone?: T;
