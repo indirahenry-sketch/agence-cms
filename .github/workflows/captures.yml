@@ -1,0 +1,87 @@
+# OUTIL TEMPORAIRE (retiré avant la fusion dans main) : construit le CMS comme en production,
+# le démarre sur une base jetable, crée des comptes de test aléatoires (jamais affichés) et des
+# données fictives, puis prend des captures (ordinateur + iPhone) déposées sur une branche à part.
+name: Captures (temporaire)
+
+on:
+  push:
+    branches: [crm-etape-1]
+
+permissions:
+  contents: write
+
+jobs:
+  captures:
+    if: contains(github.event.head_commit.message, '[captures]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cms
+          POSTGRES_PASSWORD: cms
+          POSTGRES_DB: cms
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cms" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.4
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Construction de production
+        env:
+          PAYLOAD_SECRET: build-only
+          DATABASE_URI: postgres://build:build@localhost:5432/build
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: pnpm --filter cms build
+      - name: Démarrage
+        env:
+          NODE_ENV: production
+          PORT: "3000"
+          HOSTNAME: 127.0.0.1
+          PAYLOAD_SECRET: capture-secret-jetable
+          DATABASE_URI: postgres://cms:cms@localhost:5432/cms
+          PUBLIC_SERVER_URL: http://localhost:3000
+          SKIP_DEMO_IMPORT: "true"
+          KEEP_AWAKE: "false"
+        run: |
+          S=apps/cms/.next/standalone
+          cp -r apps/cms/.next/static $S/apps/cms/.next/static
+          [ -d apps/cms/public ] && cp -r apps/cms/public $S/apps/cms/public || true
+          nohup node $S/apps/cms/server.js > server.log 2>&1 &
+          for i in $(seq 1 90); do curl -fs http://localhost:3000/health >/dev/null && break; sleep 2; done
+          curl -fs http://localhost:3000/health
+          # Laisse onInit finir (migrations + zones)
+          sleep 10
+      - name: Captures
+        run: |
+          echo "CAP_EMAIL=capture@exemple.test" >> "$GITHUB_ENV"
+          P1=$(openssl rand -hex 16); P2=$(openssl rand -hex 16)
+          echo "::add-mask::$P1"; echo "::add-mask::$P2"
+          mkdir -p /tmp/shoot && cp .github/captures/shoot.mjs /tmp/shoot/
+          cd /tmp/shoot && npm init -y >/dev/null && npm i --silent playwright@1.49.1
+          npx playwright install --with-deps chromium webkit >/dev/null
+          OUT=/tmp/captures CAP_EMAIL=capture@exemple.test CAP_PASS="$P1" CLIENT_EMAIL=client@exemple.test CLIENT_PASS="$P2" node shoot.mjs || echo "ECHEC=1" >> "$GITHUB_ENV"
+          while IFS= read -r l; do echo "::notice::$l"; done < /tmp/captures/verifications.txt
+      - name: Erreurs du serveur
+        if: always()
+        run: grep -iE "error|erreur" server.log | grep -v "SMTP\|e-mail" | head -15 | while IFS= read -r l; do echo "::warning::${l:0:300}"; done || true
+      - name: Dépôt des captures (branche à part)
+        if: always()
+        run: |
+          [ -d /tmp/captures ] || exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan captures-crm-etape-1
+          git rm -rq --cached . && rm -rf ./* .github .gitignore 2>/dev/null || true
+          cp /tmp/captures/* .
+          git add *.png verifications.txt
+          git commit -qm "Captures de l'espace Prospection (données fictives)"
+          git push -f origin captures-crm-etape-1
+      - name: Résultat
+        run: '[ -z "$ECHEC" ]'
