@@ -42,6 +42,7 @@ import { removeOrphans } from './hooks/tenantCleanup'
 import { startKeepAwake } from './lib/keepAwake'
 import { startTrashPurge } from './lib/trashPurge'
 import { checkS3 } from './lib/s3-check'
+import { crmExport, crmImport } from './endpoints/crm'
 import { notifications } from './endpoints/notifications'
 import { storageCheck } from './endpoints/storage'
 import { readableErrors } from './hooks/readableErrors'
@@ -77,7 +78,9 @@ export default buildConfig({
       afterNavLinks: ['@/components/LogoutLink#LogoutLink'],
       // Espace Prospection (CRM) : page séparée du tableau de bord des sites clients
       views: {
-        prospection: { Component: '@/components/crm/CrmHome#CrmHome', path: '/prospection' },
+        prospection: { Component: '@/components/crm/CrmHome#CrmHome', path: '/prospection', exact: true },
+        prospectionRelances: { Component: '@/components/crm/CrmCalendar#CrmCalendar', path: '/prospection/relances' },
+        prospectionImport: { Component: '@/components/crm/CrmImport#CrmImport', path: '/prospection/import' },
       },
       actions: ['@/components/HeaderTools#HeaderTools'],
       providers: ['@/components/MobileBar#MobileBar', '@/components/ArticlesName#ArticlesNameNav'],
@@ -94,7 +97,7 @@ export default buildConfig({
     },
   },
 
-  endpoints: [notifications, storageCheck],
+  endpoints: [notifications, storageCheck, crmExport, crmImport],
 
   // Messages d'erreur compréhensibles au lieu de « Something went wrong »
   hooks: { afterError: [readableErrors] },

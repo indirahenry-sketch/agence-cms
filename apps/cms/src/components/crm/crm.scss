@@ -47,3 +47,36 @@
   background: color-mix(in srgb, var(--cms-accent) 10%, transparent); color: var(--cms-accent); font-weight: 700; text-decoration: none;
   &:hover { background: color-mix(in srgb, var(--cms-accent) 18%, transparent); }
 }
+
+// Navigation entre les pages de la prospection
+.crm__tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.crm__tabs a {
+  padding: 7px 12px; border: 1px solid var(--cms-line); border-radius: 10px; background: var(--cms-card);
+  color: var(--cms-ink); font-weight: 600; font-size: 0.85rem; text-decoration: none;
+  &:hover { border-color: var(--cms-accent); }
+  &.on { background: var(--cms-accent); border-color: var(--cms-accent); color: #fff; }
+}
+.crm__tile--static { cursor: default; &:hover { border-color: var(--cms-line); } }
+.crm__note, .crm__more { margin: 0; font-size: 0.85rem; color: var(--theme-elevation-600); }
+.crm__more { margin-top: 10px; }
+.crm__more a { color: var(--cms-accent); font-weight: 600; }
+.crm__warn { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 0.85rem; background: color-mix(in srgb, #d97706 10%, transparent); color: var(--cms-ink); }
+.crm__error { color: #e11d48; font-weight: 600; }
+.crm__card p { margin: 0 0 10px; }
+
+// Calendrier des relances (reprend l'apparence du calendrier de l'Agenda)
+.crm__cal .ecal__nav a {
+  border: 1px solid var(--cms-line); background: var(--cms-card); color: var(--cms-ink); border-radius: 10px;
+  padding: 6px 12px; font-weight: 600; font-size: 0.85rem; text-decoration: none;
+}
+.crm__ev { background: var(--cms-accent-soft, #f1ebfe); color: var(--cms-accent); }
+.crm__ev--late { background: #fdecec; color: #b91c1c; }
+
+// Import
+.crm__import { display: grid; gap: 10px; }
+.crm__import-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.crm__import-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.crm__report { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--cms-line); border-radius: 10px; }
+.crm__report p { margin: 0; }
+.crm__report-group summary { cursor: pointer; font-weight: 600; }
+.crm__report-group ul { margin: 6px 0 0; padding-left: 18px; font-size: 0.85rem; }

@@ -12,9 +12,13 @@ import config from '@payload-config'
 import { getPayload, type Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
+import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
+import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
 import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
 import { ensureCrmZones } from '@/crm/zones'
+import { crmExport, crmImport } from '@/endpoints/crm'
 import type { Tenant, User } from '@/payload-types'
+import type { PayloadRequest } from 'payload'
 
 let payload: Payload
 let tenant: Tenant
@@ -181,5 +185,117 @@ describe('Zones', () => {
     const herault = docs.find((z) => z.code === '34')
     expect(herault?.region).toBe('Occitanie')
     expect(herault?.label).toBe('34 · Hérault')
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* ÉTAPE 2 : CSV, import, export                                       */
+/* ------------------------------------------------------------------ */
+
+describe('CSV', () => {
+  it('écrit pour Excel (point-virgule, BOM) et se relit à l’identique', () => {
+    const csv = toCsv(['Nom', 'Notes'], [['Écurie « Le Pré »', 'ligne 1\nligne 2 ; avec "guillemets"']])
+    expect(csv.startsWith('\uFEFF')).toBe(true)
+    expect(parseCsv(csv)).toEqual([
+      ['Nom', 'Notes'],
+      ['Écurie « Le Pré »', 'ligne 1\nligne 2 ; avec "guillemets"'],
+    ])
+  })
+  it('devine le séparateur et ignore les lignes vides', () => {
+    expect(parseCsv('nom,commune\r\nA,Sète\r\n\r\nB,Lunel\r\n')).toEqual([
+      ['nom', 'commune'],
+      ['A', 'Sète'],
+      ['B', 'Lunel'],
+    ])
+  })
+  it('relit un fichier Excel enregistré en Windows-1252', () => {
+    const bytes = new Uint8Array([0x4e, 0x6f, 0x6d, 0x0a, 0xc9, 0x63, 0x75, 0x72, 0x69, 0x65]) // "Nom\nÉcurie"
+    expect(parseCsv(decodeCsv(bytes))).toEqual([['Nom'], ['Écurie']])
+  })
+  it('reconnaît les intitulés usuels', () => {
+    const cols = mapHeaders(['Nom de la structure', 'Téléphone', 'E-mail', 'Site internet', 'CP', 'Ville'])
+    expect(cols).toEqual({ name: 0, phone: 1, email: 2, website: 3, postalCode: 4, commune: 5 })
+  })
+  it('déduit le département du code postal', () => {
+    expect(departmentFromPostalCode('34000')).toBe('34')
+    expect(departmentFromPostalCode('20000')).toBe('2A')
+    expect(departmentFromPostalCode('20200')).toBe('2B')
+    expect(departmentFromPostalCode('97400')).toBe('974')
+    expect(departmentFromPostalCode('abc')).toBe('')
+  })
+})
+
+describe('Import CSV', () => {
+  const file = [
+    ['Nom', 'Type', 'Commune', 'Code postal', 'Téléphone', 'E-mail', 'Site', 'Source'],
+    ['Écurie Nouvelle', 'écurie', 'Montpellier', '34000', '04 99 00 00 01', 'contact@nouvelle.fr', '', 'https://annuaire.exemple/1'],
+    ['Haras Soleil bis', 'haras', 'Lunel', '34400', '06.11.22.33.44', '', '', ''], // téléphone déjà connu
+    ['Domaine Refus', '', '', '', '', 'contact@refus.fr', '', ''], // ne plus contacter
+    ['', 'poney-club', 'Sète', '', '', '', '', ''], // sans nom
+    ['Poney-club Neuf', 'poney club', 'Sète', '34200', '', 'pas-un-email', 'pas un site', ''],
+    ['Ecurie Nouvelle', '', 'montpellier', '', '', '', '', ''], // doublon dans le fichier
+  ]
+
+  it('l’aperçu n’enregistre rien', async () => {
+    const before = (await payload.count({ collection: 'crm-prospects' })).totalDocs
+    const r = await importProspects(payload, file, { dryRun: true })
+    expect(r.added).toBe(2)
+    expect((await payload.count({ collection: 'crm-prospects' })).totalDocs).toBe(before)
+  })
+
+  it('importe sans doublon, sans « ne plus contacter », sans rien inventer', async () => {
+    const r = await importProspects(payload, file, { dryRun: false })
+    expect(r.total).toBe(6)
+    expect(r.addedNames).toEqual(['Écurie Nouvelle', 'Poney-club Neuf'])
+    expect(r.known.map((l) => l.line)).toEqual([3, 7])
+    expect(r.optOut.map((l) => l.line)).toEqual([4])
+    expect(r.rejected.map((l) => l.line)).toEqual([5])
+    expect(r.warnings.map((w) => w.detail)).toEqual(expect.arrayContaining([expect.stringContaining('E-mail invalide'), expect.stringContaining('site invalide')]))
+
+    const { docs } = await payload.find({ collection: 'crm-prospects', where: { search: { equals: r.searchId } }, depth: 1, sort: 'name' })
+    expect(docs).toHaveLength(2)
+    const neuf = docs.find((d) => d.name === 'Poney-club Neuf')!
+    expect(neuf.status).toBe('a-verifier')
+    expect(neuf.type).toBe('poney-club')
+    expect(neuf.email ?? '').toBe('')
+    expect(neuf.emailLevel).toBe('non-trouve')
+    expect(typeof neuf.department === 'object' && neuf.department?.code).toBe('34')
+    const nouvelle = docs.find((d) => d.name === 'Écurie Nouvelle')!
+    expect(nouvelle.sources?.map((x) => x.url)).toContain('https://annuaire.exemple/1')
+
+    const search = await payload.findByID({ collection: 'crm-searches', id: r.searchId! })
+    expect(search).toMatchObject({ trigger: 'import', status: 'terminee', found: 6, added: 2, duplicates: 2, rejected: 2 })
+
+    // Relancer le même fichier n'ajoute plus rien
+    const again = await importProspects(payload, file, { dryRun: false })
+    expect(again.added).toBe(0)
+  })
+})
+
+describe('Export et import : réservés à l’agence', () => {
+  const reqAs = async (user: User, extra: Partial<PayloadRequest> = {}) =>
+    ({ payload, user: (await as(user)).user, searchParams: new URLSearchParams(), ...extra }) as unknown as PayloadRequest
+
+  it('un client ne peut ni exporter ni importer', async () => {
+    await expect(crmExport.handler(await reqAs(clientAdmin))).rejects.toThrow()
+    await expect(crmImport.handler(await reqAs(clientAdmin, { arrayBuffer: async () => new TextEncoder().encode('Nom\nX').buffer }))).rejects.toThrow()
+  })
+
+  it('le super admin exporte un CSV lisible, « Non trouvé » compris', async () => {
+    const res = await crmExport.handler(await reqAs(superAdmin))
+    expect(res.headers.get('Content-Type')).toContain('text/csv')
+    const rows = parseCsv(await res.text())
+    expect(rows[0].slice(0, 4)).toEqual(['Nom', 'Type', 'Commune', 'Département'])
+    const line = rows.find((r) => r[0] === 'Poney-club Neuf')!
+    expect(line[rows[0].indexOf('E-mail')]).toBe('Non trouvé')
+  })
+
+  it('le super admin peut prévisualiser un import par l’API', async () => {
+    const body = new TextEncoder().encode('Nom;Commune\nÉcurie API;Agde\n')
+    const res = await crmImport.handler(
+      await reqAs(superAdmin, { searchParams: new URLSearchParams('apercu=1'), arrayBuffer: async () => body.buffer as ArrayBuffer }),
+    )
+    const report = await res.json()
+    expect(report).toMatchObject({ dryRun: true, total: 1, added: 1 })
   })
 })
