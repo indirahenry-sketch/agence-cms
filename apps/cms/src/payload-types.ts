@@ -85,12 +85,22 @@ export interface Config {
     announcements: Announcement;
     'audit-logs': AuditLog;
     'site-stats': SiteStat;
+    'crm-prospects': CrmProspect;
+    'crm-activities': CrmActivity;
+    'crm-zones': CrmZone;
+    'crm-searches': CrmSearch;
+    'crm-duplicates': CrmDuplicate;
+    'crm-optouts': CrmOptout;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
-  collectionsJoins: {};
+  collectionsJoins: {
+    'crm-prospects': {
+      activities: 'crm-activities';
+    };
+  };
   collectionsSelect: {
     posts: PostsSelect<false> | PostsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
@@ -110,6 +120,12 @@ export interface Config {
     announcements: AnnouncementsSelect<false> | AnnouncementsSelect<true>;
     'audit-logs': AuditLogsSelect<false> | AuditLogsSelect<true>;
     'site-stats': SiteStatsSelect<false> | SiteStatsSelect<true>;
+    'crm-prospects': CrmProspectsSelect<false> | CrmProspectsSelect<true>;
+    'crm-activities': CrmActivitiesSelect<false> | CrmActivitiesSelect<true>;
+    'crm-zones': CrmZonesSelect<false> | CrmZonesSelect<true>;
+    'crm-searches': CrmSearchesSelect<false> | CrmSearchesSelect<true>;
+    'crm-duplicates': CrmDuplicatesSelect<false> | CrmDuplicatesSelect<true>;
+    'crm-optouts': CrmOptoutsSelect<false> | CrmOptoutsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -119,8 +135,12 @@ export interface Config {
     defaultIDType: number;
   };
   fallbackLocale: ('false' | 'none' | 'null') | false | null | ('fr' | 'en') | ('fr' | 'en')[];
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    'crm-settings': CrmSetting;
+  };
+  globalsSelect: {
+    'crm-settings': CrmSettingsSelect<false> | CrmSettingsSelect<true>;
+  };
   locale: 'fr' | 'en';
   widgets: {
     collections: CollectionsWidget;
@@ -292,6 +312,7 @@ export interface Media {
    */
   isPublic?: boolean | null;
   inGallery?: boolean | null;
+  _objectKey?: string | null;
   updatedAt: string;
   createdAt: string;
   deletedAt?: string | null;
@@ -844,6 +865,194 @@ export interface SiteStat {
   createdAt: string;
 }
 /**
+ * Structures à démarcher. Rien n’est inventé : une information introuvable reste « Non trouvé ».
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-prospects".
+ */
+export interface CrmProspect {
+  id: number;
+  name: string;
+  type?:
+    | (
+        | 'ecurie'
+        | 'ecurie-proprietaires'
+        | 'elevage'
+        | 'haras'
+        | 'centre-equestre'
+        | 'poney-club'
+        | 'domaine-equestre'
+        | 'structure-independante'
+        | 'autre'
+      )
+    | null;
+  status:
+    | 'nouveau'
+    | 'a-verifier'
+    | 'qualifie'
+    | 'email-a-preparer'
+    | 'brouillon-cree'
+    | 'email-envoye'
+    | 'en-attente'
+    | 'relance'
+    | 'client'
+    | 'non-interesse'
+    | 'ne-plus-contacter';
+  priority?: ('haute' | 'moyenne' | 'basse') | null;
+  commune?: string | null;
+  department?: (number | null) | CrmZone;
+  address?: string | null;
+  postalCode?: string | null;
+  need?: ('creation' | 'refonte' | 'a-determiner') | null;
+  verificationLevel?: ('verifie' | 'partiel' | 'a-verifier') | null;
+  notes?: string | null;
+  phone?: string | null;
+  phoneLevel?: ('verifie' | 'a-verifier' | 'non-trouve') | null;
+  email?: string | null;
+  emailLevel?: ('verifie' | 'a-verifier' | 'non-trouve') | null;
+  website?: string | null;
+  websiteStatus?: ('sans-site' | 'site-existant' | 'a-verifier') | null;
+  /**
+   * Numéro d’entreprise : aide à repérer les doublons.
+   */
+  siren?: string | null;
+  /**
+   * Où chaque information a été trouvée (lien de la page, annuaire…).
+   */
+  sources?:
+    | {
+        label: string;
+        url?: string | null;
+        checkedAt?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  discoveredAt?: string | null;
+  search?: (number | null) | CrmSearch;
+  nextFollowUpAt?: string | null;
+  lastContactAt?: string | null;
+  activities?: {
+    docs?: (number | CrmActivity)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Coché automatiquement : statut « Ne plus contacter » ou demande enregistrée.
+   */
+  doNotContact?: boolean | null;
+  nameKey?: string | null;
+  communeKey?: string | null;
+  phoneKey?: string | null;
+  emailKey?: string | null;
+  domainKey?: string | null;
+  sirenKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Départements où chercher des prospects. Cochez « Active » pour inclure une zone dans les recherches.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-zones".
+ */
+export interface CrmZone {
+  id: number;
+  code: string;
+  name: string;
+  kind: 'departement' | 'pays' | 'autre';
+  region?: string | null;
+  country: string;
+  active?: boolean | null;
+  label?: string | null;
+  lastSearchedAt?: string | null;
+  searchCount?: number | null;
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Chaque recherche lancée (le lundi ou à la main) et son résultat réel : rien n’est gonflé.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-searches".
+ */
+export interface CrmSearch {
+  id: number;
+  title?: string | null;
+  startedAt: string;
+  finishedAt?: string | null;
+  trigger: 'manuel' | 'planifie' | 'import';
+  status: 'en-cours' | 'terminee' | 'echouee';
+  target?: number | null;
+  zones?: (number | CrmZone)[] | null;
+  sources?: string | null;
+  found?: number | null;
+  added?: number | null;
+  duplicates?: number | null;
+  rejected?: number | null;
+  report?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Chaque appel, e-mail, réponse ou note. Une date de relance apparaît dans le calendrier des relances.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-activities".
+ */
+export interface CrmActivity {
+  id: number;
+  prospect: number | CrmProspect;
+  kind: 'note' | 'appel' | 'email-envoye' | 'reponse' | 'relance' | 'rdv' | 'autre';
+  date: string;
+  summary: string;
+  followUpAt?: string | null;
+  done?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Deux fiches qui semblent décrire le même établissement. À valider à la main.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-duplicates".
+ */
+export interface CrmDuplicate {
+  id: number;
+  prospect: number | CrmProspect;
+  existing: number | CrmProspect;
+  reasons?: ('nom-commune' | 'telephone' | 'email' | 'site' | 'siren')[] | null;
+  status: 'a-examiner' | 'doublon' | 'pas-doublon';
+  decidedAt?: string | null;
+  note?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Établissements à ne plus jamais solliciter. Ajoutés automatiquement, ou à la main (e-mail, téléphone, site).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-optouts".
+ */
+export interface CrmOptout {
+  id: number;
+  label: string;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  commune?: string | null;
+  reason?: string | null;
+  prospect?: (number | null) | CrmProspect;
+  nameKey?: string | null;
+  communeKey?: string | null;
+  phoneKey?: string | null;
+  emailKey?: string | null;
+  domainKey?: string | null;
+  sirenKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -938,6 +1147,30 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'site-stats';
         value: number | SiteStat;
+      } | null)
+    | ({
+        relationTo: 'crm-prospects';
+        value: number | CrmProspect;
+      } | null)
+    | ({
+        relationTo: 'crm-activities';
+        value: number | CrmActivity;
+      } | null)
+    | ({
+        relationTo: 'crm-zones';
+        value: number | CrmZone;
+      } | null)
+    | ({
+        relationTo: 'crm-searches';
+        value: number | CrmSearch;
+      } | null)
+    | ({
+        relationTo: 'crm-duplicates';
+        value: number | CrmDuplicate;
+      } | null)
+    | ({
+        relationTo: 'crm-optouts';
+        value: number | CrmOptout;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1022,6 +1255,7 @@ export interface MediaSelect<T extends boolean = true> {
   tags?: T;
   isPublic?: T;
   inGallery?: T;
+  _objectKey?: T;
   updatedAt?: T;
   createdAt?: T;
   deletedAt?: T;
@@ -1536,6 +1770,140 @@ export interface SiteStatsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-prospects_select".
+ */
+export interface CrmProspectsSelect<T extends boolean = true> {
+  name?: T;
+  type?: T;
+  status?: T;
+  priority?: T;
+  commune?: T;
+  department?: T;
+  address?: T;
+  postalCode?: T;
+  need?: T;
+  verificationLevel?: T;
+  notes?: T;
+  phone?: T;
+  phoneLevel?: T;
+  email?: T;
+  emailLevel?: T;
+  website?: T;
+  websiteStatus?: T;
+  siren?: T;
+  sources?:
+    | T
+    | {
+        label?: T;
+        url?: T;
+        checkedAt?: T;
+        id?: T;
+      };
+  discoveredAt?: T;
+  search?: T;
+  nextFollowUpAt?: T;
+  lastContactAt?: T;
+  activities?: T;
+  doNotContact?: T;
+  nameKey?: T;
+  communeKey?: T;
+  phoneKey?: T;
+  emailKey?: T;
+  domainKey?: T;
+  sirenKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-activities_select".
+ */
+export interface CrmActivitiesSelect<T extends boolean = true> {
+  prospect?: T;
+  kind?: T;
+  date?: T;
+  summary?: T;
+  followUpAt?: T;
+  done?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-zones_select".
+ */
+export interface CrmZonesSelect<T extends boolean = true> {
+  code?: T;
+  name?: T;
+  kind?: T;
+  region?: T;
+  country?: T;
+  active?: T;
+  label?: T;
+  lastSearchedAt?: T;
+  searchCount?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-searches_select".
+ */
+export interface CrmSearchesSelect<T extends boolean = true> {
+  title?: T;
+  startedAt?: T;
+  finishedAt?: T;
+  trigger?: T;
+  status?: T;
+  target?: T;
+  zones?: T;
+  sources?: T;
+  found?: T;
+  added?: T;
+  duplicates?: T;
+  rejected?: T;
+  report?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-duplicates_select".
+ */
+export interface CrmDuplicatesSelect<T extends boolean = true> {
+  prospect?: T;
+  existing?: T;
+  reasons?: T;
+  status?: T;
+  decidedAt?: T;
+  note?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-optouts_select".
+ */
+export interface CrmOptoutsSelect<T extends boolean = true> {
+  label?: T;
+  email?: T;
+  phone?: T;
+  website?: T;
+  commune?: T;
+  reason?: T;
+  prospect?: T;
+  nameKey?: T;
+  communeKey?: T;
+  phoneKey?: T;
+  emailKey?: T;
+  domainKey?: T;
+  sirenKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -1573,6 +1941,31 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-settings".
+ */
+export interface CrmSetting {
+  id: number;
+  /**
+   * Le nombre que tu veux. La recherche s’arrête à cet objectif, et n’ajoute jamais de fiche inventée pour l’atteindre.
+   */
+  weeklyTarget: number;
+  followUpDays: number;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-settings_select".
+ */
+export interface CrmSettingsSelect<T extends boolean = true> {
+  weeklyTarget?: T;
+  followUpDays?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
