@@ -36,6 +36,7 @@
   &:hover { background: var(--theme-elevation-50); }
 }
 .crm__list small { color: var(--theme-elevation-600); }
+.crm__list b { white-space: nowrap; }
 .crm__late { color: #e11d48; }
 .crm__links a { display: block; padding: 7px 8px; border-radius: 8px; color: var(--cms-accent); text-decoration: none; font-weight: 600; &:hover { background: var(--theme-elevation-50); } }
 .crm__empty { margin: 0; color: var(--theme-elevation-600); }
