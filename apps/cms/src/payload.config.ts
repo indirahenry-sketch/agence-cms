@@ -29,6 +29,14 @@ import { SupportRequests } from './collections/SupportRequests'
 import { Tags } from './collections/Tags'
 import { Tenants } from './collections/Tenants'
 import { Users } from './collections/Users'
+import { CrmActivities } from './collections/crm/CrmActivities'
+import { CrmDuplicates } from './collections/crm/CrmDuplicates'
+import { CrmOptOuts } from './collections/crm/CrmOptOuts'
+import { CrmProspects } from './collections/crm/CrmProspects'
+import { CrmSearches } from './collections/crm/CrmSearches'
+import { CrmZones } from './collections/crm/CrmZones'
+import { ensureCrmZones } from './crm/zones'
+import { CrmSettings } from './globals/CrmSettings'
 import { migrations } from './migrations'
 import { removeOrphans } from './hooks/tenantCleanup'
 import { startKeepAwake } from './lib/keepAwake'
@@ -65,7 +73,12 @@ export default buildConfig({
     importMap: { baseDir: path.resolve(dirname) },
     components: {
       beforeDashboard: ['@/components/Welcome#Welcome'],
+      beforeNavLinks: ['@/components/crm/CrmNavLink#CrmNavLink'],
       afterNavLinks: ['@/components/LogoutLink#LogoutLink'],
+      // Espace Prospection (CRM) : page séparée du tableau de bord des sites clients
+      views: {
+        prospection: { Component: '@/components/crm/CrmHome#CrmHome', path: '/prospection' },
+      },
       actions: ['@/components/HeaderTools#HeaderTools'],
       providers: ['@/components/MobileBar#MobileBar', '@/components/ArticlesName#ArticlesNameNav'],
     },
@@ -95,7 +108,11 @@ export default buildConfig({
     Categories, Tags,
     // Agence
     Tenants, Users, SupportRequests, Announcements, AuditLogs, SiteStats,
+    // Prospection (CRM) : espace séparé, jamais rattaché à un client (hors plugin multi-tenant)
+    CrmProspects, CrmActivities, CrmZones, CrmSearches, CrmDuplicates, CrmOptOuts,
   ],
+
+  globals: [CrmSettings],
 
   // Envois de fichiers : 50 Mo maximum (photos, vidéos courtes, documents)
   upload: {
@@ -155,6 +172,8 @@ export default buildConfig({
     startTrashPurge(payload)
     // Diagnostic du stockage photo, écrit en clair dans les logs (configuration sans les secrets + erreur exacte)
     await checkS3(payload)
+    // Prospection : les 101 départements (8 actifs au lancement), créés une seule fois
+    await ensureCrmZones(payload).catch((err) => payload.logger.error({ err }, 'Zones de prospection non créées'))
     if (process.env.SKIP_DEMO_IMPORT === 'true') return
     try {
       await importEcuriesPoigny(payload)
