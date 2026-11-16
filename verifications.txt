@@ -1,0 +1,18 @@
+OK  premier compte créé
+OK  connexion super admin
+ÉCHEC 101 zones créées au démarrage (0)
+ÉCHEC 8 zones actives
+ÉCHEC prospects d’exemple créés
+ÉCHEC 1 doublon signalé (0)
+ÉCHEC connexion compte client
+OK  client refusé sur /api/crm-prospects (HTTP 403)
+OK  client refusé sur /api/crm-zones (HTTP 403)
+OK  client refusé sur /api/crm-activities (HTTP 403)
+OK  client refusé sur /api/crm-optouts (HTTP 403)
+OK  client refusé sur /api/crm-duplicates (HTTP 403)
+OK  client refusé sur /api/crm-searches (HTTP 403)
+OK  client refusé sur les réglages
+OK  lien « Espace Prospection » dans le menu du super admin
+OK  page /admin/prospection
+OK  aucun lien Prospection pour le client
+OK  page Prospection refusée au client
