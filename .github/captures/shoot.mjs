@@ -8,6 +8,8 @@ const OUT = process.env.OUT || 'captures'
 const { CAP_EMAIL, CAP_PASS, CLIENT_EMAIL, CLIENT_PASS } = process.env
 fs.mkdirSync(OUT, { recursive: true })
 const log = []
+// Le compte-rendu est écrit même si le script s'arrête en route
+process.on('exit', () => fs.writeFileSync(`${OUT}/verifications.txt`, log.join('\n') + '\n'))
 const check = (ok, msg) => {
   log.push(`${ok ? 'OK ' : 'ÉCHEC'} ${msg}`)
   if (!ok) process.exitCode = 1
@@ -123,8 +125,7 @@ const wk = await webkit.launch()
 const phone = await wk.newContext({ ...devices['iPhone 13'] })
 await login(phone, CAP_EMAIL, CAP_PASS)
 await shot(phone, '/admin/prospection', '11-telephone-prospection', { full: true })
-await shot(phone, `/admin/collections/crm-prospects/${ids[0]}`, '12-telephone-fiche', { full: true })
+if (ids[0]) await shot(phone, `/admin/collections/crm-prospects/${ids[0]}`, '12-telephone-fiche', { full: true })
 await wk.close()
 
-fs.writeFileSync(`${OUT}/verifications.txt`, log.join('\n') + '\n')
 console.log(log.join('\n'))
