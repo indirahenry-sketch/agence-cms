@@ -86,7 +86,7 @@ export const CrmImportForm: React.FC = () => {
           <p>
             <b>
               {report.dryRun
-                ? `Aperçu : ${report.added} prospect${report.added > 1 ? 's' : ''} seraient ajoutés sur ${report.total} ligne${report.total > 1 ? 's' : ''}.`
+                ? `Aperçu : ${report.added} prospect${report.added > 1 ? 's seraient ajoutés' : ' serait ajouté'} sur ${report.total} ligne${report.total > 1 ? 's' : ''}.`
                 : `${report.added} prospect${report.added > 1 ? 's' : ''} ajouté${report.added > 1 ? 's' : ''} sur ${report.total} ligne${report.total > 1 ? 's' : ''}.`}
             </b>
           </p>
