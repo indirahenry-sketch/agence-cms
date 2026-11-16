@@ -1,0 +1,28 @@
+OK  premier compte créé
+OK  connexion super admin
+   (zones : HTTP 200 )
+OK  101 zones créées au démarrage (101)
+OK  8 zones actives
+OK  prospects d’exemple créés
+OK  1 doublon signalé (1)
+OK  connexion compte client
+OK  client refusé sur /api/crm-prospects (HTTP 403)
+OK  client refusé sur /api/crm-zones (HTTP 403)
+OK  client refusé sur /api/crm-activities (HTTP 403)
+OK  client refusé sur /api/crm-optouts (HTTP 403)
+OK  client refusé sur /api/crm-duplicates (HTTP 403)
+OK  client refusé sur /api/crm-searches (HTTP 403)
+OK  client refusé sur les réglages
+OK  lien « Espace Prospection » dans le menu du super admin
+OK  page /admin/prospection
+   (/admin/prospection/relances : HTTP 200 ·  Payload · Espace de gestion @layer payload-default, payload;  · contient Relances du mois=false NEXT_NOT_FOUND=false)
+   (/admin/prospection/import : HTTP 200 ·  Payload · Espace de gestion @layer payload-default, payload;  · contient Relances du mois=false NEXT_NOT_FOUND=false)
+OK  calendrier des relances
+OK  page import / export
+OK  export CSV (HTTP 200)
+OK  import depuis la page : aperçu puis 1 ajouté, 1 déjà connu
+OK  export refusé au client (HTTP 403)
+OK  import refusé au client (HTTP 403)
+OK  calendrier refusé au client
+OK  aucun lien Prospection pour le client
+OK  page Prospection refusée au client
