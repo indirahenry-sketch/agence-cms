@@ -27,6 +27,7 @@ const api = async (ctx, method, path, data) => {
 }
 const login = async (ctx, email, password) => {
   const r = await api(ctx, 'POST', '/users/login', { email, password })
+  if (!r.body?.token) log.push(`   (connexion sans jeton : HTTP ${r.status} ${Object.keys(r.body ?? {}).join(',')})`)
   if (r.body?.token) {
     tokens.set(ctx, r.body.token)
     await ctx.addCookies([{ name: 'payload-token', value: r.body.token, url: BASE }])
@@ -40,7 +41,9 @@ const admin = await browser.newContext({ viewport: { width: 1366, height: 900 } 
 check((await api(admin, 'POST', '/users/first-register', { email: CAP_EMAIL, password: CAP_PASS, name: 'Test Agence' })).status < 300, 'premier compte créé')
 check((await login(admin, CAP_EMAIL, CAP_PASS)).status === 200, 'connexion super admin')
 
-const zones = (await api(admin, 'GET', '/crm-zones?limit=200&depth=0')).body?.docs ?? []
+const zr = await api(admin, 'GET', '/crm-zones?limit=200&depth=0')
+log.push(`   (zones : HTTP ${zr.status} ${zr.body?.errors?.[0]?.message ?? ''})`)
+const zones = zr.body?.docs ?? []
 check(zones.length === 101, `101 zones créées au démarrage (${zones.length})`)
 check(zones.filter((z) => z.active).length === 8, '8 zones actives')
 const z = (code) => zones.find((x) => x.code === code)?.id
@@ -57,6 +60,7 @@ const ex = [
 const ids = []
 for (const p of ex) {
   const r = await api(admin, 'POST', '/crm-prospects', p)
+  if (!r.body?.doc?.id) log.push(`   (création : HTTP ${r.status} ${JSON.stringify(r.body?.errors ?? r.body).slice(0, 200)})`)
   ids.push(r.body?.doc?.id)
 }
 check(ids.every(Boolean), 'prospects d’exemple créés')
