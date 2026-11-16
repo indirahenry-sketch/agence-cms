@@ -130,6 +130,59 @@ r = await shot(admin, '/admin/prospection', '02-prospection-accueil', { full: tr
 check(r.text.includes('Prospection') && r.text.includes('cette semaine'), 'page /admin/prospection')
 await shot(admin, '/admin/prospection', '03-prospection-accueil-sombre', { dark: true, full: true })
 await shot(admin, '/admin/collections/crm-prospects', '04-liste-prospects')
+// ---------- Base de prospection ----------
+{
+  const page = await admin.newPage()
+  await page.goto(`${BASE}/admin/prospection/base`, { waitUntil: 'networkidle' })
+  await page.locator('.btable').waitFor({ timeout: 15000 })
+  const txt = await page.locator('.bcounts').innerText()
+  check(/Prospects/.test(txt) && /Sites livrés/.test(txt), 'compteurs de la Base de prospection')
+  await page.screenshot({ path: `${OUT}/20-base-prospection.png`, fullPage: true })
+
+  // Statut commercial changé directement dans le tableau
+  const row = page.locator('tr', { hasText: 'Exemple · Poney-club des Oliviers' })
+  await row.locator('select[aria-label^="Statut commercial"]').selectOption('contacte')
+  await page.getByText('Enregistré : Exemple · Poney-club des Oliviers').waitFor({ timeout: 10000 })
+  const saved = (await api(admin, 'GET', `/crm-prospects/${ids[2]}?depth=0`)).body
+  check(saved?.status === 'en-attente', `statut changé dans le tableau et enregistré (${saved?.status})`)
+  await row.locator('select[aria-label^="Statut du projet"]').selectOption('en-cours')
+  await page.waitForTimeout(1200)
+  check((await api(admin, 'GET', `/crm-prospects/${ids[2]}?depth=0`)).body?.projectStatus === 'en-cours', 'statut du projet enregistré depuis le tableau')
+
+  // Cases à cocher + action groupée
+  await page.locator('tr', { hasText: 'Exemple · Haras du Mistral' }).locator('.bcol-check input').check()
+  await page.locator('tr', { hasText: 'Exemple · Écurie des Pins' }).first().locator('.bcol-check input').check()
+  await page.locator('.bbulk select[aria-label^="Changer le statut du projet"]').selectOption('livre')
+  await page.getByText(/Statut du projet : 2 prospects mis à jour/).waitFor({ timeout: 15000 })
+  const livres = (await api(admin, 'GET', '/crm-prospects?where[projectStatus][equals]=livre&depth=0')).body?.totalDocs
+  check(livres === 2, `action groupée : 2 sites « Livré » (${livres})`)
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.locator('.btable').waitFor()
+  check((await page.locator('.bcounts').innerText()).includes('2\nSites livrés'), 'compteur « Sites livrés » à jour après rechargement')
+
+  // Filtres
+  await page.locator('.bfilters select[aria-label="Statut commercial"]').selectOption('contacte')
+  const shown = await page.locator('.btable tbody tr').count()
+  check(shown >= 1, `filtre statut commercial (${shown} ligne(s))`)
+  await page.screenshot({ path: `${OUT}/21-base-filtre.png` })
+  await page.getByRole('button', { name: 'Effacer les filtres' }).click()
+
+  // Fiche latérale : notes + échange avec relance
+  await page.locator('tr', { hasText: 'Exemple · Domaine de la Garrigue' }).locator('.bname').click()
+  await page.locator('.bfiche__panel').waitFor()
+  await page.locator('.btextarea').fill('Propriétaire très sympathique, préfère être appelée le matin.')
+  await page.getByRole('button', { name: 'Enregistrer les notes' }).click()
+  await page.getByText('Enregistré ✓').waitFor({ timeout: 10000 })
+  await page.locator('.badd input[type=text]').fill('Devis envoyé par e-mail')
+  await page.locator('.badd input[type=date]').fill(new Date(Date.now() + 5 * 864e5).toISOString().slice(0, 10))
+  await page.locator('.badd button[type=submit]').click()
+  await page.locator('.bhist', { hasText: 'Devis envoyé par e-mail' }).waitFor({ timeout: 10000 })
+  const g = (await api(admin, 'GET', `/crm-prospects/${ids[3]}?depth=0`)).body
+  check(g?.notes?.includes('le matin'), 'notes enregistrées depuis la fiche')
+  check(Boolean(g?.nextFollowUpAt), 'relance enregistrée depuis la fiche')
+  await page.screenshot({ path: `${OUT}/22-base-fiche.png` })
+  await page.close()
+}
 r = await shot(admin, '/admin/prospection/relances', '13-calendrier-relances', { full: true })
 check(r.text.includes('Relances du mois') && r.text.includes('Haras du Mistral'), 'calendrier des relances')
 r = await shot(admin, '/admin/prospection/import', '14-import-export', { full: true })
@@ -164,6 +217,8 @@ await shot(admin, '/admin/globals/crm-settings', '08-reglages')
   check(ce.status === 403, `export refusé au client (HTTP ${ce.status})`)
   const ci = await client.request.fetch(`${BASE}/api/crm-import`, { method: 'POST', data: 'Nom\nIntrus', headers: { Authorization: `JWT ${tokens.get(client)}`, 'Content-Type': 'text/csv' }, failOnStatusCode: false })
   check(ci.status() === 403, `import refusé au client (HTTP ${ci.status()})`)
+  r = await shot(client, '/admin/prospection/base', '16b-client-base')
+  check(r.text.includes('Accès réservé'), 'Base de prospection refusée au client')
   r = await shot(client, '/admin/prospection/relances', '16-client-relances')
   check(r.text.includes('Accès réservé'), 'calendrier refusé au client')
 }
@@ -178,7 +233,15 @@ const wk = await webkit.launch()
 const phone = await wk.newContext({ ...devices['iPhone 13'] })
 await login(phone, CAP_EMAIL, CAP_PASS)
 await shot(phone, '/admin/prospection', '11-telephone-prospection', { full: true })
-await shot(phone, '/admin/prospection', '19-telephone-haut')
+await shot(phone, '/admin/prospection/base', '23-telephone-base', { full: true })
+{
+  const page = await phone.newPage()
+  await page.goto(`${BASE}/admin/prospection/base?fiche=${ids[1]}`, { waitUntil: 'networkidle' })
+  await page.locator('.bfiche__panel').waitFor({ timeout: 15000 })
+  await page.waitForTimeout(800)
+  await page.screenshot({ path: `${OUT}/24-telephone-fiche.png` })
+  await page.close()
+}
 await shot(phone, '/admin/prospection/relances', '17-telephone-relances', { full: true })
 if (ids[0]) await shot(phone, `/admin/collections/crm-prospects/${ids[0]}`, '12-telephone-fiche', { full: true })
 await wk.close()
