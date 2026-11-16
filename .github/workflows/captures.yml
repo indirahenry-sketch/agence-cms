@@ -79,15 +79,17 @@ jobs:
         if: always()
         run: |
           [ -d /tmp/captures ] || exit 0
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           B="captures-crm-${{ github.run_id }}"
-          git checkout -q --orphan "$B"
-          git rm -rq --cached . && rm -rf ./* .github .gitignore 2>/dev/null || true
-          cp /tmp/captures/* .
-          git add *.png verifications.txt
-          git commit -qm "Captures de l'espace Prospection (données fictives)"
-          git push -q origin "$B"
+          D=/tmp/depot && rm -rf $D && mkdir -p $D && cd $D
+          {
+            git init -q -b "$B" .
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            cp /tmp/captures/* .
+            git add -A
+            git commit -qm "Captures de l'espace Prospection (données fictives)"
+            git push -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "HEAD:refs/heads/$B"
+          } > /tmp/depot.log 2>&1 || { tail -5 /tmp/depot.log | while IFS= read -r l; do echo "::warning::$l"; done; exit 1; }
           echo "::notice::Captures sur la branche $B"
       - name: Résultat
         run: '[ -z "$ECHEC" ]'
