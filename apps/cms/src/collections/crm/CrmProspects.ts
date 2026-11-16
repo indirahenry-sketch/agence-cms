@@ -37,7 +37,8 @@ const prepare: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) =
   data.emailLevel = level(d.email, d.emailLevel)
 
   const hasSite = Boolean(String(d.website ?? '').trim())
-  if (hasSite && (!d.websiteStatus || d.websiteStatus === 'sans-site')) data.websiteStatus = 'site-existant'
+  // Une adresse de site renseignée = un site existe (la valeur par défaut « À vérifier » ne doit pas rester)
+  if (hasSite && d.websiteStatus !== 'site-existant') data.websiteStatus = 'site-existant'
   const websiteStatus = data.websiteStatus ?? d.websiteStatus
   if (!d.need || d.need === 'a-determiner') {
     data.need = websiteStatus === 'sans-site' ? 'creation' : websiteStatus === 'site-existant' ? 'refonte' : 'a-determiner'
