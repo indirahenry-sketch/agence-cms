@@ -52,9 +52,13 @@ jobs:
         run: |
           f=$(ls src/migrations/*crm_v1.ts)
           echo "Fichier : $f"
-          if sed -n '/async function up/,/async function down/p' "$f" | grep -nE 'DROP|RENAME|SET DATA TYPE|DELETE'; then
+          # « ON DELETE set null » (règle de clé étrangère) n'est pas une suppression de données
+          bad=$(sed -n '/async function up/,/async function down/p' "$f" | grep -nE 'DROP|RENAME|SET DATA TYPE|DELETE' | grep -v 'ON DELETE' || true)
+          if [ -n "$bad" ]; then
+            echo "$bad" | head -20 | while IFS= read -r l; do echo "::warning::$l"; done
             echo "::error::La migration contient une opération destructive."; exit 1
           fi
+          echo "::notice::$(grep -c 'CREATE TABLE' "$f") table(s) créée(s), aucune opération destructive."
       - name: Ajout à la branche
         run: |
           git config user.name "github-actions[bot]"
