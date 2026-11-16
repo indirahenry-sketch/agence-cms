@@ -75,7 +75,7 @@ export default buildConfig({
     components: {
       beforeDashboard: ['@/components/Welcome#Welcome'],
       beforeNavLinks: ['@/components/crm/CrmNavLink#CrmNavLink'],
-      afterNavLinks: ['@/components/LogoutLink#LogoutLink'],
+      afterNavLinks: ['@/components/LogoutLink#LogoutLink', '@/components/crm/CrmBackLink#CrmBackLink'],
       // Espace Prospection (CRM) : page séparée du tableau de bord des sites clients
       views: {
         prospection: { Component: '@/components/crm/CrmHome#CrmHome', path: '/prospection', exact: true },

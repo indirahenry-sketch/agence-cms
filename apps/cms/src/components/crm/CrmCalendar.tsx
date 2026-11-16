@@ -1,19 +1,12 @@
 import type { AdminViewServerProps } from 'payload'
 import React from 'react'
 
-import { extractID } from '@/access/roles'
-import type { CrmProspect } from '@/payload-types'
+import { loadFollowUps, monthCells, parisDay, ymd } from '@/crm/followUps'
 
 import { CrmHeader, crmAllowed, crmDenied, crmPage } from './template'
 
 const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const LIST = '/admin/collections/crm-prospects'
-
-/** Jour « AAAA-MM-JJ » à l'heure de Paris. */
-const parisDay = (d: Date | string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(d))
-const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-type Item = { key: string; day: string; prospectId: number; name: string; detail?: string; activityId?: number }
 
 /**
  * Calendrier des relances : /admin/prospection/relances?mois=AAAA-MM
@@ -29,42 +22,9 @@ export const CrmCalendar = async (props: AdminViewServerProps) => {
   const today = parisDay(new Date())
   const [y, m] = /^\d{4}-\d{2}$/.test(param) ? param.split('-').map(Number) : today.split('-').map(Number).slice(0, 2)
   const month = new Date(y, m - 1, 1)
-  const offset = (month.getDay() + 6) % 7
-  const cells = Array.from({ length: 42 }, (_, i) => new Date(y, m - 1, 1 - offset + i))
-  const from = new Date(Date.UTC(cells[0].getFullYear(), cells[0].getMonth(), cells[0].getDate() - 1)).toISOString()
-  const to = new Date(Date.UTC(cells[41].getFullYear(), cells[41].getMonth(), cells[41].getDate() + 2)).toISOString()
-  const base = { overrideAccess: true, req, limit: 0, pagination: false } as const
-
-  const [activities, prospects] = await Promise.all([
-    payload.find({
-      collection: 'crm-activities',
-      where: { and: [{ followUpAt: { greater_than_equal: from } }, { followUpAt: { less_than: to } }, { done: { not_equals: true } }] },
-      depth: 1,
-      sort: 'followUpAt',
-      ...base,
-    }),
-    payload.find({
-      collection: 'crm-prospects',
-      where: { and: [{ nextFollowUpAt: { greater_than_equal: from } }, { nextFollowUpAt: { less_than: to } }, { doNotContact: { not_equals: true } }] },
-      depth: 0,
-      sort: 'nextFollowUpAt',
-      ...base,
-    }),
-  ])
-
-  const items: Item[] = []
-  for (const a of activities.docs) {
-    const p = typeof a.prospect === 'object' ? (a.prospect as CrmProspect) : null
-    if (!p || p.doNotContact || !a.followUpAt) continue
-    items.push({ key: `a${a.id}`, day: parisDay(a.followUpAt), prospectId: p.id, name: p.name, detail: a.summary, activityId: a.id })
-  }
-  // Date posée directement sur une fiche (sans échange correspondant ce jour-là)
-  for (const p of prospects.docs) {
-    if (!p.nextFollowUpAt) continue
-    const day = parisDay(p.nextFollowUpAt)
-    if (!items.some((i) => i.prospectId === p.id && i.day === day)) items.push({ key: `p${p.id}`, day, prospectId: p.id, name: p.name, detail: p.commune ?? undefined })
-  }
-  const byDay = new Map<string, Item[]>()
+  const cells = monthCells(y, m)
+  const items = await loadFollowUps(payload, req, cells)
+  const byDay = new Map<string, typeof items>()
   for (const i of items) byDay.set(i.day, [...(byDay.get(i.day) ?? []), i])
 
   const shift = (n: number) => {

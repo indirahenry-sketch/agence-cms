@@ -59,7 +59,6 @@ export const CrmHeader = ({ title, current }: { title: string; current: 'accueil
       <a className={current === 'import' ? 'on' : ''} href="/admin/prospection/import">
         Importer / exporter
       </a>
-      <a href="/admin">← Retour au CMS</a>
     </nav>
   </header>
 )

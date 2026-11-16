@@ -47,6 +47,7 @@ import { TenantSelectionProvider as TenantSelectionProvider_d6d5f193a167989e2ee7
 import { CrmHome as CrmHome_50c0984d9d0f5c45e4339314228bf88d } from '@/components/crm/CrmHome'
 import { CrmCalendar as CrmCalendar_a07323fcb066d52abc42cf9f43e7a77f } from '@/components/crm/CrmCalendar'
 import { CrmImport as CrmImport_4213cefecc83dda7f9fc95c0d4a3edac } from '@/components/crm/CrmImport'
+import { CrmBackLink as CrmBackLink_94392ec44cb00be4d3fc5919b3c82d5a } from '@/components/crm/CrmBackLink'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 
@@ -101,6 +102,7 @@ export const importMap = {
   "@/components/crm/CrmHome#CrmHome": CrmHome_50c0984d9d0f5c45e4339314228bf88d,
   "@/components/crm/CrmCalendar#CrmCalendar": CrmCalendar_a07323fcb066d52abc42cf9f43e7a77f,
   "@/components/crm/CrmImport#CrmImport": CrmImport_4213cefecc83dda7f9fc95c0d4a3edac,
+  "@/components/crm/CrmBackLink#CrmBackLink": CrmBackLink_94392ec44cb00be4d3fc5919b3c82d5a,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24
 }
