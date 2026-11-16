@@ -684,7 +684,7 @@ export const CrmBaseTable: React.FC = () => {
                       {p.email ? <a href={`mailto:${p.email}`}>{p.email}</a> : <NotFound />}
                     </td>
                     <td data-label="Site internet">
-                      <div className="bsite">
+                      <div className="bsitecell">
                         <SiteSelect p={p} short disabled={isBusy} onChange={(v) => patch(p.id, { websiteStatus: v })} />
                         {p.website && (
                           <a href={/^https?:\/\//.test(p.website) ? p.website : `https://${p.website}`} target="_blank" rel="noopener noreferrer" title={p.website} aria-label="Ouvrir le site">

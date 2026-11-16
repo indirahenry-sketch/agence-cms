@@ -283,7 +283,7 @@ html[data-theme='dark'] .crm-back-fab { background: #2a2350; color: #c4b5fd; bor
 .bname { display: grid; gap: 1px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: var(--cms-ink); }
 .bname b { font-weight: 600; } .bname:hover b { color: var(--cms-accent); text-decoration: underline; }
 .bname small { color: var(--cms-muted); font-size: 0.76rem; }
-.bsite { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; a { font-weight: 700; flex: none; } .bsel { max-width: 160px; } }
+.bsitecell { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; a { font-weight: 700; flex: none; } .bsel { max-width: 160px; } }
 
 /* Menus colorés (pastilles) */
 .bsel {
