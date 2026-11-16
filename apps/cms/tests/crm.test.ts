@@ -77,13 +77,13 @@ describe('Isolation : le CRM est invisible pour les clients', () => {
     for (const collection of CRM_COLLECTIONS) {
       await expect(payload.find({ collection, ...opts })).rejects.toThrow()
     }
-    await expect(payload.create({ collection: 'crm-prospects', data: { name: 'Intrus' }, ...opts })).rejects.toThrow()
+    await expect(payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Intrus' }, ...opts })).rejects.toThrow()
     await expect(payload.findGlobal({ slug: 'crm-settings', ...opts })).rejects.toThrow()
     await expect(payload.updateGlobal({ slug: 'crm-settings', data: { weeklyTarget: 1 }, ...opts })).rejects.toThrow()
   })
 
   it('un administrateur client ne peut ni modifier ni supprimer une fiche existante', async () => {
-    const p = await payload.create({ collection: 'crm-prospects', data: { name: 'Fiche secrète' } })
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Fiche secrète' } })
     const opts = await as(clientAdmin)
     await expect(payload.findByID({ collection: 'crm-prospects', id: p.id, ...opts })).rejects.toThrow()
     await expect(payload.update({ collection: 'crm-prospects', id: p.id, data: { name: 'Piraté' }, ...opts })).rejects.toThrow()
@@ -94,7 +94,7 @@ describe('Isolation : le CRM est invisible pour les clients', () => {
 
   it('le super admin a accès à tout', async () => {
     const opts = await as(superAdmin)
-    const p = await payload.create({ collection: 'crm-prospects', data: { name: 'Écurie du super admin' }, ...opts })
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie du super admin' }, ...opts })
     expect(p.status).toBe('nouveau')
     const settings = await payload.updateGlobal({ slug: 'crm-settings', data: { weeklyTarget: 150 }, ...opts })
     expect(settings.weeklyTarget).toBe(150) // pas de plafond à 70
@@ -103,14 +103,14 @@ describe('Isolation : le CRM est invisible pour les clients', () => {
 
 describe('Rien n’est inventé', () => {
   it('une coordonnée vide est « Non trouvé », une coordonnée saisie est « À vérifier »', async () => {
-    const p = await payload.create({ collection: 'crm-prospects', data: { name: 'Écurie sans infos', phone: '04 67 00 00 00' } })
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie sans infos', phone: '04 67 00 00 00' } })
     expect(p.emailLevel).toBe('non-trouve')
     expect(p.phoneLevel).toBe('a-verifier')
   })
 
   it('le besoin découle du site Internet', async () => {
-    const sans = await payload.create({ collection: 'crm-prospects', data: { name: 'Écurie A', websiteStatus: 'sans-site' } })
-    const avec = await payload.create({ collection: 'crm-prospects', data: { name: 'Écurie B', website: 'https://ecurie-b.fr' } })
+    const sans = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie A', websiteStatus: 'sans-site' } })
+    const avec = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie B', website: 'https://ecurie-b.fr' } })
     expect(sans.need).toBe('creation')
     expect(avec.websiteStatus).toBe('site-existant')
     expect(avec.need).toBe('refonte')
@@ -119,8 +119,8 @@ describe('Rien n’est inventé', () => {
 
 describe('Doublons', () => {
   it('signale le même téléphone écrit autrement, sans rien supprimer', async () => {
-    const a = await payload.create({ collection: 'crm-prospects', data: { name: 'Haras du Soleil', commune: 'Lunel', phone: '06 11 22 33 44' } })
-    const b = await payload.create({ collection: 'crm-prospects', data: { name: 'Haras Soleil', commune: 'Lunel', phone: '+33611223344' } })
+    const a = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Haras du Soleil', commune: 'Lunel', phone: '06 11 22 33 44' } })
+    const b = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Haras Soleil', commune: 'Lunel', phone: '+33611223344' } })
     const { docs } = await payload.find({ collection: 'crm-duplicates', where: { prospect: { equals: b.id } }, depth: 0 })
     expect(docs).toHaveLength(1)
     expect(docs[0].existing).toBe(a.id)
@@ -131,21 +131,21 @@ describe('Doublons', () => {
   })
 
   it('reconnaît le même nom dans la même commune', async () => {
-    await payload.create({ collection: 'crm-prospects', data: { name: 'Les Écuries de la Garrigue', commune: 'Saint-Mathieu-de-Tréviers' } })
-    const b = await payload.create({ collection: 'crm-prospects', data: { name: 'Ecurie Garrigue', commune: 'St Mathieu de Treviers' } })
+    await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Les Écuries de la Garrigue', commune: 'Saint-Mathieu-de-Tréviers' } })
+    const b = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Ecurie Garrigue', commune: 'St Mathieu de Treviers' } })
     expect((await payload.count({ collection: 'crm-duplicates', where: { prospect: { equals: b.id } } })).totalDocs).toBe(1)
   })
 
   it('ne signale pas deux structures différentes', async () => {
-    await payload.create({ collection: 'crm-prospects', data: { name: 'Poney-club des Pins', commune: 'Sète' } })
-    const b = await payload.create({ collection: 'crm-prospects', data: { name: 'Poney-club des Oliviers', commune: 'Sète' } })
+    await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Poney-club des Pins', commune: 'Sète' } })
+    const b = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Poney-club des Oliviers', commune: 'Sète' } })
     expect((await payload.count({ collection: 'crm-duplicates', where: { prospect: { equals: b.id } } })).totalDocs).toBe(0)
   })
 })
 
 describe('Ne plus contacter', () => {
   it('mémorise un refus et l’applique à une fiche retrouvée plus tard', async () => {
-    const p = await payload.create({ collection: 'crm-prospects', data: { name: 'Domaine des Refus', email: 'contact@refus.fr' } })
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Domaine des Refus', email: 'contact@refus.fr' } })
     await payload.update({ collection: 'crm-prospects', id: p.id, data: { status: 'ne-plus-contacter' } })
     expect((await payload.count({ collection: 'crm-optouts', where: { emailKey: { equals: 'contact@refus.fr' } } })).totalDocs).toBe(1)
 
@@ -154,7 +154,7 @@ describe('Ne plus contacter', () => {
     expect((await payload.count({ collection: 'crm-optouts', where: { emailKey: { equals: 'contact@refus.fr' } } })).totalDocs).toBe(1)
 
     // Une nouvelle recherche retrouve l'établissement : il est bloqué d'office
-    const again = await payload.create({ collection: 'crm-prospects', data: { name: 'Domaine Refus', email: 'CONTACT@refus.fr' } })
+    const again = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Domaine Refus', email: 'CONTACT@refus.fr' } })
     expect(again.status).toBe('ne-plus-contacter')
     expect(again.doNotContact).toBe(true)
   })
@@ -162,9 +162,9 @@ describe('Ne plus contacter', () => {
 
 describe('Suivi', () => {
   it('la prochaine relance et le dernier contact remontent sur la fiche', async () => {
-    const p = await payload.create({ collection: 'crm-prospects', data: { name: 'Écurie Suivie' } })
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie Suivie' } })
     const followUp = new Date(Date.now() + 3 * 864e5).toISOString()
-    await payload.create({ collection: 'crm-activities', data: { prospect: p.id, kind: 'email-envoye', summary: 'Premier e-mail', followUpAt: followUp } })
+    await payload.create({ collection: 'crm-activities', data: { prospect: p.id, kind: 'email-envoye', date: new Date().toISOString(), summary: 'Premier e-mail', followUpAt: followUp } })
     const after = await payload.findByID({ collection: 'crm-prospects', id: p.id, depth: 0 })
     expect(after.nextFollowUpAt?.slice(0, 10)).toBe(followUp.slice(0, 10))
     expect(after.lastContactAt).toBeTruthy()
