@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { CRM_ACTIVITY_KINDS, CRM_COMMERCIAL, CRM_PROJECT_STATUSES, CRM_TYPES, commercialOf, statusForCommercial, type CrmCommercial } from '@/crm/constants'
 
@@ -90,7 +91,7 @@ const CommercialSelect = ({ p, onChange, disabled }: { p: Prospect; onChange: (v
   )
 }
 
-const SiteSelect = ({ p, onChange, disabled }: { p: Prospect; onChange: (v: string) => void; disabled?: boolean }) => {
+const SiteSelect = ({ p, onChange, disabled, short }: { p: Prospect; onChange: (v: string) => void; disabled?: boolean; short?: boolean }) => {
   const known = SITE.find((s) => s.value === p.websiteStatus)
   return (
     <select
@@ -103,7 +104,7 @@ const SiteSelect = ({ p, onChange, disabled }: { p: Prospect; onChange: (v: stri
       {!known && <option value="">À vérifier</option>}
       {SITE.map((o) => (
         <option key={o.value} value={o.value}>
-          {o.label}
+          {short ? o.label.replace('internet ', '') : o.label}
         </option>
       ))}
     </select>
@@ -684,7 +685,7 @@ export const CrmBaseTable: React.FC = () => {
                     </td>
                     <td data-label="Site internet">
                       <div className="bsite">
-                        <SiteSelect p={p} disabled={isBusy} onChange={(v) => patch(p.id, { websiteStatus: v })} />
+                        <SiteSelect p={p} short disabled={isBusy} onChange={(v) => patch(p.id, { websiteStatus: v })} />
                         {p.website && (
                           <a href={/^https?:\/\//.test(p.website) ? p.website : `https://${p.website}`} target="_blank" rel="noopener noreferrer" title={p.website} aria-label="Ouvrir le site">
                             ↗
@@ -715,7 +716,8 @@ export const CrmBaseTable: React.FC = () => {
         )}
       </div>
 
-      {open && (
+      {open &&
+        createPortal(
         <Fiche
           p={open}
           zone={open.department ? zones.get(open.department) : undefined}
@@ -723,8 +725,9 @@ export const CrmBaseTable: React.FC = () => {
           onClose={() => setOpenId(null)}
           onPatch={(data) => patch(open.id, data)}
           onReload={() => reloadOne(open.id)}
-        />
-      )}
+        />,
+          document.body,
+        )}
       {toast && (
         <div className="btoast" role="status">
           {toast}

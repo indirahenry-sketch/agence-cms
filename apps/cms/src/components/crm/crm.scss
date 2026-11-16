@@ -84,7 +84,7 @@
 /* ================================================================== */
 /* Tableau de bord Prospection : 3 colonnes, couleurs pastel           */
 /* ================================================================== */
-.crm {
+.crm, .bfiche {
   --t-lav-bg: #ede9fe; --t-lav-fg: #6d28d9;
   --t-sky-bg: #e0f2fe; --t-sky-fg: #0369a1;
   --t-peach-bg: #ffedd5; --t-peach-fg: #c2410c;
@@ -92,7 +92,7 @@
   --t-rose-bg: #ffe4e6; --t-rose-fg: #be123c;
   --t-butter-bg: #fef9c3; --t-butter-fg: #a16207;
 }
-html[data-theme='dark'] .crm {
+html[data-theme='dark'] .crm, html[data-theme='dark'] .bfiche {
   --t-lav-bg: rgba(167, 139, 250, 0.18); --t-lav-fg: #c4b5fd;
   --t-sky-bg: rgba(56, 189, 248, 0.16); --t-sky-fg: #7dd3fc;
   --t-peach-bg: rgba(251, 146, 60, 0.16); --t-peach-fg: #fdba74;
@@ -101,7 +101,7 @@ html[data-theme='dark'] .crm {
   --t-butter-bg: rgba(250, 204, 21, 0.15); --t-butter-fg: #fde047;
 }
 @each $t in lav, sky, peach, mint, rose, butter {
-  .crm .tone-#{$t} { background: var(--t-#{$t}-bg); color: var(--t-#{$t}-fg); }
+  .crm .tone-#{$t}, .bfiche .tone-#{$t} { background: var(--t-#{$t}-bg); color: var(--t-#{$t}-fg); }
 }
 
 .cdash {
@@ -283,7 +283,7 @@ html[data-theme='dark'] .crm-back-fab { background: #2a2350; color: #c4b5fd; bor
 .bname { display: grid; gap: 1px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: var(--cms-ink); }
 .bname b { font-weight: 600; } .bname:hover b { color: var(--cms-accent); text-decoration: underline; }
 .bname small { color: var(--cms-muted); font-size: 0.76rem; }
-.bsite { display: flex; align-items: center; gap: 6px; a { font-weight: 700; } }
+.bsite { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; a { font-weight: 700; flex: none; } .bsel { max-width: 160px; } }
 
 /* Menus colorés (pastilles) */
 .bsel {
@@ -293,9 +293,9 @@ html[data-theme='dark'] .crm-back-fab { background: #2a2350; color: #c4b5fd; bor
   background-position: calc(100% - 13px) 52%, calc(100% - 9px) 52%; background-size: 4px 4px; background-repeat: no-repeat;
   &:disabled { opacity: 0.6; cursor: progress; }
 }
-.crm .bsel.tone-none { background-color: var(--theme-elevation-50); color: var(--cms-muted); }
+.crm .bsel.tone-none, .bfiche .bsel.tone-none { background-color: var(--theme-elevation-50); color: var(--cms-muted); }
 @each $t in lav, sky, peach, mint, rose, butter {
-  .crm .bsel.tone-#{$t} { background-color: var(--t-#{$t}-bg); color: var(--t-#{$t}-fg); }
+  .crm .bsel.tone-#{$t}, .bfiche .bsel.tone-#{$t} { background-color: var(--t-#{$t}-bg); color: var(--t-#{$t}-fg); }
 }
 
 /* Téléphone : chaque prospect devient une carte */
@@ -345,8 +345,13 @@ body.bfiche-open { overflow: hidden; }
 
 /* Message de confirmation */
 .btoast {
-  position: fixed; z-index: 320; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: calc(100% - 32px);
+  position: fixed; z-index: 450; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: calc(100% - 32px);
   padding: 10px 16px; border-radius: 12px; background: var(--cms-ink); color: var(--cms-card); font-size: 0.86rem; font-weight: 600;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 @media (max-width: 768px) { .btoast { bottom: calc(80px + env(safe-area-inset-bottom)); } }
+
+/* La fiche est au-dessus de tout : on masque la flèche « Retour » pendant qu'elle est ouverte */
+body.bfiche-open .crm-back-fab { display: none; }
+.bfiche { z-index: 400; }
+.bfiche .bsel { max-width: none; }
