@@ -12,6 +12,7 @@ import config from '@payload-config'
 import { getPayload, type Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
+import { commercialOf, statusForCommercial } from '@/crm/constants'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
 import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
@@ -297,5 +298,52 @@ describe('Export et import : réservés à l’agence', () => {
     )
     const report = await res.json()
     expect(report).toMatchObject({ dryRun: true, total: 1, added: 1 })
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* BASE DE PROSPECTION : statut simplifié et statut du projet          */
+/* ------------------------------------------------------------------ */
+
+describe('Base de prospection', () => {
+  it('regroupe les 11 statuts en 4 couleurs', () => {
+    expect(commercialOf('nouveau')).toBe('a-contacter')
+    expect(commercialOf('brouillon-cree')).toBe('a-contacter')
+    expect(commercialOf('relance')).toBe('contacte')
+    expect(commercialOf('client')).toBe('accepte')
+    expect(commercialOf('ne-plus-contacter')).toBe('refuse')
+    expect(commercialOf(undefined)).toBe('a-contacter')
+  })
+
+  it('garde le statut détaillé quand il est déjà dans le bon groupe', () => {
+    expect(statusForCommercial('contacte', 'relance')).toBe('relance')
+    expect(statusForCommercial('contacte', 'nouveau')).toBe('en-attente')
+    expect(statusForCommercial('refuse', 'ne-plus-contacter')).toBe('ne-plus-contacter')
+    expect(statusForCommercial('refuse', 'client')).toBe('non-interesse')
+    expect(statusForCommercial('a-contacter', 'en-attente')).toBe('nouveau')
+  })
+
+  it('le super admin modifie statut, site et projet ; un client ne peut pas', async () => {
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie du Tableau' } })
+    const admin = await as(superAdmin)
+    const updated = await payload.update({
+      collection: 'crm-prospects',
+      id: p.id,
+      data: { status: statusForCommercial('accepte', p.status), websiteStatus: 'sans-site', projectStatus: 'en-cours', notes: 'Rappeler après les concours' },
+      ...admin,
+    })
+    expect(updated).toMatchObject({ status: 'client', websiteStatus: 'sans-site', projectStatus: 'en-cours', need: 'creation', notes: 'Rappeler après les concours' })
+
+    const client = await as(clientAdmin)
+    await expect(payload.update({ collection: 'crm-prospects', id: p.id, data: { projectStatus: 'livre' }, ...client })).rejects.toThrow()
+    expect((await payload.findByID({ collection: 'crm-prospects', id: p.id })).projectStatus).toBe('en-cours')
+  })
+
+  it('l’export contient le statut du projet', async () => {
+    const res = await crmExport.handler((({ payload, user: { ...superAdmin, collection: 'users' }, searchParams: new URLSearchParams() }) as unknown) as PayloadRequest)
+    const rows = parseCsv(await res.text())
+    const col = rows[0].indexOf('Statut du projet')
+    expect(col).toBeGreaterThan(-1)
+    expect(rows.find((r) => r[0] === 'Écurie du Tableau')?.[col]).toBe('En cours')
   })
 })

@@ -79,6 +79,7 @@ export default buildConfig({
       // Espace Prospection (CRM) : page séparée du tableau de bord des sites clients
       views: {
         prospection: { Component: '@/components/crm/CrmHome#CrmHome', path: '/prospection', exact: true },
+        prospectionBase: { Component: '@/components/crm/CrmBase#CrmBase', path: '/prospection/base' },
         prospectionRelances: { Component: '@/components/crm/CrmCalendar#CrmCalendar', path: '/prospection/relances' },
         prospectionImport: { Component: '@/components/crm/CrmImport#CrmImport', path: '/prospection/import' },
       },

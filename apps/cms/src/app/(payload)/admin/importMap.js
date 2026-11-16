@@ -46,6 +46,7 @@ import { MobileBar as MobileBar_689fa9366ef95ebc39c0375d80a03bc6 } from '@/compo
 import { ArticlesNameNav as ArticlesNameNav_93239efae08cdb2822630c6cdf0a35db } from '@/components/ArticlesName'
 import { TenantSelectionProvider as TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
 import { CrmHome as CrmHome_50c0984d9d0f5c45e4339314228bf88d } from '@/components/crm/CrmHome'
+import { CrmBase as CrmBase_e0b6ac8c1db5b99f730ddba8d23e3c95 } from '@/components/crm/CrmBase'
 import { CrmCalendar as CrmCalendar_a07323fcb066d52abc42cf9f43e7a77f } from '@/components/crm/CrmCalendar'
 import { CrmImport as CrmImport_4213cefecc83dda7f9fc95c0d4a3edac } from '@/components/crm/CrmImport'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
@@ -101,6 +102,7 @@ export const importMap = {
   "@/components/ArticlesName#ArticlesNameNav": ArticlesNameNav_93239efae08cdb2822630c6cdf0a35db,
   "@payloadcms/plugin-multi-tenant/rsc#TenantSelectionProvider": TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62,
   "@/components/crm/CrmHome#CrmHome": CrmHome_50c0984d9d0f5c45e4339314228bf88d,
+  "@/components/crm/CrmBase#CrmBase": CrmBase_e0b6ac8c1db5b99f730ddba8d23e3c95,
   "@/components/crm/CrmCalendar#CrmCalendar": CrmCalendar_a07323fcb066d52abc42cf9f43e7a77f,
   "@/components/crm/CrmImport#CrmImport": CrmImport_4213cefecc83dda7f9fc95c0d4a3edac,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,

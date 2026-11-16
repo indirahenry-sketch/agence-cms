@@ -149,7 +149,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
             <h2 className="ccard__title">Raccourcis</h2>
             <ul className="cnav">
               <li><a href={`${LIST}/create`}><i className="tone-lav">＋</i>Ajouter un prospect</a></li>
-              <li><a href={LIST}><i className="tone-sky">☰</i>Tous les prospects</a></li>
+              <li><a href="/admin/prospection/base"><i className="tone-sky">☰</i>Base de prospection</a></li>
               <li><a href="/admin/prospection/relances"><i className="tone-peach">◷</i>Relances</a></li>
               <li><a href="/admin/collections/crm-activities"><i className="tone-mint">✎</i>Suivi des échanges</a></li>
               <li><a href="/admin/prospection/import"><i className="tone-butter">⇅</i>Importer / exporter</a></li>
@@ -241,7 +241,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
           <section className="ccard">
             <div className="ccard__row">
               <h2 className="ccard__title">Derniers prospects</h2>
-              <a className="clink" href={LIST}>
+              <a className="clink" href="/admin/prospection/base">
                 Tout voir →
               </a>
             </div>
@@ -259,7 +259,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
                   {recent.docs.map((p: CrmProspect) => (
                     <tr key={p.id}>
                       <td>
-                        <a className="cwho" href={`${LIST}/${p.id}`}>
+                        <a className="cwho" href={`/admin/prospection/base?fiche=${p.id}`}>
                           <span className={`cavatar tone-${toneOf(p.name)}`}>{initials(p.name) || '?'}</span>
                           <span>
                             <b>{p.name}</b>

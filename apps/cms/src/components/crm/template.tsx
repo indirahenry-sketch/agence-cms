@@ -43,7 +43,7 @@ export const crmDenied = (props: AdminViewServerProps) =>
 export const crmAllowed = (props: AdminViewServerProps) => canUseCrm(props.initPageResult.req.user)
 
 /** En-tête commun : titre + navigation entre les pages de la prospection. */
-export const CrmHeader = ({ title, current }: { title: string; current: 'accueil' | 'relances' | 'import' }) => (
+export const CrmHeader = ({ title, current }: { title: string; current: 'accueil' | 'base' | 'relances' | 'import' }) => (
   <header className="crm__head">
     <div>
       <p className="crm__kicker">Espace séparé des sites clients</p>
@@ -52,6 +52,9 @@ export const CrmHeader = ({ title, current }: { title: string; current: 'accueil
     <nav className="crm__tabs" aria-label="Prospection">
       <a className={current === 'accueil' ? 'on' : ''} href="/admin/prospection">
         Tableau de bord
+      </a>
+      <a className={current === 'base' ? 'on' : ''} href="/admin/prospection/base">
+        Base de prospection
       </a>
       <a className={current === 'relances' ? 'on' : ''} href="/admin/prospection/relances">
         Relances
