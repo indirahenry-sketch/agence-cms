@@ -112,6 +112,12 @@ r = await shot(admin, '/admin/prospection', '02-prospection-accueil', { full: tr
 check(r.text.includes('Prospection') && r.text.includes('cette semaine'), 'page /admin/prospection')
 await shot(admin, '/admin/prospection', '03-prospection-accueil-sombre', { dark: true, full: true })
 await shot(admin, '/admin/collections/crm-prospects', '04-liste-prospects')
+for (const u of ['/admin/prospection/relances', '/admin/prospection/import']) {
+  const res = await admin.request.fetch(`${BASE}${u}`, { headers: { Cookie: `payload-token=${tokens.get(admin)}` }, failOnStatusCode: false })
+  const html = await res.text()
+  const txt = html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+  log.push(`   (${u} : HTTP ${res.status()} · ${txt.slice(0, 160)} · contient Relances du mois=${html.includes('Relances du mois')} NEXT_NOT_FOUND=${html.includes('NEXT_NOT_FOUND') || html.includes('not-found')})`)
+}
 r = await shot(admin, '/admin/prospection/relances', '13-calendrier-relances', { full: true })
 check(r.text.includes('Relances du mois') && r.text.includes('Haras du Mistral'), 'calendrier des relances')
 r = await shot(admin, '/admin/prospection/import', '14-import-export', { full: true })

@@ -74,7 +74,7 @@ jobs:
           grep -iE "error|at " /tmp/shoot.log | head -8 | while IFS= read -r l; do echo "::warning::${l:0:300}"; done || true
       - name: Erreurs du serveur
         if: always()
-        run: grep -iE "error|erreur" server.log | grep -v "SMTP\|e-mail" | head -15 | while IFS= read -r l; do echo "::warning::${l:0:300}"; done || true
+        run: tail -25 server.log | grep -v "SMTP\|e-mail\|motdepasse\|password" | while IFS= read -r l; do echo "::warning::${l:0:300}"; done || true
       - name: Dépôt des captures (branche à part)
         if: always()
         run: |
