@@ -13,20 +13,32 @@ const check = (ok, msg) => {
   if (!ok) process.exitCode = 1
 }
 
+// Le cookie de session est « Secure » en production : sur http://localhost on passe le jeton nous-mêmes
+const tokens = new WeakMap()
 const api = async (ctx, method, path, data) => {
-  const res = await ctx.request.fetch(`${BASE}/api${path}`, { method, data, failOnStatusCode: false })
+  const token = tokens.get(ctx)
+  const headers = token ? { Authorization: `JWT ${token}` } : {}
+  const res = await ctx.request.fetch(`${BASE}/api${path}`, { method, data, headers, failOnStatusCode: false })
   let body = null
   try {
     body = await res.json()
   } catch {}
   return { status: res.status(), body }
 }
+const login = async (ctx, email, password) => {
+  const r = await api(ctx, 'POST', '/users/login', { email, password })
+  if (r.body?.token) {
+    tokens.set(ctx, r.body.token)
+    await ctx.addCookies([{ name: 'payload-token', value: r.body.token, url: BASE }])
+  }
+  return r
+}
 
 // 1. Super admin (premier compte) + données d'exemple
 const browser = await chromium.launch()
 const admin = await browser.newContext({ viewport: { width: 1366, height: 900 } })
 check((await api(admin, 'POST', '/users/first-register', { email: CAP_EMAIL, password: CAP_PASS, name: 'Test Agence' })).status < 300, 'premier compte créé')
-check((await api(admin, 'POST', '/users/login', { email: CAP_EMAIL, password: CAP_PASS })).status === 200, 'connexion super admin')
+check((await login(admin, CAP_EMAIL, CAP_PASS)).status === 200, 'connexion super admin')
 
 const zones = (await api(admin, 'GET', '/crm-zones?limit=200&depth=0')).body?.docs ?? []
 check(zones.length === 101, `101 zones créées au démarrage (${zones.length})`)
@@ -63,7 +75,7 @@ await api(admin, 'POST', '/users', {
   tenants: [{ tenant: tenant?.id, roles: ['tenant-admin'] }],
 })
 const client = await browser.newContext({ viewport: { width: 1366, height: 900 } })
-check((await api(client, 'POST', '/users/login', { email: CLIENT_EMAIL, password: CLIENT_PASS })).status === 200, 'connexion compte client')
+check((await login(client, CLIENT_EMAIL, CLIENT_PASS)).status === 200, 'connexion compte client')
 for (const c of ['crm-prospects', 'crm-zones', 'crm-activities', 'crm-optouts', 'crm-duplicates', 'crm-searches']) {
   const r = await api(client, 'GET', `/${c}`)
   check(r.status === 403 || (r.body?.docs?.length ?? 0) === 0 && r.status >= 400, `client refusé sur /api/${c} (HTTP ${r.status})`)
@@ -105,7 +117,7 @@ await browser.close()
 // Téléphone (Safari / iPhone)
 const wk = await webkit.launch()
 const phone = await wk.newContext({ ...devices['iPhone 13'] })
-await api(phone, 'POST', '/users/login', { email: CAP_EMAIL, password: CAP_PASS })
+await login(phone, CAP_EMAIL, CAP_PASS)
 await shot(phone, '/admin/prospection', '11-telephone-prospection', { full: true })
 await shot(phone, `/admin/collections/crm-prospects/${ids[0]}`, '12-telephone-fiche', { full: true })
 await wk.close()
