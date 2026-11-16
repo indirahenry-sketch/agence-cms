@@ -13,7 +13,8 @@ permissions:
 jobs:
   captures:
     if: contains(github.event.head_commit.message, '[captures]')
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04 : système pris en charge par les navigateurs de Playwright
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     services:
       postgres:
@@ -58,16 +59,19 @@ jobs:
           curl -fs http://localhost:3000/health
           # Laisse onInit finir (migrations + zones)
           sleep 10
-      - name: Captures
+      - name: Navigateurs de test
         run: |
-          echo "CAP_EMAIL=capture@exemple.test" >> "$GITHUB_ENV"
-          P1=$(openssl rand -hex 16); P2=$(openssl rand -hex 16)
-          echo "::add-mask::$P1"; echo "::add-mask::$P2"
           mkdir -p /tmp/shoot && cp .github/captures/shoot.mjs /tmp/shoot/
           cd /tmp/shoot && npm init -y >/dev/null && npm i --silent playwright@1.49.1
-          npx playwright install --with-deps chromium webkit >/dev/null
-          OUT=/tmp/captures CAP_EMAIL=capture@exemple.test CAP_PASS="$P1" CLIENT_EMAIL=client@exemple.test CLIENT_PASS="$P2" node shoot.mjs || echo "ECHEC=1" >> "$GITHUB_ENV"
-          while IFS= read -r l; do echo "::notice::$l"; done < /tmp/captures/verifications.txt
+          npx playwright install --with-deps chromium webkit > /tmp/pw.log 2>&1 || { tail -5 /tmp/pw.log | while IFS= read -r l; do echo "::warning::$l"; done; exit 1; }
+      - name: Captures
+        run: |
+          P1=$(openssl rand -hex 16); P2=$(openssl rand -hex 16)
+          echo "::add-mask::$P1"; echo "::add-mask::$P2"
+          cd /tmp/shoot
+          OUT=/tmp/captures CAP_EMAIL=capture@exemple.test CAP_PASS="$P1" CLIENT_EMAIL=client@exemple.test CLIENT_PASS="$P2" node shoot.mjs > /tmp/shoot.log 2>&1 || echo "ECHEC=1" >> "$GITHUB_ENV"
+          [ -f /tmp/captures/verifications.txt ] && while IFS= read -r l; do echo "::notice::$l"; done < /tmp/captures/verifications.txt
+          grep -iE "error|at " /tmp/shoot.log | head -8 | while IFS= read -r l; do echo "::warning::${l:0:300}"; done || true
       - name: Erreurs du serveur
         if: always()
         run: grep -iE "error|erreur" server.log | grep -v "SMTP\|e-mail" | head -15 | while IFS= read -r l; do echo "::warning::${l:0:300}"; done || true
