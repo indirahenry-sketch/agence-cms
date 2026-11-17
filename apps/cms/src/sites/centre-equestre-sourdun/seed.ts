@@ -6,6 +6,7 @@ import { describeError } from '@/lib/s3-check'
 
 import { seedServices } from './seedContent'
 import { seedArticles, seedGallery } from './seedImages'
+import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
 
 export const SOURDUN_SLUG = 'centre-equestre-sourdun'
 
@@ -162,6 +163,7 @@ const upload = (payload: Payload, tenantID: number, img: { mime: string; b64: st
 }
 
 async function ensurePhotos(payload: Payload, tenantID: number) {
+  await dropSeedMediaWithoutFile(payload, tenantID, seedGallery.map((p) => p.alt))
   const { docs: existing } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 200, depth: 0, ...base })
   const haveAlt = new Set(existing.map((m) => m.alt))
   const missing = seedGallery.map((img, i) => ({ img, i })).filter(({ img }) => !haveAlt.has(img.alt))
