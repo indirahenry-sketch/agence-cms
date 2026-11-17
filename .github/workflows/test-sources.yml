@@ -1,0 +1,23 @@
+# OUTIL TEMPORAIRE (étape 3) : mesure des sources gratuites. N'écrit rien, n'affiche que des nombres.
+name: Test des sources (temporaire)
+on:
+  push:
+    branches: [test-sources]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test sur le département
+        env:
+          DEP: "34"
+        run: |
+          node .github/test-sources/test.mjs > /tmp/out.txt 2>/tmp/err.txt || echo "::warning::script en erreur"
+          while IFS= read -r l; do echo "::notice::$l"; done < /tmp/out.txt
+          tail -5 /tmp/err.txt | while IFS= read -r l; do echo "::warning::${l:0:250}"; done
