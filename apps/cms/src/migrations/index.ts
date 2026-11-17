@@ -11,6 +11,7 @@ import * as migration_20261113_084741_cms_v7_sourdun from './20261113_084741_cms
 import * as migration_20261113_094102_cms_v8_telephone_fixe from './20261113_094102_cms_v8_telephone_fixe';
 import * as migration_20261116_151010_crm_v1 from './20261116_151010_crm_v1';
 import * as migration_20261116_192927_crm_v2 from './20261116_192927_crm_v2';
+import * as migration_20261117_195739_crm_v3 from './20261117_195739_crm_v3';
 
 export const migrations = [
   {
@@ -76,6 +77,11 @@ export const migrations = [
   {
     up: migration_20261116_192927_crm_v2.up,
     down: migration_20261116_192927_crm_v2.down,
-    name: '20261116_192927_crm_v2'
+    name: '20261116_192927_crm_v2',
+  },
+  {
+    up: migration_20261117_195739_crm_v3.up,
+    down: migration_20261117_195739_crm_v3.down,
+    name: '20261117_195739_crm_v3'
   },
 ];
