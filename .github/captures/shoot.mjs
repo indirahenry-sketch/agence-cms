@@ -265,6 +265,9 @@ await wk.close()
 
 // ---------- VRAIE recherche sur le 34 (sources réelles), uniquement des nombres ----------
 {
+  const br2 = await chromium.launch()
+  const admin = await br2.newContext({ viewport: { width: 1366, height: 900 } })
+  await login(admin, CAP_EMAIL, CAP_PASS)
   const z34 = z('34')
   const t0 = Date.now()
   const st = await api(admin, 'POST', '/crm-search', { zoneIds: [z34], target: 25 })
@@ -286,6 +289,7 @@ await wk.close()
   check(added.every((p) => p.status === 'a-verifier'), 'tous les prospects ajoutés sont « À vérifier »')
   log.push(`   avec e-mail ${added.filter((p) => p.email).length} · avec téléphone ${added.filter((p) => p.phone).length} · avec site ${added.filter((p) => p.website).length} · avec SIREN ${added.filter((p) => p.siren).length}`)
   await shot(admin, '/admin/prospection/recherche', '27-recherche-apres')
+  await br2.close()
 }
 
 console.log(log.join('\n'))
