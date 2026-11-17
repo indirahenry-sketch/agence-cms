@@ -3,6 +3,7 @@ import { APIError, type Endpoint, type PayloadRequest } from 'payload'
 import { canUseCrm } from '@/crm/access'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { EXPORT_COLUMNS, importProspects, MAX_IMPORT_ROWS } from '@/crm/importExport'
+import { isSearchRunning, runCrmSearch } from '@/crm/search/run'
 
 /**
  * Prospection (super admin uniquement) :
@@ -66,5 +67,28 @@ export const crmImport: Endpoint = {
     const dryRun = req.searchParams?.get('apercu') === '1'
     const report = await importProspects(req.payload, rows, { dryRun, req })
     return Response.json(report)
+  },
+}
+
+/**
+ * POST /api/crm-search  { zoneIds?: number[], target?: number }
+ * Lance une recherche en arrière-plan (elle dure quelques minutes) et répond tout de suite.
+ * Le résultat apparaît dans « Historique des recherches ».
+ */
+export const crmSearch: Endpoint = {
+  path: '/crm-search',
+  method: 'post',
+  handler: async (req) => {
+    guard(req)
+    if (isSearchRunning()) throw new APIError('Une recherche est déjà en cours. Attends qu’elle se termine.', 409, undefined, true)
+    const body = ((typeof req.json === 'function' ? await req.json().catch(() => ({})) : {}) ?? {}) as { zoneIds?: unknown; target?: unknown }
+    const zoneIds = Array.isArray(body.zoneIds) ? body.zoneIds.map(Number).filter((n) => Number.isInteger(n) && n > 0) : undefined
+    const target = body.target === undefined || body.target === null || body.target === '' ? undefined : Number(body.target)
+    if (target !== undefined && (!Number.isInteger(target) || target < 1 || target > 1000)) {
+      throw new APIError('Nombre de prospects invalide (entre 1 et 1000).', 400, undefined, true)
+    }
+    const payload = req.payload
+    void runCrmSearch(payload, { trigger: 'manuel', zoneIds, target }).catch(() => {}) // erreur notée dans l'historique
+    return Response.json({ started: true }, { status: 202 })
   },
 }

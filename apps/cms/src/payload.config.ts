@@ -35,6 +35,7 @@ import { CrmOptOuts } from './collections/crm/CrmOptOuts'
 import { CrmProspects } from './collections/crm/CrmProspects'
 import { CrmSearches } from './collections/crm/CrmSearches'
 import { CrmZones } from './collections/crm/CrmZones'
+import { startCrmScheduler } from './crm/search/scheduler'
 import { ensureCrmZones } from './crm/zones'
 import { CrmSettings } from './globals/CrmSettings'
 import { migrations } from './migrations'
@@ -42,7 +43,7 @@ import { removeOrphans } from './hooks/tenantCleanup'
 import { startKeepAwake } from './lib/keepAwake'
 import { startTrashPurge } from './lib/trashPurge'
 import { checkS3 } from './lib/s3-check'
-import { crmExport, crmImport } from './endpoints/crm'
+import { crmExport, crmImport, crmSearch } from './endpoints/crm'
 import { notifications } from './endpoints/notifications'
 import { storageCheck } from './endpoints/storage'
 import { readableErrors } from './hooks/readableErrors'
@@ -82,6 +83,7 @@ export default buildConfig({
         prospectionBase: { Component: '@/components/crm/CrmBase#CrmBase', path: '/prospection/base' },
         prospectionRelances: { Component: '@/components/crm/CrmCalendar#CrmCalendar', path: '/prospection/relances' },
         prospectionImport: { Component: '@/components/crm/CrmImport#CrmImport', path: '/prospection/import' },
+        prospectionRecherche: { Component: '@/components/crm/CrmSearchPage#CrmSearchPage', path: '/prospection/recherche' },
       },
       actions: ['@/components/HeaderTools#HeaderTools'],
       providers: ['@/components/MobileBar#MobileBar', '@/components/ArticlesName#ArticlesNameNav'],
@@ -98,7 +100,7 @@ export default buildConfig({
     },
   },
 
-  endpoints: [notifications, storageCheck, crmExport, crmImport],
+  endpoints: [notifications, storageCheck, crmExport, crmImport, crmSearch],
 
   // Messages d'erreur compréhensibles au lieu de « Something went wrong »
   hooks: { afterError: [readableErrors] },
@@ -178,6 +180,8 @@ export default buildConfig({
     await checkS3(payload)
     // Prospection : les 101 départements (8 actifs au lancement), créés une seule fois
     await ensureCrmZones(payload).catch((err) => payload.logger.error({ err }, 'Zones de prospection non créées'))
+    // Prospection : recherche automatique chaque lundi à 9 h (heure de Paris)
+    startCrmScheduler(payload)
     if (process.env.SKIP_DEMO_IMPORT === 'true') return
     try {
       await importEcuriesPoigny(payload)

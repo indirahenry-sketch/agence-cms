@@ -30,6 +30,7 @@ type Prospect = {
   nextFollowUpAt?: string | null
   lastContactAt?: string | null
   doNotContact?: boolean | null
+  search?: number | null
   sources?: { label?: string | null; url?: string | null }[] | null
 }
 type Zone = { id: number; code: string; name: string; label?: string | null }
@@ -127,6 +128,71 @@ const ProjectSelect = ({ p, onChange, disabled }: { p: Prospect; onChange: (v: s
     ))}
   </select>
 )
+
+/* ------------------------------------------------------------------ */
+/* Compléter les coordonnées (vérification manuelle)                   */
+/* ------------------------------------------------------------------ */
+
+/** Liens de vérification : ouverts par toi, jamais lus automatiquement par le CRM. */
+const lookupLinks = (p: Prospect) => {
+  const q = [p.name.replace(/^exemple\s*·\s*/i, ''), p.commune].filter(Boolean).join(' ')
+  return [
+    { label: 'Google Maps', url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` },
+    { label: 'Recherche Google', url: `https://www.google.com/search?q=${encodeURIComponent(`"${p.name.replace(/^exemple\s*·\s*/i, '')}" ${p.commune ?? ''} équestre`)}` },
+    { label: 'Annuaire FFE', url: `https://www.google.com/search?q=${encodeURIComponent(`site:ffe.com ${q}`)}` },
+    ...(p.siren ? [{ label: 'Annuaire des entreprises', url: `https://annuaire-entreprises.data.gouv.fr/entreprise/${p.siren.replace(/\D/g, '').slice(0, 9)}` }] : []),
+  ]
+}
+
+const CoordsForm = ({ p, busy, onPatch }: { p: Prospect; busy: boolean; onPatch: (data: Partial<Prospect>) => Promise<boolean> }) => {
+  const [v, setV] = useState({ phone: p.phone ?? '', email: p.email ?? '', website: p.website ?? '' })
+  const [saved, setSaved] = useState(false)
+  useEffect(() => {
+    setV({ phone: p.phone ?? '', email: p.email ?? '', website: p.website ?? '' })
+    setSaved(false)
+  }, [p.id, p.phone, p.email, p.website])
+  const changed = v.phone !== (p.phone ?? '') || v.email !== (p.email ?? '') || v.website !== (p.website ?? '')
+  const emailBad = v.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim())
+  const save = async () => {
+    const data: Partial<Prospect> = { phone: v.phone.trim() || null, email: v.email.trim() || null, website: v.website.trim() || null }
+    if (data.website && p.websiteStatus !== 'site-existant') data.websiteStatus = 'site-existant'
+    setSaved(await onPatch(data))
+  }
+  return (
+    <div className="bcoords">
+      <h4>Chercher les coordonnées</h4>
+      <div className="blookup">
+        {lookupLinks(p).map((l) => (
+          <a key={l.label} className="bbtn" href={l.url} target="_blank" rel="noopener noreferrer">
+            {l.label} ↗
+          </a>
+        ))}
+      </div>
+      <p className="bmuted">Ouvre une source, vérifie, puis recopie ici. N’inscris que ce qui est affiché publiquement.</p>
+      <div className="bcoords__grid">
+        <label className="bfield">
+          Téléphone
+          <input type="tel" value={v.phone} placeholder="Non trouvé" onChange={(e) => setV({ ...v, phone: e.target.value })} />
+        </label>
+        <label className="bfield">
+          E-mail
+          <input type="email" value={v.email} placeholder="Non trouvé" onChange={(e) => setV({ ...v, email: e.target.value })} />
+        </label>
+        <label className="bfield">
+          Site internet
+          <input type="url" value={v.website} placeholder="Non trouvé" onChange={(e) => setV({ ...v, website: e.target.value })} />
+        </label>
+      </div>
+      {emailBad && <p className="berr">Adresse e-mail invalide.</p>}
+      <div className="brow">
+        <button type="button" className="bbtn bbtn--primary" disabled={busy || !changed || emailBad} onClick={save}>
+          Enregistrer les coordonnées
+        </button>
+        {saved && !changed && <span className="bok">Enregistré ✓</span>}
+      </div>
+    </div>
+  )
+}
 
 /* ------------------------------------------------------------------ */
 /* Fiche individuelle (panneau latéral)                                */
@@ -294,8 +360,9 @@ const Fiche = ({
               </ul>
             </>
           )}
+          <CoordsForm p={p} busy={busy} onPatch={onPatch} />
           <a className="bbtn bbtn--ghost" href={`/admin/collections/crm-prospects/${p.id}`}>
-            Modifier les coordonnées (fiche complète)
+            Fiche complète
           </a>
         </section>
 
@@ -394,8 +461,8 @@ const Fiche = ({
 /* Page : compteurs, filtres, tableau                                  */
 /* ------------------------------------------------------------------ */
 
-type Filters = { q: string; dep: string; com: string; site: string; proj: string }
-const EMPTY: Filters = { q: '', dep: '', com: '', site: '', proj: '' }
+type Filters = { q: string; dep: string; com: string; site: string; proj: string; search: string }
+const EMPTY: Filters = { q: '', dep: '', com: '', site: '', proj: '', search: '' }
 
 export const CrmBaseTable: React.FC = () => {
   const [prospects, setProspects] = useState<Prospect[] | null>(null)
@@ -419,8 +486,11 @@ export const CrmBaseTable: React.FC = () => {
   useEffect(() => {
     load().catch((e) => setError(e.message))
     // Ouvre directement une fiche si l'adresse contient ?fiche=ID
-    const id = Number(new URLSearchParams(window.location.search).get('fiche'))
+    const params = new URLSearchParams(window.location.search)
+    const id = Number(params.get('fiche'))
     if (id) setOpenId(id)
+    const rech = params.get('recherche')
+    if (rech && /^\d+$/.test(rech)) setFilters((f) => ({ ...f, search: rech }))
   }, [load])
 
   useEffect(() => {
@@ -480,6 +550,7 @@ export const CrmBaseTable: React.FC = () => {
     const q = norm(filters.q.trim())
     return all.filter((p) => {
       if (filters.dep === 'none' ? p.department : filters.dep && String(p.department) !== filters.dep) return false
+      if (filters.search && String(p.search ?? '') !== filters.search) return false
       if (filters.com && commercialOf(p.status) !== filters.com) return false
       if (filters.site === 'a-verifier' ? SITE.some((s) => s.value === p.websiteStatus) : filters.site && p.websiteStatus !== filters.site) return false
       if (filters.proj === 'none' ? p.projectStatus : filters.proj && p.projectStatus !== filters.proj) return false
@@ -577,6 +648,15 @@ export const CrmBaseTable: React.FC = () => {
           </button>
         )}
       </div>
+
+      {filters.search && (
+        <p className="bbanner">
+          Prospects trouvés par la recherche n° {filters.search}.{' '}
+          <button type="button" className="bbtn bbtn--ghost" onClick={() => setFilters({ ...filters, search: '' })}>
+            Voir tous les prospects
+          </button>
+        </p>
+      )}
 
       {selected.size > 0 && (
         <div className="bbulk" role="region" aria-label="Actions sur la sélection">
