@@ -260,7 +260,7 @@ await shot(phone, '/admin/prospection/base', '23-telephone-base', { full: true }
   await page.close()
 }
 await shot(phone, '/admin/prospection/relances', '17-telephone-relances', { full: true })
-if (ids[0]) await shot(phone, `/admin/collections/crm-prospects/${ids[0]}`, '12-telephone-fiche', { full: true })
+if (ids[0]) await shot(phone, `/admin/collections/crm-prospects/${ids[0]}`, '12-telephone-fiche', { full: true }).catch(() => log.push('   (capture iPhone de la fiche complète ignorée : délai dépassé)'))
 await wk.close()
 
 // ---------- VRAIE recherche sur le 34 (sources réelles), uniquement des nombres ----------
