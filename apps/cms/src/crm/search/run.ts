@@ -4,7 +4,7 @@ import type { CrmZone } from '@/payload-types'
 
 import { findOptOut, matchConditions } from '../dedupe'
 import { guessType } from '../importExport'
-import { crmKeys, type CrmKeys } from '../normalize'
+import { crmKeys, domainKey, emailKey, type CrmKeys } from '../normalize'
 import { type Candidate, type EtatStats, type Fetcher, fromEtat, fromOsm, fromWebsite } from './sources'
 
 export type SearchTrigger = 'manuel' | 'planifie'
@@ -160,8 +160,12 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
     }
 
     let added = 0
+    let failed = 0
+    const created: Found[] = []
     const now = new Date().toISOString()
     for (const c of chosen) {
+      if (c.email && !emailKey(c.email)) c.email = undefined
+      if (c.website && !domainKey(c.website)) c.website = undefined
       try {
         await payload.create({
           collection: 'crm-prospects',
@@ -187,17 +191,20 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
           ...base,
         })
         added++
+        created.push(c)
       } catch (err) {
+        failed++
         payload.logger.warn({ err }, 'Prospection : une fiche n’a pas pu être créée')
       }
     }
 
-    const withEmail = chosen.filter((c) => c.email).length
-    const withPhone = chosen.filter((c) => c.phone).length
+    const withEmail = created.filter((c) => c.email).length
+    const withPhone = created.filter((c) => c.phone).length
     report.unshift(
       `${added} nouveau(x) prospect(s) ajouté(s) sur un objectif de ${target}.`,
-      `Avec e-mail : ${withEmail} (dont ${siteEmails} lu(s) sur le site) · avec téléphone : ${withPhone} · avec site : ${chosen.filter((c) => c.website).length}.`,
-      added < target && target > 0 ? `Moins que l’objectif : les sources gratuites n’ont pas fourni plus de structures nouvelles et vérifiables. Rien n’a été inventé.` : '',
+      `Avec e-mail : ${withEmail} (dont ${siteEmails} lu(s) sur le site) · avec téléphone : ${withPhone} · avec site : ${created.filter((c) => c.website).length}.`,
+      failed ? `${failed} fiche(s) n’ont pas pu être enregistrées (voir les journaux du serveur).` : '',
+      chosen.length < target && target > 0 ? `Moins que l’objectif : les sources gratuites n’ont pas fourni plus de structures nouvelles et vérifiables. Rien n’a été inventé.` : '',
       `Écartés : ${duplicates} déjà connu(s), ${optOuts} « ne plus contacter », ${breeders} élevage(s) sans nom équestre${settings.includeBreeders ? '' : ' (réglage)'}, ${stats.excludedPublic} structure(s) publique(s), ${stats.excludedNetwork} réseau(x).`,
       '',
     )
