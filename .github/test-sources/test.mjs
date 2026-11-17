@@ -110,8 +110,10 @@ area["ref:INSEE"="${DEP}"]["admin_level"="6"]->.d;
 );
 out tags center;`
 let osm = []
-for (const host of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']) {
-  const r = await fetch(host, { method: 'POST', headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(overpass)}` }).catch(() => null)
+const HOSTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass-api.de/api/interpreter']
+for (const [i, host] of HOSTS.entries()) {
+  if (i) await sleep(15000)
+  const r = await fetch(host, { method: 'POST', headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(overpass)}`, signal: AbortSignal.timeout(120000) }).catch(() => null)
   if (r?.ok) {
     osm = (await r.json()).elements ?? []
     break
