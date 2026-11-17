@@ -38,11 +38,17 @@ import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da1
 import { HeaderTools as HeaderTools_13b7ea739bdb6b32ca5af6857fcf8194 } from '@/components/HeaderTools'
 import { GlobalViewRedirect as GlobalViewRedirect_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
 import { LogoutLink as LogoutLink_efee897e9bac2a42f4d90af239af4133 } from '@/components/LogoutLink'
+import { CrmBackLink as CrmBackLink_94392ec44cb00be4d3fc5919b3c82d5a } from '@/components/crm/CrmBackLink'
 import { Welcome as Welcome_0ba7ccd01f145f9cfdba079472d42a93 } from '@/components/Welcome'
 import { TenantSelector as TenantSelector_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
+import { CrmNavLink as CrmNavLink_3d0fbceac779e3a42c1b7a66ef67474f } from '@/components/crm/CrmNavLink'
 import { MobileBar as MobileBar_689fa9366ef95ebc39c0375d80a03bc6 } from '@/components/MobileBar'
 import { ArticlesNameNav as ArticlesNameNav_93239efae08cdb2822630c6cdf0a35db } from '@/components/ArticlesName'
 import { TenantSelectionProvider as TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
+import { CrmHome as CrmHome_50c0984d9d0f5c45e4339314228bf88d } from '@/components/crm/CrmHome'
+import { CrmBase as CrmBase_e0b6ac8c1db5b99f730ddba8d23e3c95 } from '@/components/crm/CrmBase'
+import { CrmCalendar as CrmCalendar_a07323fcb066d52abc42cf9f43e7a77f } from '@/components/crm/CrmCalendar'
+import { CrmImport as CrmImport_4213cefecc83dda7f9fc95c0d4a3edac } from '@/components/crm/CrmImport'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 
@@ -88,11 +94,17 @@ export const importMap = {
   "@/components/HeaderTools#HeaderTools": HeaderTools_13b7ea739bdb6b32ca5af6857fcf8194,
   "@payloadcms/plugin-multi-tenant/rsc#GlobalViewRedirect": GlobalViewRedirect_d6d5f193a167989e2ee7d14202901e62,
   "@/components/LogoutLink#LogoutLink": LogoutLink_efee897e9bac2a42f4d90af239af4133,
+  "@/components/crm/CrmBackLink#CrmBackLink": CrmBackLink_94392ec44cb00be4d3fc5919b3c82d5a,
   "@/components/Welcome#Welcome": Welcome_0ba7ccd01f145f9cfdba079472d42a93,
   "@payloadcms/plugin-multi-tenant/rsc#TenantSelector": TenantSelector_d6d5f193a167989e2ee7d14202901e62,
+  "@/components/crm/CrmNavLink#CrmNavLink": CrmNavLink_3d0fbceac779e3a42c1b7a66ef67474f,
   "@/components/MobileBar#MobileBar": MobileBar_689fa9366ef95ebc39c0375d80a03bc6,
   "@/components/ArticlesName#ArticlesNameNav": ArticlesNameNav_93239efae08cdb2822630c6cdf0a35db,
   "@payloadcms/plugin-multi-tenant/rsc#TenantSelectionProvider": TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62,
+  "@/components/crm/CrmHome#CrmHome": CrmHome_50c0984d9d0f5c45e4339314228bf88d,
+  "@/components/crm/CrmBase#CrmBase": CrmBase_e0b6ac8c1db5b99f730ddba8d23e3c95,
+  "@/components/crm/CrmCalendar#CrmCalendar": CrmCalendar_a07323fcb066d52abc42cf9f43e7a77f,
+  "@/components/crm/CrmImport#CrmImport": CrmImport_4213cefecc83dda7f9fc95c0d4a3edac,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24
 }

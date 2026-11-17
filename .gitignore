@@ -15,3 +15,7 @@ apps/cms/media/
 
 # Sauvegardes locales
 backups/
+
+# Exports de prospects (données personnelles) : jamais sur GitHub
+prospects*.csv
+modele-prospects*.csv

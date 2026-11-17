@@ -9,6 +9,8 @@ import * as migration_20261109_053121_cms_v5_annonces from './20261109_053121_cm
 import * as migration_20261109_054500_cms_v6_articles from './20261109_054500_cms_v6_articles';
 import * as migration_20261113_084741_cms_v7_sourdun from './20261113_084741_cms_v7_sourdun';
 import * as migration_20261113_094102_cms_v8_telephone_fixe from './20261113_094102_cms_v8_telephone_fixe';
+import * as migration_20261116_151010_crm_v1 from './20261116_151010_crm_v1';
+import * as migration_20261116_192927_crm_v2 from './20261116_192927_crm_v2';
 
 export const migrations = [
   {
@@ -65,5 +67,15 @@ export const migrations = [
     up: migration_20261113_094102_cms_v8_telephone_fixe.up,
     down: migration_20261113_094102_cms_v8_telephone_fixe.down,
     name: '20261113_094102_cms_v8_telephone_fixe',
+  },
+  {
+    up: migration_20261116_151010_crm_v1.up,
+    down: migration_20261116_151010_crm_v1.down,
+    name: '20261116_151010_crm_v1',
+  },
+  {
+    up: migration_20261116_192927_crm_v2.up,
+    down: migration_20261116_192927_crm_v2.down,
+    name: '20261116_192927_crm_v2'
   },
 ];

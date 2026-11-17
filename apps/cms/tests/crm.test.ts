@@ -1,0 +1,349 @@
+/**
+ * TESTS DE L'ESPACE PROSPECTION (CRM)
+ *
+ * 1. Isolation : un compte client (même administrateur de son site) ne peut RIEN lire,
+ *    créer, modifier ni supprimer dans le CRM. Le super admin, si.
+ * 2. Rien n'est inventé : une information vide est « Non trouvé ».
+ * 3. Doublons : signalés malgré des écritures différentes, jamais fusionnés tout seuls.
+ * 4. « Ne plus contacter » : mémorisé, et appliqué à une fiche retrouvée plus tard.
+ * 5. Zones : 101 départements, 8 actifs, création relançable sans doublon.
+ */
+import config from '@payload-config'
+import { getPayload, type Payload } from 'payload'
+import { beforeAll, describe, expect, it } from 'vitest'
+
+import { commercialOf, statusForCommercial } from '@/crm/constants'
+import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
+import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
+import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
+import { ensureCrmZones } from '@/crm/zones'
+import { crmExport, crmImport } from '@/endpoints/crm'
+import type { Tenant, User } from '@/payload-types'
+import type { PayloadRequest } from 'payload'
+
+let payload: Payload
+let tenant: Tenant
+let superAdmin: User
+let clientAdmin: User
+
+const ctx = { skipInvite: true }
+
+const as = async (user: User) => ({
+  user: { ...(await payload.findByID({ collection: 'users', id: user.id, depth: 0, overrideAccess: true })), collection: 'users' as const },
+  overrideAccess: false as const,
+})
+
+const CRM_COLLECTIONS = ['crm-prospects', 'crm-activities', 'crm-zones', 'crm-searches', 'crm-duplicates', 'crm-optouts'] as const
+
+beforeAll(async () => {
+  payload = await getPayload({ config })
+  tenant = await payload.create({ collection: 'tenants', data: { name: 'Client CRM', slug: 'client-crm' } })
+  const mk = (email: string, data: Partial<User>) =>
+    payload.create({ collection: 'users', context: ctx, data: { email, password: 'motdepasse-test-123', roles: ['user'], ...data } as User })
+  superAdmin = await mk('super-crm@test.local', { roles: ['super-admin'] })
+  clientAdmin = await mk('admin-crm@test.local', { tenants: [{ tenant: tenant.id, roles: ['tenant-admin'] }] })
+})
+
+describe('Clés de comparaison', () => {
+  it('reconnaît un même nom écrit autrement', () => {
+    expect(nameKey('Les Écuries de Poigny')).toBe(nameKey('ECURIE POIGNY'))
+    expect(nameKey('Centre équestre')).toBe('centre equestre')
+  })
+  it('reconnaît une même commune', () => {
+    expect(communeKey('Saint-Martin-de-Londres')).toBe(communeKey('st martin de londres'))
+  })
+  it('reconnaît un même téléphone', () => {
+    expect(phoneKey('06 12 34 56 78')).toBe(phoneKey('+33 6 12 34 56 78'))
+    expect(phoneKey('0033612345678')).toBe('612345678')
+    expect(phoneKey('12')).toBe('')
+  })
+  it('reconnaît un même site, mais distingue deux pages Facebook', () => {
+    expect(domainKey('https://www.ecurie-test.fr/contact')).toBe('ecurie-test.fr')
+    expect(domainKey('ecurie-test.fr')).toBe('ecurie-test.fr')
+    expect(domainKey('https://facebook.com/EcurieA')).not.toBe(domainKey('https://facebook.com/EcurieB'))
+    expect(domainKey('pas un site')).toBe('')
+  })
+  it('normalise e-mail et SIREN', () => {
+    expect(emailKey(' Contact@Ecurie.FR ')).toBe('contact@ecurie.fr')
+    expect(emailKey('pas-un-email')).toBe('')
+    expect(sirenKey('123 456 789 00012')).toBe('123456789')
+  })
+})
+
+describe('Isolation : le CRM est invisible pour les clients', () => {
+  it('un visiteur non connecté ne lit rien', async () => {
+    for (const collection of CRM_COLLECTIONS) {
+      await expect(payload.find({ collection, overrideAccess: false })).rejects.toThrow()
+    }
+  })
+
+  it('un administrateur client ne peut ni lire ni créer', async () => {
+    const opts = await as(clientAdmin)
+    for (const collection of CRM_COLLECTIONS) {
+      await expect(payload.find({ collection, ...opts })).rejects.toThrow()
+    }
+    await expect(payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Intrus' }, ...opts })).rejects.toThrow()
+    await expect(payload.findGlobal({ slug: 'crm-settings', ...opts })).rejects.toThrow()
+    await expect(payload.updateGlobal({ slug: 'crm-settings', data: { weeklyTarget: 1 }, ...opts })).rejects.toThrow()
+  })
+
+  it('un administrateur client ne peut ni modifier ni supprimer une fiche existante', async () => {
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Fiche secrète' } })
+    const opts = await as(clientAdmin)
+    await expect(payload.findByID({ collection: 'crm-prospects', id: p.id, ...opts })).rejects.toThrow()
+    await expect(payload.update({ collection: 'crm-prospects', id: p.id, data: { name: 'Piraté' }, ...opts })).rejects.toThrow()
+    await expect(payload.delete({ collection: 'crm-prospects', id: p.id, ...opts })).rejects.toThrow()
+    const still = await payload.findByID({ collection: 'crm-prospects', id: p.id, overrideAccess: true })
+    expect(still.name).toBe('Fiche secrète')
+  })
+
+  it('le super admin a accès à tout', async () => {
+    const opts = await as(superAdmin)
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie du super admin' }, ...opts })
+    expect(p.status).toBe('nouveau')
+    const settings = await payload.updateGlobal({ slug: 'crm-settings', data: { weeklyTarget: 150 }, ...opts })
+    expect(settings.weeklyTarget).toBe(150) // pas de plafond à 70
+  })
+})
+
+describe('Rien n’est inventé', () => {
+  it('une coordonnée vide est « Non trouvé », une coordonnée saisie est « À vérifier »', async () => {
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie sans infos', phone: '04 67 00 00 00' } })
+    expect(p.emailLevel).toBe('non-trouve')
+    expect(p.phoneLevel).toBe('a-verifier')
+  })
+
+  it('le besoin découle du site Internet', async () => {
+    const sans = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie A', websiteStatus: 'sans-site' } })
+    const avec = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie B', website: 'https://ecurie-b.fr' } })
+    expect(sans.need).toBe('creation')
+    expect(avec.websiteStatus).toBe('site-existant')
+    expect(avec.need).toBe('refonte')
+  })
+})
+
+describe('Doublons', () => {
+  it('signale le même téléphone écrit autrement, sans rien supprimer', async () => {
+    const a = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Haras du Soleil', commune: 'Lunel', phone: '06 11 22 33 44' } })
+    const b = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Haras Soleil', commune: 'Lunel', phone: '+33611223344' } })
+    const { docs } = await payload.find({ collection: 'crm-duplicates', where: { prospect: { equals: b.id } }, depth: 0 })
+    expect(docs).toHaveLength(1)
+    expect(docs[0].existing).toBe(a.id)
+    expect(docs[0].reasons).toEqual(expect.arrayContaining(['telephone', 'nom-commune']))
+    expect(docs[0].status).toBe('a-examiner')
+    // Les deux fiches existent toujours
+    expect((await payload.count({ collection: 'crm-prospects', where: { id: { in: [a.id, b.id] } } })).totalDocs).toBe(2)
+  })
+
+  it('reconnaît le même nom dans la même commune', async () => {
+    await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Les Écuries de la Garrigue', commune: 'Saint-Mathieu-de-Tréviers' } })
+    const b = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Ecurie Garrigue', commune: 'St Mathieu de Treviers' } })
+    expect((await payload.count({ collection: 'crm-duplicates', where: { prospect: { equals: b.id } } })).totalDocs).toBe(1)
+  })
+
+  it('ne signale pas deux structures différentes', async () => {
+    await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Poney-club des Pins', commune: 'Sète' } })
+    const b = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Poney-club des Oliviers', commune: 'Sète' } })
+    expect((await payload.count({ collection: 'crm-duplicates', where: { prospect: { equals: b.id } } })).totalDocs).toBe(0)
+  })
+})
+
+describe('Ne plus contacter', () => {
+  it('mémorise un refus et l’applique à une fiche retrouvée plus tard', async () => {
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Domaine des Refus', email: 'contact@refus.fr' } })
+    await payload.update({ collection: 'crm-prospects', id: p.id, data: { status: 'ne-plus-contacter' } })
+    expect((await payload.count({ collection: 'crm-optouts', where: { emailKey: { equals: 'contact@refus.fr' } } })).totalDocs).toBe(1)
+
+    // La fiche est supprimée… mais le refus reste
+    await payload.delete({ collection: 'crm-prospects', id: p.id })
+    expect((await payload.count({ collection: 'crm-optouts', where: { emailKey: { equals: 'contact@refus.fr' } } })).totalDocs).toBe(1)
+
+    // Une nouvelle recherche retrouve l'établissement : il est bloqué d'office
+    const again = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Domaine Refus', email: 'CONTACT@refus.fr' } })
+    expect(again.status).toBe('ne-plus-contacter')
+    expect(again.doNotContact).toBe(true)
+  })
+})
+
+describe('Suivi', () => {
+  it('la prochaine relance et le dernier contact remontent sur la fiche', async () => {
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie Suivie' } })
+    const followUp = new Date(Date.now() + 3 * 864e5).toISOString()
+    await payload.create({ collection: 'crm-activities', data: { prospect: p.id, kind: 'email-envoye', date: new Date().toISOString(), summary: 'Premier e-mail', followUpAt: followUp } })
+    const after = await payload.findByID({ collection: 'crm-prospects', id: p.id, depth: 0 })
+    expect(after.nextFollowUpAt?.slice(0, 10)).toBe(followUp.slice(0, 10))
+    expect(after.lastContactAt).toBeTruthy()
+  })
+})
+
+describe('Zones', () => {
+  it('crée les 101 départements, 8 actifs, sans doublon si on relance', async () => {
+    expect(await ensureCrmZones(payload)).toBe(101)
+    expect(await ensureCrmZones(payload)).toBe(0)
+    expect((await payload.count({ collection: 'crm-zones' })).totalDocs).toBe(101)
+    const { docs } = await payload.find({ collection: 'crm-zones', where: { active: { equals: true } }, limit: 0, pagination: false })
+    expect(docs.map((z) => z.code).sort()).toEqual(['11', '13', '30', '31', '34', '66', '83', '84'])
+    const herault = docs.find((z) => z.code === '34')
+    expect(herault?.region).toBe('Occitanie')
+    expect(herault?.label).toBe('34 · Hérault')
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* ÉTAPE 2 : CSV, import, export                                       */
+/* ------------------------------------------------------------------ */
+
+describe('CSV', () => {
+  it('écrit pour Excel (point-virgule, BOM) et se relit à l’identique', () => {
+    const csv = toCsv(['Nom', 'Notes'], [['Écurie « Le Pré »', 'ligne 1\nligne 2 ; avec "guillemets"']])
+    expect(csv.startsWith('\uFEFF')).toBe(true)
+    expect(parseCsv(csv)).toEqual([
+      ['Nom', 'Notes'],
+      ['Écurie « Le Pré »', 'ligne 1\nligne 2 ; avec "guillemets"'],
+    ])
+  })
+  it('devine le séparateur et ignore les lignes vides', () => {
+    expect(parseCsv('nom,commune\r\nA,Sète\r\n\r\nB,Lunel\r\n')).toEqual([
+      ['nom', 'commune'],
+      ['A', 'Sète'],
+      ['B', 'Lunel'],
+    ])
+  })
+  it('relit un fichier Excel enregistré en Windows-1252', () => {
+    const bytes = new Uint8Array([0x4e, 0x6f, 0x6d, 0x0a, 0xc9, 0x63, 0x75, 0x72, 0x69, 0x65]) // "Nom\nÉcurie"
+    expect(parseCsv(decodeCsv(bytes))).toEqual([['Nom'], ['Écurie']])
+  })
+  it('reconnaît les intitulés usuels', () => {
+    const cols = mapHeaders(['Nom de la structure', 'Téléphone', 'E-mail', 'Site internet', 'CP', 'Ville'])
+    expect(cols).toEqual({ name: 0, phone: 1, email: 2, website: 3, postalCode: 4, commune: 5 })
+  })
+  it('déduit le département du code postal', () => {
+    expect(departmentFromPostalCode('34000')).toBe('34')
+    expect(departmentFromPostalCode('20000')).toBe('2A')
+    expect(departmentFromPostalCode('20200')).toBe('2B')
+    expect(departmentFromPostalCode('97400')).toBe('974')
+    expect(departmentFromPostalCode('abc')).toBe('')
+  })
+})
+
+describe('Import CSV', () => {
+  const file = [
+    ['Nom', 'Type', 'Commune', 'Code postal', 'Téléphone', 'E-mail', 'Site', 'Source'],
+    ['Écurie Nouvelle', 'écurie', 'Montpellier', '34000', '04 99 00 00 01', 'contact@nouvelle.fr', '', 'https://annuaire.exemple/1'],
+    ['Haras Soleil bis', 'haras', 'Lunel', '34400', '06.11.22.33.44', '', '', ''], // téléphone déjà connu
+    ['Domaine Refus', '', '', '', '', 'contact@refus.fr', '', ''], // ne plus contacter
+    ['', 'poney-club', 'Sète', '', '', '', '', ''], // sans nom
+    ['Poney-club Neuf', 'poney club', 'Sète', '34200', '', 'pas-un-email', 'pas un site', ''],
+    ['Ecurie Nouvelle', '', 'montpellier', '', '', '', '', ''], // doublon dans le fichier
+  ]
+
+  it('l’aperçu n’enregistre rien', async () => {
+    const before = (await payload.count({ collection: 'crm-prospects' })).totalDocs
+    const r = await importProspects(payload, file, { dryRun: true })
+    expect(r.added).toBe(2)
+    expect((await payload.count({ collection: 'crm-prospects' })).totalDocs).toBe(before)
+  })
+
+  it('importe sans doublon, sans « ne plus contacter », sans rien inventer', async () => {
+    const r = await importProspects(payload, file, { dryRun: false })
+    expect(r.total).toBe(6)
+    expect(r.addedNames).toEqual(['Écurie Nouvelle', 'Poney-club Neuf'])
+    expect(r.known.map((l) => l.line)).toEqual([3, 7])
+    expect(r.optOut.map((l) => l.line)).toEqual([4])
+    expect(r.rejected.map((l) => l.line)).toEqual([5])
+    expect(r.warnings.map((w) => w.detail)).toEqual(expect.arrayContaining([expect.stringContaining('E-mail invalide'), expect.stringContaining('site invalide')]))
+
+    const { docs } = await payload.find({ collection: 'crm-prospects', where: { search: { equals: r.searchId } }, depth: 1, sort: 'name' })
+    expect(docs).toHaveLength(2)
+    const neuf = docs.find((d) => d.name === 'Poney-club Neuf')!
+    expect(neuf.status).toBe('a-verifier')
+    expect(neuf.type).toBe('poney-club')
+    expect(neuf.email ?? '').toBe('')
+    expect(neuf.emailLevel).toBe('non-trouve')
+    expect(typeof neuf.department === 'object' && neuf.department?.code).toBe('34')
+    const nouvelle = docs.find((d) => d.name === 'Écurie Nouvelle')!
+    expect(nouvelle.sources?.map((x) => x.url)).toContain('https://annuaire.exemple/1')
+
+    const search = await payload.findByID({ collection: 'crm-searches', id: r.searchId! })
+    expect(search).toMatchObject({ trigger: 'import', status: 'terminee', found: 6, added: 2, duplicates: 2, rejected: 2 })
+
+    // Relancer le même fichier n'ajoute plus rien
+    const again = await importProspects(payload, file, { dryRun: false })
+    expect(again.added).toBe(0)
+  })
+})
+
+describe('Export et import : réservés à l’agence', () => {
+  const reqAs = async (user: User, extra: Partial<PayloadRequest> = {}) =>
+    ({ payload, user: (await as(user)).user, searchParams: new URLSearchParams(), ...extra }) as unknown as PayloadRequest
+
+  it('un client ne peut ni exporter ni importer', async () => {
+    await expect(crmExport.handler(await reqAs(clientAdmin))).rejects.toThrow()
+    await expect(crmImport.handler(await reqAs(clientAdmin, { arrayBuffer: async () => new TextEncoder().encode('Nom\nX').buffer }))).rejects.toThrow()
+  })
+
+  it('le super admin exporte un CSV lisible, « Non trouvé » compris', async () => {
+    const res = await crmExport.handler(await reqAs(superAdmin))
+    expect(res.headers.get('Content-Type')).toContain('text/csv')
+    const rows = parseCsv(await res.text())
+    expect(rows[0].slice(0, 4)).toEqual(['Nom', 'Type', 'Commune', 'Département'])
+    const line = rows.find((r) => r[0] === 'Poney-club Neuf')!
+    expect(line[rows[0].indexOf('E-mail')]).toBe('Non trouvé')
+  })
+
+  it('le super admin peut prévisualiser un import par l’API', async () => {
+    const body = new TextEncoder().encode('Nom;Commune\nÉcurie API;Agde\n')
+    const res = await crmImport.handler(
+      await reqAs(superAdmin, { searchParams: new URLSearchParams('apercu=1'), arrayBuffer: async () => body.buffer as ArrayBuffer }),
+    )
+    const report = await res.json()
+    expect(report).toMatchObject({ dryRun: true, total: 1, added: 1 })
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* BASE DE PROSPECTION : statut simplifié et statut du projet          */
+/* ------------------------------------------------------------------ */
+
+describe('Base de prospection', () => {
+  it('regroupe les 11 statuts en 4 couleurs', () => {
+    expect(commercialOf('nouveau')).toBe('a-contacter')
+    expect(commercialOf('brouillon-cree')).toBe('a-contacter')
+    expect(commercialOf('relance')).toBe('contacte')
+    expect(commercialOf('client')).toBe('accepte')
+    expect(commercialOf('ne-plus-contacter')).toBe('refuse')
+    expect(commercialOf(undefined)).toBe('a-contacter')
+  })
+
+  it('garde le statut détaillé quand il est déjà dans le bon groupe', () => {
+    expect(statusForCommercial('contacte', 'relance')).toBe('relance')
+    expect(statusForCommercial('contacte', 'nouveau')).toBe('en-attente')
+    expect(statusForCommercial('refuse', 'ne-plus-contacter')).toBe('ne-plus-contacter')
+    expect(statusForCommercial('refuse', 'client')).toBe('non-interesse')
+    expect(statusForCommercial('a-contacter', 'en-attente')).toBe('nouveau')
+  })
+
+  it('le super admin modifie statut, site et projet ; un client ne peut pas', async () => {
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie du Tableau' } })
+    const admin = await as(superAdmin)
+    const updated = await payload.update({
+      collection: 'crm-prospects',
+      id: p.id,
+      data: { status: statusForCommercial('accepte', p.status), websiteStatus: 'sans-site', projectStatus: 'en-cours', notes: 'Rappeler après les concours' },
+      ...admin,
+    })
+    expect(updated).toMatchObject({ status: 'client', websiteStatus: 'sans-site', projectStatus: 'en-cours', need: 'creation', notes: 'Rappeler après les concours' })
+
+    const client = await as(clientAdmin)
+    await expect(payload.update({ collection: 'crm-prospects', id: p.id, data: { projectStatus: 'livre' }, ...client })).rejects.toThrow()
+    expect((await payload.findByID({ collection: 'crm-prospects', id: p.id })).projectStatus).toBe('en-cours')
+  })
+
+  it('l’export contient le statut du projet', async () => {
+    const res = await crmExport.handler((({ payload, user: { ...superAdmin, collection: 'users' }, searchParams: new URLSearchParams() }) as unknown) as PayloadRequest)
+    const rows = parseCsv(await res.text())
+    const col = rows[0].indexOf('Statut du projet')
+    expect(col).toBeGreaterThan(-1)
+    expect(rows.find((r) => r[0] === 'Écurie du Tableau')?.[col]).toBe('En cours')
+  })
+})
