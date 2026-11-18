@@ -153,6 +153,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
               <li><a href="/admin/prospection/relances"><i className="tone-peach">◷</i>Relances</a></li>
               <li><a href="/admin/collections/crm-activities"><i className="tone-mint">✎</i>Suivi des échanges</a></li>
               <li><a href="/admin/prospection/import"><i className="tone-butter">⇅</i>Importer / exporter</a></li>
+              <li><a href="/admin/collections/crm-email-templates"><i className="tone-sky">✉</i>Modèles d’e-mails</a></li>
               <li><a href="/admin/collections/crm-zones?where[active][equals]=true"><i className="tone-lav">⌖</i>Zones actives</a></li>
               <li>
                 <a href="/admin/collections/crm-duplicates?where[status][equals]=a-examiner">

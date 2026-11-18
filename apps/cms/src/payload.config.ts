@@ -31,6 +31,7 @@ import { Tenants } from './collections/Tenants'
 import { Users } from './collections/Users'
 import { CrmActivities } from './collections/crm/CrmActivities'
 import { CrmDuplicates } from './collections/crm/CrmDuplicates'
+import { CrmEmailTemplates } from './collections/crm/CrmEmailTemplates'
 import { CrmOptOuts } from './collections/crm/CrmOptOuts'
 import { CrmProspects } from './collections/crm/CrmProspects'
 import { CrmSearches } from './collections/crm/CrmSearches'
@@ -115,7 +116,7 @@ export default buildConfig({
     // Agence
     Tenants, Users, SupportRequests, Announcements, AuditLogs, SiteStats,
     // Prospection (CRM) : espace séparé, jamais rattaché à un client (hors plugin multi-tenant)
-    CrmProspects, CrmActivities, CrmZones, CrmSearches, CrmDuplicates, CrmOptOuts,
+    CrmProspects, CrmActivities, CrmZones, CrmSearches, CrmDuplicates, CrmOptOuts, CrmEmailTemplates,
   ],
 
   globals: [CrmSettings],
