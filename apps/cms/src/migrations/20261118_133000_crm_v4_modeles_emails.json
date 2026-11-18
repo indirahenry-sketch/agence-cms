@@ -12252,12 +12252,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "other_names": {
-          "name": "other_names",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
         "type": {
           "name": "type",
           "type": "enum_crm_prospects_type",
@@ -12415,12 +12409,6 @@
         },
         "name_key": {
           "name": "name_key",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "alt_name_key": {
-          "name": "alt_name_key",
           "type": "varchar",
           "primaryKey": false,
           "notNull": false
@@ -12626,21 +12614,6 @@
           "columns": [
             {
               "expression": "name_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "crm_prospects_alt_name_key_idx": {
-          "name": "crm_prospects_alt_name_key_idx",
-          "columns": [
-            {
-              "expression": "alt_name_key",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -14247,6 +14220,12 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false
+        },
+        "crm_email_templates_id": {
+          "name": "crm_email_templates_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -14654,6 +14633,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "payload_locked_documents_rels_crm_email_templates_id_idx": {
+          "name": "payload_locked_documents_rels_crm_email_templates_id_idx",
+          "columns": [
+            {
+              "expression": "crm_email_templates_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -14975,6 +14969,19 @@
           "tableTo": "crm_optouts",
           "columnsFrom": [
             "crm_optouts_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "payload_locked_documents_rels_crm_email_templates_fk": {
+          "name": "payload_locked_documents_rels_crm_email_templates_fk",
+          "tableFrom": "payload_locked_documents_rels",
+          "tableTo": "crm_email_templates",
+          "columnsFrom": [
+            "crm_email_templates_id"
           ],
           "columnsTo": [
             "id"
@@ -15311,13 +15318,6 @@
           "notNull": false,
           "default": true
         },
-        "only_reachable": {
-          "name": "only_reachable",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": true
-        },
         "include_breeders": {
           "name": "include_breeders",
           "type": "boolean",
@@ -15353,6 +15353,287 @@
         }
       },
       "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.crm_prospects_other_phones": {
+      "name": "crm_prospects_other_phones",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "number": {
+          "name": "number",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "crm_prospects_other_phones_order_idx": {
+          "name": "crm_prospects_other_phones_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "crm_prospects_other_phones_parent_id_idx": {
+          "name": "crm_prospects_other_phones_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "crm_prospects_other_phones_parent_id_fk": {
+          "name": "crm_prospects_other_phones_parent_id_fk",
+          "tableFrom": "crm_prospects_other_phones",
+          "tableTo": "crm_prospects",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.crm_prospects_other_emails": {
+      "name": "crm_prospects_other_emails",
+      "schema": "",
+      "columns": {
+        "_order": {
+          "name": "_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "_parent_id": {
+          "name": "_parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "address": {
+          "name": "address",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "crm_prospects_other_emails_order_idx": {
+          "name": "crm_prospects_other_emails_order_idx",
+          "columns": [
+            {
+              "expression": "_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "crm_prospects_other_emails_parent_id_idx": {
+          "name": "crm_prospects_other_emails_parent_id_idx",
+          "columns": [
+            {
+              "expression": "_parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "crm_prospects_other_emails_parent_id_fk": {
+          "name": "crm_prospects_other_emails_parent_id_fk",
+          "tableFrom": "crm_prospects_other_emails",
+          "tableTo": "crm_prospects",
+          "columnsFrom": [
+            "_parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.crm_email_templates": {
+      "name": "crm_email_templates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "enum_crm_email_templates_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'refonte'"
+        },
+        "subject": {
+          "name": "subject",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "body": {
+          "name": "body",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "crm_email_templates_kind_idx": {
+          "name": "crm_email_templates_kind_idx",
+          "columns": [
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "crm_email_templates_updated_at_idx": {
+          "name": "crm_email_templates_updated_at_idx",
+          "columns": [
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "crm_email_templates_created_at_idx": {
+          "name": "crm_email_templates_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -15938,6 +16219,16 @@
         "doublon",
         "pas-doublon"
       ]
+    },
+    "public.enum_crm_email_templates_kind": {
+      "name": "enum_crm_email_templates_kind",
+      "schema": "public",
+      "values": [
+        "refonte",
+        "creation",
+        "relance",
+        "autre"
+      ]
     }
   },
   "schemas": {},
@@ -15950,6 +16241,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "e865d268-c034-4f5e-adc8-174c9a09daec",
-  "prevId": "00000000-0000-0000-0000-000000000000"
+  "id": "81dcad28-22b8-4bd3-9ba9-56d0597d7c19",
+  "prevId": "76a47105-c4b5-4f83-a190-e4266acdf3ea"
 }

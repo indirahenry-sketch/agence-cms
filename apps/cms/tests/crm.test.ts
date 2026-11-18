@@ -14,6 +14,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import { commercialOf, statusForCommercial } from '@/crm/constants'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
+import { fillTemplate, mailtoLink } from '@/crm/emailTemplate'
 import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
 import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
 import { ensureCrmZones } from '@/crm/zones'
@@ -36,7 +37,7 @@ const as = async (user: User) => ({
   overrideAccess: false as const,
 })
 
-const CRM_COLLECTIONS = ['crm-prospects', 'crm-activities', 'crm-zones', 'crm-searches', 'crm-duplicates', 'crm-optouts'] as const
+const CRM_COLLECTIONS = ['crm-prospects', 'crm-activities', 'crm-zones', 'crm-searches', 'crm-duplicates', 'crm-optouts', 'crm-email-templates'] as const
 
 beforeAll(async () => {
   payload = await getPayload({ config })
@@ -477,6 +478,24 @@ describe('Autre nom et complément des fiches', () => {
     expect(plain.known).toHaveLength(1)
   })
 
+  it('l’import complète par SIREN, avec autres téléphones / e-mails, et ignore « Non trouvé »', async () => {
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'a-verifier', name: 'Cheval Malepère Test', commune: 'Villarzel', siren: '493893556', phone: '04 68 00 00 01' } })
+    const rows = [
+      ['Nom', 'Commune', 'SIREN', 'Téléphone', 'E-mail', 'Autres téléphones', 'Autres e-mails', 'Source', 'Remarque (non importée)'],
+      ['Cheval Malepere', 'Villarzel du Razes', '493893556', '+33 6 76 84 41 25', 'Non trouvé', '+33 7 61 99 39 74 (2e numéro) ; 04 68 00 00 01', 'resa@malepere.test', 'https://exemple.test/fiche', 'à vérifier'],
+    ]
+    const r = await importProspects(payload, rows, { dryRun: false, complete: true })
+    expect(r.added).toBe(0)
+    expect(r.completed).toHaveLength(1)
+    const after = await payload.findByID({ collection: 'crm-prospects', id: p.id, depth: 0 })
+    expect(after.phone).toBe('04 68 00 00 01') // jamais remplacé
+    expect(after.email ?? '').toBe('') // « Non trouvé » ignoré
+    expect(after.otherPhones?.map((t) => [t.number, t.label])).toEqual([['+33 6 76 84 41 25', null], ['+33 7 61 99 39 74', '2e numéro']])
+    expect(after.otherEmails?.map((e) => e.address)).toEqual(['resa@malepere.test'])
+    const again = await importProspects(payload, rows, { dryRun: true, complete: true })
+    expect(again.completed).toHaveLength(0)
+  })
+
   it('« joignables uniquement » : une structure sans téléphone ni e-mail n’est pas ajoutée', async () => {
     const zone = (await payload.find({ collection: 'crm-zones', where: { code: { equals: '30' } }, limit: 1 })).docs[0]
     const lonely = (async (input: string | URL | Request) => {
@@ -497,4 +516,49 @@ describe('Autre nom et complément des fiches', () => {
     expect((await payload.findByID({ collection: 'crm-searches', id: b })).added).toBe(1)
     await payload.updateGlobal({ slug: 'crm-settings', data: { onlyReachable: true } })
   }, 30_000)
+})
+
+describe('Modèles d’e-mails et coordonnées multiples', () => {
+  it('personnalise un modèle sans rien inventer', () => {
+    const p = { name: 'Écuries du Lac', commune: 'Sète', website: 'https://www.ecuries-du-lac.fr/', type: 'haras' }
+    expect(fillTemplate('Bonjour {{nom}} à {{ commune }}, votre site {{site}} ({{type}})', p)).toBe('Bonjour Écuries du Lac à Sète, votre site ecuries-du-lac.fr (haras)')
+    expect(fillTemplate('Site : {{site}}', { name: 'Sans site' })).toBe('Site : [site ?]')
+    expect(fillTemplate('{{inconnu}} reste tel quel', p)).toBe('{{inconnu}} reste tel quel')
+  })
+
+  it('prépare un lien de messagerie avec objet et texte', () => {
+    const link = mailtoLink(['a@b.fr', 'c@d.fr'], 'Objet é', 'Ligne 1\nLigne 2')
+    expect(link.startsWith('mailto:a@b.fr,c@d.fr?subject=Objet%20%C3%A9&body=')).toBe(true)
+    expect(link).toContain('Ligne%201%0D%0ALigne%202')
+  })
+
+  it('enregistre un modèle et plusieurs téléphones / e-mails sur une fiche', async () => {
+    const opts = await as(superAdmin)
+    const t = await payload.create({
+      collection: 'crm-email-templates',
+      data: { name: 'Refonte – premier contact', kind: 'refonte', subject: 'Un nouveau site pour {{nom}} ?', body: 'Bonjour…' },
+      ...opts,
+    })
+    expect(t.kind).toBe('refonte')
+
+    const p = await payload.create({
+      collection: 'crm-prospects',
+      data: {
+        status: 'nouveau',
+        name: 'Domaine aux deux numéros',
+        phone: '04 67 11 22 33',
+        otherPhones: [{ number: '06 11 22 33 44', label: 'Portable du gérant' }],
+        otherEmails: [{ address: 'gerant@deux-numeros.fr' }, { address: 'resa@deux-numeros.fr', label: 'Réservations' }],
+      },
+      ...opts,
+    })
+    const again = await payload.findByID({ collection: 'crm-prospects', id: p.id, depth: 0 })
+    expect(again.otherPhones?.map((x) => x.number)).toEqual(['06 11 22 33 44'])
+    expect(again.otherEmails?.map((x) => x.address)).toEqual(['gerant@deux-numeros.fr', 'resa@deux-numeros.fr'])
+  })
+
+  it('un client ne voit pas les modèles d’e-mails', async () => {
+    const opts = await as(clientAdmin)
+    await expect(payload.create({ collection: 'crm-email-templates', data: { name: 'Intrus', kind: 'autre' }, ...opts })).rejects.toThrow()
+  })
 })
