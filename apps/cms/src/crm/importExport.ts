@@ -3,8 +3,8 @@ import type { Payload, PayloadRequest } from 'payload'
 import type { CrmProspect, CrmZone } from '@/payload-types'
 
 import { CRM_INFO_LEVELS, CRM_NEEDS, CRM_PRIORITIES, CRM_PROJECT_STATUSES, CRM_STATUSES, CRM_TYPES, CRM_VERIFICATION_LEVELS, CRM_WEBSITE_STATUSES } from './constants'
-import { findOptOut, matchConditions } from './dedupe'
-import { crmKeys, domainKey, emailKey } from './normalize'
+import { findOptOut, prospectMatchConditions } from './dedupe'
+import { crmKeys, domainKey, emailKey, phoneKey } from './normalize'
 
 /* ------------------------------------------------------------------ */
 /* EXPORT                                                              */
@@ -16,7 +16,9 @@ const NOT_FOUND = 'Non trouvé'
 
 /** Colonnes du fichier exporté (et du modèle d'import : mêmes intitulés). */
 export const EXPORT_COLUMNS: { header: string; get: (p: CrmProspect) => unknown }[] = [
+  { header: 'ID', get: (p) => p.id },
   { header: 'Nom', get: (p) => p.name },
+  { header: 'Autre nom', get: (p) => p.otherNames },
   { header: 'Type', get: (p) => label(CRM_TYPES, p.type) },
   { header: 'Commune', get: (p) => p.commune },
   { header: 'Département', get: (p) => (typeof p.department === 'object' && p.department ? p.department.label : '') },
@@ -48,7 +50,9 @@ export const EXPORT_COLUMNS: { header: string; get: (p: CrmProspect) => unknown 
 /* IMPORT                                                              */
 /* ------------------------------------------------------------------ */
 
-type ImportField = 'name' | 'type' | 'commune' | 'department' | 'postalCode' | 'address' | 'phone' | 'email' | 'website' | 'siren' | 'source' | 'notes' | 'priority'
+type ImportField =
+  | 'id' | 'otherNames' | 'name' | 'type' | 'commune' | 'department' | 'postalCode' | 'address' | 'phone' | 'email' | 'website' | 'siren' | 'source' | 'notes' | 'priority'
+  | 'otherPhones' | 'otherEmails'
 
 const norm = (s: string) =>
   s
@@ -60,6 +64,8 @@ const norm = (s: string) =>
 
 /** Intitulés de colonnes reconnus (sans accents ni majuscules). */
 const HEADERS: Record<ImportField, string[]> = {
+  id: ['id', 'identifiant'],
+  otherNames: ['autre nom', 'autres noms', 'nom d usage', 'enseigne', 'nom commercial', 'alias'],
   name: ['nom', 'nom de la structure', 'structure', 'etablissement', 'raison sociale', 'name', 'denomination'],
   type: ['type', 'type d etablissement', 'type de structure', 'categorie'],
   commune: ['commune', 'ville', 'localite', 'city'],
@@ -72,8 +78,19 @@ const HEADERS: Record<ImportField, string[]> = {
   siren: ['siren', 'siret'],
   source: ['source', 'sources', 'lien source', 'url source'],
   notes: ['notes', 'note', 'commentaire', 'commentaires', 'remarques'],
+  otherPhones: ['autres telephones', 'autre telephone', 'telephone 2', 'tel 2'],
+  otherEmails: ['autres e mails', 'autres emails', 'autre e mail', 'autre email', 'e mail 2', 'email 2'],
   priority: ['priorite', 'priority'],
 }
+
+/** « 06 11 22 33 44 (portable) ; 04 67 00 00 00 » → [{ value, label }] ; « Non trouvé » est ignoré. */
+export const parseList = (v: string): { value: string; label?: string }[] =>
+  v
+    .split(/\s*[;\n]\s*/)
+    .map((part) => /^(.*?)\s*(?:\(([^)]*)\))?\s*$/.exec(part.trim()))
+    .filter((m): m is RegExpExecArray => Boolean(m && m[1]))
+    .map((m) => ({ value: m[1].trim(), label: m[2]?.trim() || undefined }))
+    .filter((x) => norm(x.value) !== 'non trouve')
 
 export const mapHeaders = (header: string[]): Partial<Record<ImportField, number>> => {
   const out: Partial<Record<ImportField, number>> = {}
@@ -116,6 +133,7 @@ export type ImportReport = {
   total: number
   added: number
   addedNames: string[]
+  completed: ImportLine[]
   known: ImportLine[]
   optOut: ImportLine[]
   rejected: ImportLine[]
@@ -136,9 +154,9 @@ export const MAX_IMPORT_ROWS = 2000
 export const importProspects = async (
   payload: Payload,
   rows: string[][],
-  { dryRun, req }: { dryRun: boolean; req?: PayloadRequest },
+  { dryRun, req, complete = false }: { dryRun: boolean; req?: PayloadRequest; complete?: boolean },
 ): Promise<ImportReport> => {
-  const report: ImportReport = { dryRun, total: 0, added: 0, addedNames: [], known: [], optOut: [], rejected: [], warnings: [] }
+  const report: ImportReport = { dryRun, total: 0, added: 0, addedNames: [], completed: [], known: [], optOut: [], rejected: [], warnings: [] }
   const [header, ...lines] = rows
   if (!header) return report
   const cols = mapHeaders(header)
@@ -169,7 +187,10 @@ export const importProspects = async (
   }
 
   const seen = new Map<string, string>() // clé → nom de la première ligne du fichier
-  const get = (r: string[], f: ImportField) => (cols[f] === undefined ? '' : (r[cols[f] as number] ?? '').trim())
+  const get = (r: string[], f: ImportField) => {
+    const v = cols[f] === undefined ? '' : (r[cols[f] as number] ?? '').trim()
+    return norm(v) === 'non trouve' ? '' : v // valeur écrite par l'export pour une information absente
+  }
 
   for (const [i, r] of lines.entries()) {
     const line = i + 2
@@ -208,6 +229,7 @@ export const importProspects = async (
       email: email || undefined,
       website: website || undefined,
       siren: get(r, 'siren') || undefined,
+      otherNames: get(r, 'otherNames') || undefined,
       notes: get(r, 'notes') || undefined,
       priority: priority as CrmProspect['priority'],
     }
@@ -231,10 +253,55 @@ export const importProspects = async (
       report.optOut.push({ line, name, detail: 'Dans la liste « Ne plus contacter »' })
       continue
     }
-    const or = matchConditions(keys)
+    const or = prospectMatchConditions(keys)
     const existing = or.length
       ? (await payload.find({ collection: 'crm-prospects', where: { or }, limit: 1, depth: 0, overrideAccess: true, req })).docs[0]
       : undefined
+    const byId = Number(get(r, 'id'))
+    const target = complete && Number.isInteger(byId) && byId > 0
+      ? await payload.findByID({ collection: 'crm-prospects', id: byId, depth: 0, overrideAccess: true, req }).catch(() => null)
+      : complete ? existing : undefined
+    if (target) {
+      // On COMPLÈTE seulement : une information déjà présente n'est jamais remplacée
+      const fill: Partial<CrmProspect> = {}
+      for (const k of ['phone', 'email', 'website', 'otherNames', 'address', 'postalCode', 'commune', 'siren'] as const) {
+        const v = data[k]
+        if (v && !String(target[k] ?? '').trim()) (fill as Record<string, unknown>)[k] = v
+      }
+      if (data.notes) fill.notes = target.notes ? `${target.notes}\n${data.notes}` : data.notes
+      // Autres téléphones / e-mails : ajoutés s'ils ne sont pas déjà sur la fiche
+      const phones = [...(target.otherPhones ?? [])]
+      const knownPhones = new Set([fill.phone ?? target.phone, ...phones.map((t) => t.number)].map((x) => phoneKey(x)).filter(Boolean))
+      for (const t of [...(data.phone && !fill.phone ? [{ value: data.phone }] : []), ...parseList(get(r, 'otherPhones'))]) {
+        const key = phoneKey(t.value)
+        if (!key || knownPhones.has(key)) continue
+        knownPhones.add(key)
+        phones.push({ number: t.value, label: t.label ?? null })
+      }
+      if (phones.length !== (target.otherPhones ?? []).length) fill.otherPhones = phones
+      const emails = [...(target.otherEmails ?? [])]
+      const knownEmails = new Set([fill.email ?? target.email, ...emails.map((e) => e.address)].map((x) => emailKey(x)).filter(Boolean))
+      for (const e of [...(data.email && !fill.email ? [{ value: data.email }] : []), ...parseList(get(r, 'otherEmails'))]) {
+        const key = emailKey(e.value)
+        if (!key || knownEmails.has(key)) continue
+        knownEmails.add(key)
+        emails.push({ address: e.value, label: e.label ?? null })
+      }
+      if (emails.length !== (target.otherEmails ?? []).length) fill.otherEmails = emails
+      const keysFilled = Object.keys(fill)
+      if (!keysFilled.length) {
+        report.known.push({ line, name, detail: `Déjà enregistré, rien de nouveau : ${target.name}` })
+        continue
+      }
+      if (!dryRun) {
+        const isUrl = /^https?:\/\//i.test(source)
+        const sources = [...(target.sources ?? []), ...(source ? [{ label: isUrl ? 'Source indiquée dans le fichier' : source, url: isUrl ? source : undefined, checkedAt: now }] : [])]
+        await payload.update({ collection: 'crm-prospects', id: target.id, data: { ...fill, sources }, overrideAccess: true, req })
+      }
+      const labels: Record<string, string> = { otherPhones: 'autre téléphone', otherEmails: 'autre e-mail', phone: 'téléphone', email: 'e-mail', website: 'site', otherNames: 'autre nom', address: 'adresse', postalCode: 'code postal', commune: 'commune', siren: 'SIREN', notes: 'notes' }
+      report.completed.push({ line, name: target.name, detail: `ajouté : ${keysFilled.map((k) => labels[k] ?? k).join(', ')}` })
+      continue
+    }
     if (existing) {
       report.known.push({ line, name, detail: `Déjà enregistré : ${existing.name}` })
       continue
@@ -270,7 +337,8 @@ export const importProspects = async (
         duplicates: report.known.length,
         rejected: report.rejected.length + report.optOut.length,
         report: [
-          `${report.added} ajouté(s) sur ${report.total} ligne(s).`,
+          `${report.added} ajouté(s), ${report.completed.length} complété(s) sur ${report.total} ligne(s).`,
+          ...lines2('Complétés', report.completed),
           ...lines2('Déjà connus', report.known),
           ...lines2('Ne plus contacter', report.optOut),
           ...lines2('Écartés', report.rejected),

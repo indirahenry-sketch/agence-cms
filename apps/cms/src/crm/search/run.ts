@@ -2,7 +2,7 @@ import type { Payload, Where } from 'payload'
 
 import type { CrmZone } from '@/payload-types'
 
-import { findOptOut, matchConditions } from '../dedupe'
+import { findOptOut, prospectMatchConditions } from '../dedupe'
 import { guessType } from '../importExport'
 import { crmKeys, domainKey, emailKey, type CrmKeys } from '../normalize'
 import { type Candidate, type EtatStats, type Fetcher, fromEtat, fromOsm, fromWebsite } from './sources'
@@ -98,7 +98,8 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
 
     for (const zone of target > 0 ? zones : []) {
       // On s'arrête dès qu'on a assez de nouvelles fiches (les zones restantes passeront la prochaine fois)
-      if (fresh.length >= target * 1.5) break
+      const promising = settings.onlyReachable === false ? fresh.length : fresh.filter((f) => f.phone || f.email || f.website).length
+      if (promising >= target * 1.5) break
       const etat = await fromEtat(zone.code, fetcher, stats)
       const osm = await fromOsm(zone.code, fetcher)
       const pool: Found[] = []
@@ -118,7 +119,7 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
           optOuts++
           continue
         }
-        const or = matchConditions(c.keys)
+        const or = prospectMatchConditions(c.keys)
         if (or.length && (await payload.count({ collection: 'crm-prospects', where: { or }, overrideAccess: true })).totalDocs) {
           duplicates++
           continue
@@ -141,12 +142,13 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
       })
     }
 
-    // Les plus complètes d'abord, puis complément par le site de l'établissement
-    const chosen = fresh.sort((a, b) => score(b) - score(a)).slice(0, target)
+    // Complément par le site de l'établissement (les plus prometteuses d'abord),
+    // puis on garde les plus complètes ; si réglé, uniquement celles qu'on peut joindre.
+    fresh.sort((a, b) => score(b) - score(a))
     let siteChecks = 0
     let siteEmails = 0
     const maxChecks = settings.maxSiteChecks ?? 60
-    for (const c of chosen) {
+    for (const c of fresh) {
       if (c.website && (!c.email || !c.phone) && siteChecks < maxChecks) {
         siteChecks++
         const w = await fromWebsite(c.website, fetcher)
@@ -158,6 +160,10 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
         if (w.email || w.phone) c.sources.push({ label: 'Site de l’établissement', url: /^https?:/.test(c.website) ? c.website : `https://${c.website}` })
       }
     }
+    const onlyReachable = settings.onlyReachable !== false
+    const reachable = fresh.filter((c) => c.phone || (c.email && emailKey(c.email)))
+    const unreachable = fresh.length - reachable.length
+    const chosen = (onlyReachable ? reachable : fresh).sort((a, b) => score(b) - score(a)).slice(0, target)
 
     let added = 0
     let failed = 0
@@ -203,6 +209,7 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
     report.unshift(
       `${added} nouveau(x) prospect(s) ajouté(s) sur un objectif de ${target}.`,
       `Avec e-mail : ${withEmail} (dont ${siteEmails} lu(s) sur le site) · avec téléphone : ${withPhone} · avec site : ${created.filter((c) => c.website).length}.`,
+      onlyReachable && unreachable ? `${unreachable} structure(s) sans téléphone ni e-mail trouvés n’ont pas été ajoutées (réglage « joignables uniquement »).` : '',
       failed ? `${failed} fiche(s) n’ont pas pu être enregistrées (voir les journaux du serveur).` : '',
       chosen.length < target && target > 0 ? `Moins que l’objectif : les sources gratuites n’ont pas fourni plus de structures nouvelles et vérifiables. Rien n’a été inventé.` : '',
       `Écartés : ${duplicates} déjà connu(s), ${optOuts} « ne plus contacter », ${breeders} élevage(s) sans nom équestre${settings.includeBreeders ? '' : ' (réglage)'}, ${stats.excludedPublic} structure(s) publique(s), ${stats.excludedNetwork} réseau(x).`,

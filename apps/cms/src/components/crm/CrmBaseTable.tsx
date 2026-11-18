@@ -15,6 +15,7 @@ import { api, qs } from '../admin/client'
 type Prospect = {
   id: number
   name: string
+  otherNames?: string | null
   type?: string | null
   commune?: string | null
   department?: number | null
@@ -147,12 +148,48 @@ const ProjectSelect = ({ p, onChange, disabled }: { p: Prospect; onChange: (v: s
 /** Liens de vérification : ouverts par toi, jamais lus automatiquement par le CRM. */
 const lookupLinks = (p: Prospect) => {
   const q = [p.name.replace(/^exemple\s*·\s*/i, ''), p.commune].filter(Boolean).join(' ')
+  const alt = p.otherNames ? [p.otherNames, p.commune].filter(Boolean).join(' ') : ''
   return [
+    ...(alt ? [{ label: `Google Maps (${p.otherNames})`, url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(alt)}` }] : []),
+    { label: 'Facebook', url: `https://www.google.com/search?q=${encodeURIComponent(`site:facebook.com ${alt || q}`)}` },
     { label: 'Google Maps', url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` },
     { label: 'Recherche Google', url: `https://www.google.com/search?q=${encodeURIComponent(`"${p.name.replace(/^exemple\s*·\s*/i, '')}" ${p.commune ?? ''} équestre`)}` },
     { label: 'Annuaire FFE', url: `https://www.google.com/search?q=${encodeURIComponent(`site:ffe.com ${q}`)}` },
     ...(p.siren ? [{ label: 'Annuaire des entreprises', url: `https://annuaire-entreprises.data.gouv.fr/entreprise/${p.siren.replace(/\D/g, '').slice(0, 9)}` }] : []),
   ]
+}
+
+const NameForm = ({ p, busy, onPatch }: { p: Prospect; busy: boolean; onPatch: (data: Partial<Prospect>) => Promise<boolean> }) => {
+  const [v, setV] = useState({ name: p.name, otherNames: p.otherNames ?? '' })
+  const [saved, setSaved] = useState(false)
+  useEffect(() => {
+    setV({ name: p.name, otherNames: p.otherNames ?? '' })
+    setSaved(false)
+  }, [p.id, p.name, p.otherNames])
+  const changed = v.name.trim() !== p.name || v.otherNames.trim() !== (p.otherNames ?? '')
+  return (
+    <div className="bcoords__grid bnames">
+      <label className="bfield">
+        Nom
+        <input type="text" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} />
+      </label>
+      <label className="bfield">
+        Autre nom / nom d’usage
+        <input type="text" value={v.otherNames} placeholder="Ex. Haras des As" onChange={(e) => setV({ ...v, otherNames: e.target.value })} />
+      </label>
+      <div className="brow">
+        <button
+          type="button"
+          className="bbtn"
+          disabled={busy || !changed || !v.name.trim()}
+          onClick={async () => setSaved(await onPatch({ name: v.name.trim(), otherNames: v.otherNames.trim() || null }))}
+        >
+          Enregistrer le nom
+        </button>
+        {saved && !changed && <span className="bok">Enregistré ✓</span>}
+      </div>
+    </div>
+  )
 }
 
 type Row = { value: string; label: string }
@@ -501,6 +538,7 @@ const Fiche = ({
         <header className="bfiche__head">
           <div>
             <h2>{p.name}</h2>
+            {p.otherNames && <p className="bmuted">Aussi connu comme : {p.otherNames}</p>}
             <p className="bmuted">
               {[typeLabel(p.type), p.commune, zone?.label].filter(Boolean).join(' · ') || 'Informations à compléter'}
             </p>
@@ -589,6 +627,7 @@ const Fiche = ({
               </ul>
             </>
           )}
+          <NameForm p={p} busy={busy} onPatch={onPatch} />
           <CoordsForm p={p} busy={busy} onPatch={onPatch} />
           <a className="bbtn bbtn--ghost" href={`/admin/collections/crm-prospects/${p.id}`}>
             Fiche complète
@@ -695,8 +734,10 @@ const Fiche = ({
 /* Page : compteurs, filtres, tableau                                  */
 /* ------------------------------------------------------------------ */
 
-type Filters = { q: string; dep: string; com: string; site: string; proj: string; search: string }
-const EMPTY: Filters = { q: '', dep: '', com: '', site: '', proj: '', search: '' }
+type Filters = { q: string; dep: string; com: string; site: string; proj: string; search: string; reserve: '' | 'only' | 'all' }
+const EMPTY: Filters = { q: '', dep: '', com: '', site: '', proj: '', search: '', reserve: '' }
+/** Réserve « À compléter » : ni téléphone ni e-mail (et pas « ne plus contacter »). Calculée, jamais stockée. */
+const inReserve = (p: Prospect) => !p.doNotContact && !String(p.phone ?? '').trim() && !String(p.email ?? '').trim()
 
 export const CrmBaseTable: React.FC = () => {
   const [prospects, setProspects] = useState<Prospect[] | null>(null)
@@ -790,10 +831,11 @@ export const CrmBaseTable: React.FC = () => {
     return all.filter((p) => {
       if (filters.dep === 'none' ? p.department : filters.dep && String(p.department) !== filters.dep) return false
       if (filters.search && String(p.search ?? '') !== filters.search) return false
+      if (filters.reserve === 'only' ? !inReserve(p) : filters.reserve === '' && inReserve(p) && !filters.q) return false
       if (filters.com && commercialOf(p.status) !== filters.com) return false
       if (filters.site === 'a-verifier' ? SITE.some((s) => s.value === p.websiteStatus) : filters.site && p.websiteStatus !== filters.site) return false
       if (filters.proj === 'none' ? p.projectStatus : filters.proj && p.projectStatus !== filters.proj) return false
-      if (q && ![p.name, p.commune, p.email, p.phone, p.website].some((v) => norm(v).includes(q))) return false
+      if (q && ![p.name, p.otherNames, p.commune, p.email, p.phone, p.website].some((v) => norm(v).includes(q))) return false
       return true
     })
   }, [all, filters])
@@ -830,11 +872,15 @@ export const CrmBaseTable: React.FC = () => {
   return (
     <div className="bbase">
       <div className="bcounts">
-        {counter('total', 'Prospects', 'lav', () => setFilters(EMPTY), !filtered)}
+        {counter('total', 'Prospects', 'lav', () => setFilters({ ...EMPTY, reserve: 'all' }), JSON.stringify(filters) === JSON.stringify({ ...EMPTY, reserve: 'all' }))}
         {CRM_COMMERCIAL.map((c) =>
-          counter(c.value, c.label === 'Contacté' ? 'Contactés' : c.label === 'Accepté' ? 'Acceptés' : c.label === 'Refusé' ? 'Refusés' : c.label, c.tone, () => setFilters({ ...EMPTY, com: c.value }), filters.com === c.value && filters.proj === ''),
+          counter(c.value, c.label === 'Contacté' ? 'Contactés' : c.label === 'Accepté' ? 'Acceptés' : c.label === 'Refusé' ? 'Refusés' : c.label, c.tone, () => setFilters({ ...EMPTY, reserve: 'all', com: c.value }), filters.com === c.value && filters.proj === ''),
         )}
-        {counter('livre', 'Sites livrés', 'mint', () => setFilters({ ...EMPTY, proj: 'livre' }), filters.proj === 'livre' && filters.com === '')}
+        {counter('livre', 'Sites livrés', 'mint', () => setFilters({ ...EMPTY, reserve: 'all', proj: 'livre' }), filters.proj === 'livre' && filters.com === '')}
+        <button type="button" className={`bcount tone-butter${filters.reserve === 'only' ? ' on' : ''}`} onClick={() => setFilters({ ...EMPTY, reserve: 'only' })} aria-pressed={filters.reserve === 'only'}>
+          <b>{all.filter(inReserve).length}</b>
+          <span>À compléter</span>
+        </button>
       </div>
 
       <div className="bfilters ccard">
@@ -880,6 +926,11 @@ export const CrmBaseTable: React.FC = () => {
             </option>
           ))}
           <option value="none">Aucun projet</option>
+        </select>
+        <select value={filters.reserve} onChange={(e) => setFilters({ ...filters, reserve: e.target.value as Filters['reserve'] })} aria-label="Réserve">
+          <option value="">Joignables (téléphone ou e-mail)</option>
+          <option value="only">À compléter (sans contact)</option>
+          <option value="all">Tous, y compris à compléter</option>
         </select>
         {filtered && (
           <button type="button" className="bbtn bbtn--ghost" onClick={() => setFilters(EMPTY)}>
@@ -957,7 +1008,7 @@ export const CrmBaseTable: React.FC = () => {
       <div className="btable-wrap ccard">
         <p className="bmuted bshown">
           {rows.length} prospect{rows.length > 1 ? 's' : ''} affiché{rows.length > 1 ? 's' : ''}
-          {filtered ? ` sur ${all.length}` : ''}
+          {rows.length !== all.length ? ` sur ${all.length}` : ''}
         </p>
         {rows.length ? (
           <table className="btable">
@@ -993,7 +1044,7 @@ export const CrmBaseTable: React.FC = () => {
                     <td data-label="Nom" className="bcol-name">
                       <button type="button" className="bname" onClick={() => setOpenId(p.id)}>
                         <b>{p.name}</b>
-                        <small>{typeLabel(p.type)}</small>
+                        <small>{[p.otherNames, typeLabel(p.type)].filter(Boolean).join(' · ')}</small>
                       </button>
                     </td>
                     <td data-label="Commune">{p.commune || <NotFound />}</td>

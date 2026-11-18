@@ -13,6 +13,7 @@ import * as migration_20261116_151010_crm_v1 from './20261116_151010_crm_v1';
 import * as migration_20261116_192927_crm_v2 from './20261116_192927_crm_v2';
 import * as migration_20261117_195739_crm_v3 from './20261117_195739_crm_v3';
 import * as migration_20261118_133000_crm_v4_modeles_emails from './20261118_133000_crm_v4_modeles_emails';
+import * as migration_20261118_163000_crm_v5_autre_nom from './20261118_163000_crm_v5_autre_nom';
 
 export const migrations = [
   {
@@ -88,6 +89,11 @@ export const migrations = [
   {
     up: migration_20261118_133000_crm_v4_modeles_emails.up,
     down: migration_20261118_133000_crm_v4_modeles_emails.down,
-    name: '20261118_133000_crm_v4_modeles_emails'
+    name: '20261118_133000_crm_v4_modeles_emails',
+  },
+  {
+    up: migration_20261118_163000_crm_v5_autre_nom.up,
+    down: migration_20261118_163000_crm_v5_autre_nom.down,
+    name: '20261118_163000_crm_v5_autre_nom'
   },
 ];

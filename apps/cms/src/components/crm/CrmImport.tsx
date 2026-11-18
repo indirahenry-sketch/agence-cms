@@ -26,6 +26,12 @@ export const CrmImport = async (props: AdminViewServerProps) => {
               ↓ Télécharger les prospects
             </a>
           </p>
+          <p>
+            <a className="dash__btn" href="/api/crm-export?reserve=1">
+              ↓ Télécharger les fiches à compléter
+            </a>
+          </p>
+          <p className="cmuted">Seulement les prospects sans téléphone ni e-mail : à envoyer à Claude pour une recherche approfondie.</p>
           <p className="crm__warn">
             Ce fichier contient des coordonnées de personnes : garde-le pour toi, ne l’envoie pas par e-mail à n’importe qui et ne le mets jamais sur
             GitHub.

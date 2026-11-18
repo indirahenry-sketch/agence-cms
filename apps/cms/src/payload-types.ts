@@ -875,6 +875,10 @@ export interface SiteStat {
 export interface CrmProspect {
   id: number;
   name: string;
+  /**
+   * Ex. nom légal « Écuries de la Payssière », connu comme « Haras des As ». Sert aux recherches et aux doublons.
+   */
+  otherNames?: string | null;
   type?:
     | (
         | 'ecurie'
@@ -967,6 +971,7 @@ export interface CrmProspect {
    */
   doNotContact?: boolean | null;
   nameKey?: string | null;
+  altNameKey?: string | null;
   communeKey?: string | null;
   phoneKey?: string | null;
   emailKey?: string | null;
@@ -1819,6 +1824,7 @@ export interface SiteStatsSelect<T extends boolean = true> {
  */
 export interface CrmProspectsSelect<T extends boolean = true> {
   name?: T;
+  otherNames?: T;
   type?: T;
   status?: T;
   priority?: T;
@@ -1866,6 +1872,7 @@ export interface CrmProspectsSelect<T extends boolean = true> {
   activities?: T;
   doNotContact?: T;
   nameKey?: T;
+  altNameKey?: T;
   communeKey?: T;
   phoneKey?: T;
   emailKey?: T;
@@ -2029,6 +2036,10 @@ export interface CrmSetting {
    */
   autoSearch?: boolean | null;
   /**
+   * Recommandé. Décoché : les structures sans contact sont aussi ajoutées, et vont dans la réserve « À compléter ».
+   */
+  onlyReachable?: boolean | null;
+  /**
    * Éleveurs de chevaux dont le nom ne contient ni « écurie », ni « haras », ni « équestre »… Souvent des particuliers, rarement joignables.
    */
   includeBreeders?: boolean | null;
@@ -2047,6 +2058,7 @@ export interface CrmSetting {
 export interface CrmSettingsSelect<T extends boolean = true> {
   weeklyTarget?: T;
   autoSearch?: T;
+  onlyReachable?: T;
   includeBreeders?: T;
   maxSiteChecks?: T;
   followUpDays?: T;

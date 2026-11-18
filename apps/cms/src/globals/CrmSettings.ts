@@ -29,6 +29,13 @@ export const CrmSettings: GlobalConfig = {
       admin: { description: 'Cherche de nouveaux prospects dans les zones actives, jusqu’à l’objectif de la semaine.' },
     },
     {
+      name: 'onlyReachable',
+      label: 'N’ajouter que les prospects joignables (téléphone ou e-mail trouvé)',
+      type: 'checkbox',
+      defaultValue: true,
+      admin: { description: 'Recommandé. Décoché : les structures sans contact sont aussi ajoutées, et vont dans la réserve « À compléter ».' },
+    },
+    {
       name: 'includeBreeders',
       label: 'Inclure les élevages sans nom équestre',
       type: 'checkbox',
