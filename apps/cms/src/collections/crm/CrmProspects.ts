@@ -13,10 +13,10 @@ import {
 } from '@/crm/constants'
 import { crmAccess, crmHidden } from '@/crm/access'
 import { findOptOut, flagDuplicates } from '@/crm/dedupe'
-import { crmKeys, nameKey, type CrmKeys } from '@/crm/normalize'
+import { crmKeys, nameKey } from '@/crm/normalize'
 import { auditChange, auditDelete } from '@/hooks/audit'
 
-const KEY_FIELDS: (keyof CrmKeys)[] = ['nameKey', 'communeKey', 'phoneKey', 'emailKey', 'domainKey', 'sirenKey']
+const KEY_FIELDS: string[] = ['nameKey', 'altNameKey', 'communeKey', 'phoneKey', 'emailKey', 'domainKey', 'sirenKey']
 
 /**
  * Avant enregistrement :
@@ -78,7 +78,7 @@ const afterSave: CollectionAfterChangeHook = async ({ doc, previousDoc, operatio
       })
     }
   }
-  const keysChanged = operation === 'create' || KEY_FIELDS.some((k) => doc[k] !== previousDoc?.[k])
+  const keysChanged = operation === 'create' || KEY_FIELDS.some((k) => (doc as Record<string, unknown>)[k] !== (previousDoc as Record<string, unknown> | undefined)?.[k])
   if (keysChanged) await flagDuplicates(req.payload, doc, req)
   return doc
 }

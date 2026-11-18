@@ -19,16 +19,23 @@ export const matchConditions = (k: Partial<CrmKeys>): Where[] => {
  * Pour les PROSPECTS seulement : on compare aussi le nom avec l'« autre nom » déjà saisi
  * (ex. nom légal « Écuries de la Payssière », nom d'usage « Haras des As »).
  */
-export const prospectMatchConditions = (k: Partial<CrmKeys>): Where[] => {
+export const prospectMatchConditions = (k: Partial<CrmKeys> & { altNameKey?: string | null }): Where[] => {
   const or = matchConditions(k)
-  if (k.nameKey) or.push({ altNameKey: { equals: k.nameKey } })
+  if (k.communeKey) {
+    if (k.nameKey) or.push({ and: [{ altNameKey: { equals: k.nameKey } }, { communeKey: { equals: k.communeKey } }] })
+    if (k.altNameKey) or.push({ and: [{ nameKey: { equals: k.altNameKey } }, { communeKey: { equals: k.communeKey } }] })
+  }
   return or
 }
 
+type WithAlt = Partial<CrmKeys> & { altNameKey?: string | null }
+const sameName = (a: WithAlt, b: WithAlt) =>
+  Boolean((a.nameKey && (a.nameKey === b.nameKey || a.nameKey === b.altNameKey)) || (a.altNameKey && a.altNameKey === b.nameKey))
+
 /** Pourquoi deux fiches semblent être le même établissement. */
-export const reasonsBetween = (a: Partial<CrmKeys>, b: Partial<CrmKeys>): DuplicateReason[] => {
+export const reasonsBetween = (a: WithAlt, b: WithAlt): DuplicateReason[] => {
   const r: DuplicateReason[] = []
-  if (a.nameKey && a.communeKey && a.nameKey === b.nameKey && a.communeKey === b.communeKey) r.push('nom-commune')
+  if (a.communeKey && a.communeKey === b.communeKey && sameName(a, b)) r.push('nom-commune')
   if (a.phoneKey && a.phoneKey === b.phoneKey) r.push('telephone')
   if (a.emailKey && a.emailKey === b.emailKey) r.push('email')
   if (a.domainKey && a.domainKey === b.domainKey) r.push('site')
@@ -48,7 +55,7 @@ export const findOptOut = async (payload: Payload, keys: Partial<CrmKeys>, req?:
  * Signale (sans rien bloquer ni supprimer) les fiches qui ressemblent à ce prospect.
  * Chaque paire n'est signalée qu'une fois ; la décision reste manuelle.
  */
-export const flagDuplicates = async (payload: Payload, prospect: { id: number } & Partial<CrmKeys>, req?: PayloadRequest) => {
+export const flagDuplicates = async (payload: Payload, prospect: { id: number } & WithAlt, req?: PayloadRequest) => {
   const or = prospectMatchConditions(prospect)
   if (!or.length) return 0
   const { docs } = await payload.find({
@@ -61,7 +68,7 @@ export const flagDuplicates = async (payload: Payload, prospect: { id: number } 
   })
   let flagged = 0
   for (const other of docs) {
-    const reasons = reasonsBetween(prospect, other as Partial<CrmKeys>)
+    const reasons = reasonsBetween(prospect, other as WithAlt)
     if (!reasons.length) continue
     const { totalDocs } = await payload.count({
       collection: 'crm-duplicates',
