@@ -3,7 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { CRM_ACTIVITY_KINDS, CRM_COMMERCIAL, CRM_PROJECT_STATUSES, CRM_TYPES, commercialOf, statusForCommercial, type CrmCommercial } from '@/crm/constants'
+import { CRM_ACTIVITY_KINDS, CRM_COMMERCIAL, CRM_PROJECT_STATUSES, CRM_TEMPLATE_KINDS, CRM_TYPES, commercialOf, statusForCommercial, type CrmCommercial } from '@/crm/constants'
+import { fillTemplate, mailtoLink } from '@/crm/emailTemplate'
 
 import { api, qs } from '../admin/client'
 
@@ -21,8 +22,11 @@ type Prospect = {
   postalCode?: string | null
   phone?: string | null
   email?: string | null
+  otherPhones?: ExtraPhone[] | null
+  otherEmails?: ExtraEmail[] | null
   website?: string | null
   websiteStatus?: string | null
+  need?: string | null
   siren?: string | null
   status?: string | null
   projectStatus?: string | null
@@ -33,6 +37,9 @@ type Prospect = {
   search?: number | null
   sources?: { label?: string | null; url?: string | null }[] | null
 }
+type ExtraPhone = { id?: string | null; number: string; label?: string | null }
+type ExtraEmail = { id?: string | null; address: string; label?: string | null }
+type EmailTemplate = { id: number; name: string; kind: string; subject?: string | null; body?: string | null }
 type Zone = { id: number; code: string; name: string; label?: string | null }
 type Activity = { id: number; kind: string; date: string; summary: string; followUpAt?: string | null; done?: boolean | null }
 
@@ -68,6 +75,10 @@ const parisOffset = (day: string) => {
 }
 
 const NotFound = () => <span className="bmuted">Non trouvé</span>
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const telHref = (n: string) => `tel:${n.replace(/[^\d+]/g, '')}`
+/** Statuts « avant le premier e-mail » : préparer un e-mail fait passer le prospect à « Brouillon créé ». */
+const BEFORE_DRAFT = new Set(['nouveau', 'a-verifier', 'qualifie', 'email-a-preparer'])
 
 /* ------------------------------------------------------------------ */
 /* Menus déroulants colorés (utilisés dans le tableau et la fiche)     */
@@ -144,17 +155,87 @@ const lookupLinks = (p: Prospect) => {
   ]
 }
 
+type Row = { value: string; label: string }
+const phoneRows = (p: Prospect): Row[] => (p.otherPhones ?? []).map((t) => ({ value: t.number ?? '', label: t.label ?? '' }))
+const emailRows = (p: Prospect): Row[] => (p.otherEmails ?? []).map((e) => ({ value: e.address ?? '', label: e.label ?? '' }))
+const sameRows = (a: Row[], b: Row[]) => JSON.stringify(a.filter((r) => r.value.trim())) === JSON.stringify(b.filter((r) => r.value.trim()))
+
+/** Liste de numéros ou d'adresses en plus du principal (ajout / suppression sur place). */
+const ExtraList = ({
+  title,
+  addLabel,
+  type,
+  placeholder,
+  rows,
+  onChange,
+}: {
+  title: string
+  addLabel: string
+  type: 'tel' | 'email'
+  placeholder: string
+  rows: Row[]
+  onChange: (rows: Row[]) => void
+}) => (
+  <div className="bextra">
+    <span className="bextra__title">{title}</span>
+    {rows.map((r, i) => (
+      <div key={i} className="bextra__row">
+        <input
+          type={type}
+          value={r.value}
+          placeholder={type === 'tel' ? 'Numéro' : 'Adresse e-mail'}
+          aria-label={`${title} n° ${i + 1}`}
+          onChange={(e) => onChange(rows.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
+        />
+        <input
+          type="text"
+          value={r.label}
+          placeholder={placeholder}
+          aria-label={`Précision n° ${i + 1}`}
+          onChange={(e) => onChange(rows.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+        />
+        <button type="button" className="bbtn bbtn--ghost" aria-label="Retirer" title="Retirer" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+          ✕
+        </button>
+      </div>
+    ))}
+    <button type="button" className="bbtn bbtn--ghost bextra__add" onClick={() => onChange([...rows, { value: '', label: '' }])}>
+      ＋ {addLabel}
+    </button>
+  </div>
+)
+
 const CoordsForm = ({ p, busy, onPatch }: { p: Prospect; busy: boolean; onPatch: (data: Partial<Prospect>) => Promise<boolean> }) => {
   const [v, setV] = useState({ phone: p.phone ?? '', email: p.email ?? '', website: p.website ?? '' })
+  const [phones, setPhones] = useState<Row[]>(phoneRows(p))
+  const [emails, setEmails] = useState<Row[]>(emailRows(p))
   const [saved, setSaved] = useState(false)
   useEffect(() => {
     setV({ phone: p.phone ?? '', email: p.email ?? '', website: p.website ?? '' })
+    setPhones(phoneRows(p))
+    setEmails(emailRows(p))
     setSaved(false)
-  }, [p.id, p.phone, p.email, p.website])
-  const changed = v.phone !== (p.phone ?? '') || v.email !== (p.email ?? '') || v.website !== (p.website ?? '')
-  const emailBad = v.email.trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim())
+  }, [p.id, p.phone, p.email, p.website, JSON.stringify(phoneRows(p)), JSON.stringify(emailRows(p))]) // eslint-disable-line react-hooks/exhaustive-deps
+  const changed =
+    v.phone !== (p.phone ?? '') ||
+    v.email !== (p.email ?? '') ||
+    v.website !== (p.website ?? '') ||
+    !sameRows(phones, phoneRows(p)) ||
+    !sameRows(emails, emailRows(p))
+  const emailBad = [v.email, ...emails.map((e) => e.value)].some((e) => e.trim() !== '' && !EMAIL_RE.test(e.trim()))
   const save = async () => {
-    const data: Partial<Prospect> = { phone: v.phone.trim() || null, email: v.email.trim() || null, website: v.website.trim() || null }
+    const extraPhones = phones.filter((r) => r.value.trim()).map((r) => ({ number: r.value.trim(), label: r.label.trim() || null }))
+    const extraEmails = emails.filter((r) => r.value.trim()).map((r) => ({ address: r.value.trim(), label: r.label.trim() || null }))
+    const data: Partial<Prospect> = {
+      phone: v.phone.trim() || null,
+      email: v.email.trim() || null,
+      website: v.website.trim() || null,
+      otherPhones: extraPhones,
+      otherEmails: extraEmails,
+    }
+    // Pas de numéro principal ? Le premier numéro ajouté le devient (idem pour l'e-mail).
+    if (!data.phone && extraPhones.length) data.phone = extraPhones.shift()!.number
+    if (!data.email && extraEmails.length) data.email = extraEmails.shift()!.address
     if (data.website && p.websiteStatus !== 'site-existant') data.websiteStatus = 'site-existant'
     setSaved(await onPatch(data))
   }
@@ -183,6 +264,8 @@ const CoordsForm = ({ p, busy, onPatch }: { p: Prospect; busy: boolean; onPatch:
           <input type="url" value={v.website} placeholder="Non trouvé" onChange={(e) => setV({ ...v, website: e.target.value })} />
         </label>
       </div>
+      <ExtraList title="Autres téléphones" addLabel="Ajouter un téléphone" type="tel" placeholder="Portable, secrétariat…" rows={phones} onChange={setPhones} />
+      <ExtraList title="Autres e-mails" addLabel="Ajouter un e-mail" type="email" placeholder="Gérant, réservations…" rows={emails} onChange={setEmails} />
       {emailBad && <p className="berr">Adresse e-mail invalide.</p>}
       <div className="brow">
         <button type="button" className="bbtn bbtn--primary" disabled={busy || !changed || emailBad} onClick={save}>
@@ -190,6 +273,134 @@ const CoordsForm = ({ p, busy, onPatch }: { p: Prospect; busy: boolean; onPatch:
         </button>
         {saved && !changed && <span className="bok">Enregistré ✓</span>}
       </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Préparer un e-mail à partir d'un modèle                             */
+/* ------------------------------------------------------------------ */
+
+const kindOfTemplate = (v?: string | null) => CRM_TEMPLATE_KINDS.find((k) => k.value === v)?.label ?? ''
+
+/**
+ * Choisit un modèle, le personnalise avec la fiche, puis le copie ou l'ouvre dans la messagerie.
+ * Rien n'est envoyé par le CMS : c'est toi qui relis et envoies.
+ */
+const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates: EmailTemplate[] | null; busy: boolean; onPatch: (data: Partial<Prospect>) => Promise<boolean> }) => {
+  const addresses = useMemo(() => [p.email, ...(p.otherEmails ?? []).map((e) => e.address)].filter((a): a is string => Boolean(a && a.trim())), [p.email, p.otherEmails])
+  const suggested = useMemo(() => {
+    if (!templates?.length) return null
+    return templates.find((t) => t.kind === p.need) ?? templates[0]
+  }, [templates, p.need])
+  const [templateId, setTemplateId] = useState<number | null>(null)
+  const [to, setTo] = useState<string[]>([])
+  const [subject, setSubject] = useState('')
+  const [body, setBody] = useState('')
+  const [done, setDone] = useState('')
+
+  const apply = useCallback(
+    (t: EmailTemplate | null | undefined) => {
+      setTemplateId(t?.id ?? null)
+      setSubject(t ? fillTemplate(t.subject, p) : '')
+      setBody(t ? fillTemplate(t.body, p) : '')
+      setDone('')
+    },
+    [p],
+  )
+
+  // Nouvelle fiche ou modèles chargés : on repart du modèle conseillé
+  useEffect(() => {
+    apply(suggested)
+  }, [p.id, suggested]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Destinataire : l'adresse principale par défaut ; on garde le choix tant que les adresses existent
+  useEffect(() => {
+    setTo((current) => {
+      const kept = current.filter((a) => addresses.includes(a))
+      return kept.length ? kept : addresses.slice(0, 1)
+    })
+  }, [p.id, addresses.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const markDraft = async () => {
+    if (p.status && BEFORE_DRAFT.has(p.status)) await onPatch({ status: 'brouillon-cree' })
+  }
+  const copy = async () => {
+    const text = subject ? `Objet : ${subject}\n\n${body}` : body
+    try {
+      await navigator.clipboard.writeText(text)
+      setDone('Copié ✓ Colle-le dans Outlook.')
+      await markDraft()
+    } catch {
+      setDone('Copie impossible : sélectionne le texte et copie-le à la main.')
+    }
+  }
+  const open = async () => {
+    window.location.href = mailtoLink(to, subject, body)
+    setDone('Ouvert dans ta messagerie ✓ Relis puis envoie.')
+    await markDraft()
+  }
+  const missing = /\[(nom|commune|site|type) \?\]/.test(`${subject} ${body}`)
+
+  if (templates === null) return <p className="bmuted">Chargement des modèles…</p>
+  if (!templates.length)
+    return (
+      <p className="bmuted">
+        Aucun modèle pour l’instant. <a href="/admin/collections/crm-email-templates/create">Créer un modèle d’e-mail</a>
+      </p>
+    )
+
+  return (
+    <div className="bmail">
+      <div className="bmail__grid">
+        <label className="bfield">
+          Modèle
+          <select value={templateId ?? ''} onChange={(e) => apply(templates.find((t) => t.id === Number(e.target.value)))}>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} {kindOfTemplate(t.kind) ? `· ${kindOfTemplate(t.kind)}` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="bmail__dest">
+          <span className="bextra__title">Destinataire{addresses.length > 1 ? 's' : ''}</span>
+          {addresses.length ? (
+            <div className="bmail__to">
+              {addresses.map((a) => (
+                <label key={a} className="bcheck">
+                  <input type="checkbox" checked={to.includes(a)} onChange={(e) => setTo(e.target.checked ? [...to, a] : to.filter((x) => x !== a))} />
+                  {a}
+                </label>
+              ))}
+            </div>
+          ) : (
+            <span className="bmuted">Aucune adresse : ajoute-la dans les coordonnées, ou copie le texte.</span>
+          )}
+        </div>
+      </div>
+      <label className="bfield">
+        Objet
+        <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} />
+      </label>
+      <label className="bfield">
+        Texte (modifiable avant envoi)
+        <textarea className="btextarea" rows={10} value={body} onChange={(e) => setBody(e.target.value)} />
+      </label>
+      {missing && <p className="bwarn">Il manque une information sur la fiche : complète les passages entre crochets avant d’envoyer.</p>}
+      <div className="brow">
+        <button type="button" className="bbtn" disabled={busy || !body.trim()} onClick={copy}>
+          Copier le texte
+        </button>
+        <button type="button" className="bbtn bbtn--primary" disabled={busy || !to.length || !body.trim()} onClick={open}>
+          Ouvrir dans ma messagerie
+        </button>
+        {done && <span className="bok">{done}</span>}
+      </div>
+      <p className="bmuted">
+        Rien n’est envoyé par le CMS. Le prospect passe en « Brouillon créé » ; une fois l’e-mail parti, note-le dans l’historique.{' '}
+        <a href="/admin/collections/crm-email-templates">Gérer les modèles</a>
+      </p>
     </div>
   )
 }
@@ -205,9 +416,11 @@ const Fiche = ({
   onPatch,
   onReload,
   busy,
+  templates,
 }: {
   p: Prospect
   zone?: Zone
+  templates: EmailTemplate[] | null
   onClose: () => void
   onPatch: (data: Partial<Prospect>) => Promise<boolean>
   onReload: () => Promise<void>
@@ -320,9 +533,25 @@ const Fiche = ({
           <h3>Coordonnées</h3>
           <dl className="bdl">
             <dt>Téléphone</dt>
-            <dd>{p.phone ? <a href={`tel:${p.phone.replace(/[^\d+]/g, '')}`}>{p.phone}</a> : <NotFound />}</dd>
+            <dd>
+              {p.phone ? <a href={telHref(p.phone)}>{p.phone}</a> : <NotFound />}
+              {(p.otherPhones ?? []).map((t, i) => (
+                <div key={t.id ?? i}>
+                  <a href={telHref(t.number)}>{t.number}</a>
+                  {t.label && <span className="bmuted"> · {t.label}</span>}
+                </div>
+              ))}
+            </dd>
             <dt>E-mail</dt>
-            <dd>{p.email ? <a href={`mailto:${p.email}`}>{p.email}</a> : <NotFound />}</dd>
+            <dd>
+              {p.email ? <a href={`mailto:${p.email}`}>{p.email}</a> : <NotFound />}
+              {(p.otherEmails ?? []).map((e, i) => (
+                <div key={e.id ?? i}>
+                  <a href={`mailto:${e.address}`}>{e.address}</a>
+                  {e.label && <span className="bmuted"> · {e.label}</span>}
+                </div>
+              ))}
+            </dd>
             <dt>Site</dt>
             <dd>
               {p.website ? (
@@ -364,6 +593,11 @@ const Fiche = ({
           <a className="bbtn bbtn--ghost" href={`/admin/collections/crm-prospects/${p.id}`}>
             Fiche complète
           </a>
+        </section>
+
+        <section className="bfiche__block">
+          <h3>Préparer un e-mail</h3>
+          <EmailComposer p={p} templates={templates} busy={busy} onPatch={onPatch} />
         </section>
 
         <section className="bfiche__block">
@@ -473,6 +707,7 @@ export const CrmBaseTable: React.FC = () => {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [openId, setOpenId] = useState<number | null>(null)
   const [busy, setBusy] = useState<Set<number>>(new Set())
+  const [templates, setTemplates] = useState<EmailTemplate[] | null>(null)
 
   const load = useCallback(async () => {
     const [p, z] = await Promise.all([
@@ -485,6 +720,10 @@ export const CrmBaseTable: React.FC = () => {
 
   useEffect(() => {
     load().catch((e) => setError(e.message))
+    // Modèles d'e-mails (une erreur ici ne bloque pas le tableau)
+    api<{ docs: EmailTemplate[] }>(`/crm-email-templates?${qs({ depth: 0, limit: 0, pagination: 'false', sort: 'name' })}`)
+      .then((r) => setTemplates(r.docs))
+      .catch(() => setTemplates([]))
     // Ouvre directement une fiche si l'adresse contient ?fiche=ID
     const params = new URLSearchParams(window.location.search)
     const id = Number(params.get('fiche'))
@@ -805,6 +1044,7 @@ export const CrmBaseTable: React.FC = () => {
           onClose={() => setOpenId(null)}
           onPatch={(data) => patch(open.id, data)}
           onReload={() => reloadOne(open.id)}
+          templates={templates}
         />,
           document.body,
         )}

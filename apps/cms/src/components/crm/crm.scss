@@ -366,3 +366,19 @@ body.bfiche-open .crm-back-fab { display: none; }
 @media (max-width: 520px) { .bcoords__grid { grid-template-columns: 1fr; } }
 .bbanner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 8px 14px; border-radius: 12px; background: var(--t-sky-bg); color: var(--t-sky-fg); font-weight: 600; font-size: 0.88rem; }
 .breport { margin: 0; white-space: pre-wrap; font: inherit; font-size: 0.85rem; color: var(--cms-ink); }
+
+/* Autres téléphones / e-mails */
+.bextra { display: grid; gap: 6px; }
+.bextra__title { font-size: 0.75rem; font-weight: 600; color: var(--cms-muted); }
+.bextra__row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.bextra__row input { width: 100%; min-width: 0; padding: 7px 10px; border: 1px solid var(--cms-line); border-radius: 10px; background: var(--cms-card); color: var(--cms-ink); font: inherit; font-size: 0.88rem; }
+.bextra__add { justify-self: start; }
+@media (max-width: 520px) { .bextra__row { grid-template-columns: 1fr auto; } .bextra__row input:nth-child(2) { grid-column: 1; } }
+
+/* Préparer un e-mail */
+.bmail { display: grid; gap: 10px; }
+.bmail__grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.bmail select, .bmail input[type='text'] { width: 100%; min-width: 0; padding: 7px 10px; border: 1px solid var(--cms-line); border-radius: 10px; background: var(--cms-card); color: var(--cms-ink); font: inherit; font-size: 0.88rem; }
+.bmail__dest { display: grid; gap: 4px; align-content: start; }
+.bmail__to { display: grid; gap: 4px; font-weight: 400; color: var(--cms-ink); overflow-wrap: anywhere; }
+@media (max-width: 520px) { .bmail__grid { grid-template-columns: 1fr; } }

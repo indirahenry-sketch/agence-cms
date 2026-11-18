@@ -26,6 +26,8 @@ export const EXPORT_COLUMNS: { header: string; get: (p: CrmProspect) => unknown 
   { header: 'Fiabilité téléphone', get: (p) => label(CRM_INFO_LEVELS, p.phoneLevel) },
   { header: 'E-mail', get: (p) => p.email || NOT_FOUND },
   { header: 'Fiabilité e-mail', get: (p) => label(CRM_INFO_LEVELS, p.emailLevel) },
+  { header: 'Autres téléphones', get: (p) => (p.otherPhones ?? []).map((t) => (t.label ? `${t.number} (${t.label})` : t.number)).join(' ; ') },
+  { header: 'Autres e-mails', get: (p) => (p.otherEmails ?? []).map((e) => (e.label ? `${e.address} (${e.label})` : e.address)).join(' ; ') },
   { header: 'Site Internet', get: (p) => label(CRM_WEBSITE_STATUSES, p.websiteStatus) },
   { header: 'Adresse du site', get: (p) => p.website },
   { header: 'SIREN', get: (p) => p.siren },

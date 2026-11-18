@@ -86,6 +86,14 @@ export const CRM_ACTIVITY_KINDS = [
   { label: 'Autre', value: 'autre' },
 ] as const satisfies readonly Option[]
 
+/** Types de modèles d'e-mails (le type « Refonte » ou « Création » est proposé selon le besoin du prospect). */
+export const CRM_TEMPLATE_KINDS = [
+  { label: 'Refonte de site', value: 'refonte' },
+  { label: 'Création de site', value: 'creation' },
+  { label: 'Relance', value: 'relance' },
+  { label: 'Autre', value: 'autre' },
+] as const satisfies readonly Option[]
+
 export const CRM_GROUP = 'Prospection (CRM)'
 
 /** Départements de la première phase : activés automatiquement à la création des zones. */

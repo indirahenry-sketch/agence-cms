@@ -188,6 +188,38 @@ export const CrmProspects: CollectionConfig = {
               ],
             },
             {
+              name: 'otherPhones',
+              label: 'Autres téléphones',
+              labels: { singular: 'Téléphone', plural: 'Téléphones' },
+              type: 'array',
+              admin: { description: 'Si la structure a plusieurs numéros (portable du gérant, secrétariat…). Le premier numéro reste celui du dessus.' },
+              fields: [
+                {
+                  type: 'row',
+                  fields: [
+                    { name: 'number', label: 'Numéro', type: 'text', required: true, admin: { width: '50%' } },
+                    { name: 'label', label: 'Précision', type: 'text', admin: { width: '50%', placeholder: 'Portable, secrétariat…' } },
+                  ],
+                },
+              ],
+            },
+            {
+              name: 'otherEmails',
+              label: 'Autres e-mails',
+              labels: { singular: 'E-mail', plural: 'E-mails' },
+              type: 'array',
+              admin: { description: 'Si la structure a plusieurs adresses (gérant, réservations…). L’adresse principale reste celle du dessus.' },
+              fields: [
+                {
+                  type: 'row',
+                  fields: [
+                    { name: 'address', label: 'Adresse', type: 'email', required: true, admin: { width: '50%' } },
+                    { name: 'label', label: 'Précision', type: 'text', admin: { width: '50%', placeholder: 'Gérant, réservations…' } },
+                  ],
+                },
+              ],
+            },
+            {
               type: 'row',
               fields: [
                 { name: 'website', label: 'Adresse du site', type: 'text', admin: { width: '65%', placeholder: 'https://…' } },

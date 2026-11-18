@@ -91,6 +91,7 @@ export interface Config {
     'crm-searches': CrmSearch;
     'crm-duplicates': CrmDuplicate;
     'crm-optouts': CrmOptout;
+    'crm-email-templates': CrmEmailTemplate;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -126,6 +127,7 @@ export interface Config {
     'crm-searches': CrmSearchesSelect<false> | CrmSearchesSelect<true>;
     'crm-duplicates': CrmDuplicatesSelect<false> | CrmDuplicatesSelect<true>;
     'crm-optouts': CrmOptoutsSelect<false> | CrmOptoutsSelect<true>;
+    'crm-email-templates': CrmEmailTemplatesSelect<false> | CrmEmailTemplatesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -914,6 +916,26 @@ export interface CrmProspect {
   phoneLevel?: ('verifie' | 'a-verifier' | 'non-trouve') | null;
   email?: string | null;
   emailLevel?: ('verifie' | 'a-verifier' | 'non-trouve') | null;
+  /**
+   * Si la structure a plusieurs numéros (portable du gérant, secrétariat…). Le premier numéro reste celui du dessus.
+   */
+  otherPhones?:
+    | {
+        number: string;
+        label?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Si la structure a plusieurs adresses (gérant, réservations…). L’adresse principale reste celle du dessus.
+   */
+  otherEmails?:
+    | {
+        address: string;
+        label?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   website?: string | null;
   websiteStatus?: ('sans-site' | 'site-existant' | 'a-verifier') | null;
   /**
@@ -1057,6 +1079,21 @@ export interface CrmOptout {
   createdAt: string;
 }
 /**
+ * Mails types de prospection, utilisables depuis la fiche d'un prospect.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-email-templates".
+ */
+export interface CrmEmailTemplate {
+  id: number;
+  name: string;
+  kind: 'refonte' | 'creation' | 'relance' | 'autre';
+  subject?: string | null;
+  body?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -1175,6 +1212,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'crm-optouts';
         value: number | CrmOptout;
+      } | null)
+    | ({
+        relationTo: 'crm-email-templates';
+        value: number | CrmEmailTemplate;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1793,6 +1834,20 @@ export interface CrmProspectsSelect<T extends boolean = true> {
   phoneLevel?: T;
   email?: T;
   emailLevel?: T;
+  otherPhones?:
+    | T
+    | {
+        number?: T;
+        label?: T;
+        id?: T;
+      };
+  otherEmails?:
+    | T
+    | {
+        address?: T;
+        label?: T;
+        id?: T;
+      };
   website?: T;
   websiteStatus?: T;
   siren?: T;
@@ -1904,6 +1959,18 @@ export interface CrmOptoutsSelect<T extends boolean = true> {
   emailKey?: T;
   domainKey?: T;
   sirenKey?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-email-templates_select".
+ */
+export interface CrmEmailTemplatesSelect<T extends boolean = true> {
+  name?: T;
+  kind?: T;
+  subject?: T;
+  body?: T;
   updatedAt?: T;
   createdAt?: T;
 }
