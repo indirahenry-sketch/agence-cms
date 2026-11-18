@@ -1,9 +1,11 @@
 import type { AdminViewServerProps } from 'payload'
 import React from 'react'
 
+import { needsEnrich } from '@/crm/enrich'
 import { isMondayAfter9Paris } from '@/crm/search/scheduler'
 import { startOfWeekParis } from '@/crm/search/run'
 
+import { CrmEnrichForm } from './CrmEnrichForm'
 import { CrmSearchForm } from './CrmSearchForm'
 import { CrmHeader, crmAllowed, crmDenied, crmPage } from './template'
 
@@ -15,15 +17,26 @@ export const CrmSearchPage = async (props: AdminViewServerProps) => {
   if (!crmAllowed(props)) return crmDenied(props)
   const { req } = props.initPageResult
   const base = { overrideAccess: true, req, depth: 0 } as const
-  const [settings, zones, searches, thisWeek] = await Promise.all([
+  const [settings, zones, searches, thisWeek, contacts] = await Promise.all([
     req.payload.findGlobal({ slug: 'crm-settings', ...base }),
     req.payload.find({ collection: 'crm-zones', where: { active: { equals: true } }, limit: 0, pagination: false, sort: 'code', ...base }),
     req.payload.find({ collection: 'crm-searches', sort: '-startedAt', limit: 8, ...base }),
     req.payload.count({ collection: 'crm-prospects', where: { createdAt: { greater_than_equal: startOfWeekParis().toISOString() } }, overrideAccess: true, req }),
+    req.payload.find({
+      collection: 'crm-prospects',
+      where: { doNotContact: { not_equals: true } },
+      select: { phone: true, email: true, website: true, doNotContact: true },
+      limit: 0,
+      pagination: false,
+      ...base,
+    }),
   ])
   const target = settings.weeklyTarget ?? 0
   const remaining = Math.max(0, target - thisWeek.totalDocs)
-  const running = searches.docs.find((s) => s.status === 'en-cours')
+  const running = searches.docs.find((s) => s.status === 'en-cours' && s.trigger !== 'completion')
+  const enriching = searches.docs.find((s) => s.status === 'en-cours' && s.trigger === 'completion')
+  const missing = contacts.docs.filter((p) => !String(p.phone ?? '').trim() || !String(p.email ?? '').trim())
+  const toComplete = missing.filter(needsEnrich).length
 
   return crmPage(
     props,
@@ -42,6 +55,16 @@ export const CrmSearchPage = async (props: AdminViewServerProps) => {
             target={target}
             runningSince={running?.startedAt ?? null}
           />
+        </section>
+
+        <section className="ccard">
+          <h2 className="ccard__title">Compléter les coordonnées</h2>
+          <p className="cmuted">
+            {missing.length} prospect{missing.length > 1 ? 's' : ''} sans téléphone ou sans e-mail, dont {toComplete} avec un site. Le CMS lit leur site (accueil et
+            page contact) et remplit seulement ce qui est vide, en « À vérifier ». Pour ceux sans site : « Chercher les coordonnées » sur la fiche, ou un fichier
+            à importer.
+          </p>
+          <CrmEnrichForm toComplete={toComplete} runningId={enriching?.id ?? null} />
         </section>
 
         <section className="ccard">
@@ -99,7 +122,7 @@ export const CrmSearchPage = async (props: AdminViewServerProps) => {
                       {fmt(s.startedAt)}
                     </a>
                   </td>
-                  <td>{s.trigger === 'planifie' ? 'Lundi (auto)' : s.trigger === 'import' ? 'Import' : 'Manuel'}</td>
+                  <td>{s.trigger === 'planifie' ? 'Lundi (auto)' : s.trigger === 'import' ? 'Import' : s.trigger === 'completion' ? 'Coordonnées' : 'Manuel'}</td>
                   <td>
                     <span className={`cpill tone-${s.status === 'terminee' ? 'mint' : s.status === 'echouee' ? 'rose' : 'sky'}`}>
                       {s.status === 'terminee' ? 'Terminée' : s.status === 'echouee' ? 'Échouée' : 'En cours'}

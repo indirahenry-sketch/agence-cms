@@ -24,7 +24,8 @@ export const CrmSearches: CollectionConfig = {
     beforeChange: [
       ({ data, originalDoc }) => {
         const started = data.startedAt ?? originalDoc?.startedAt
-        if (started) data.title = `Recherche du ${new Date(started).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}`
+        const kind = (data.trigger ?? originalDoc?.trigger) === 'completion' ? 'Complément des coordonnées' : 'Recherche'
+        if (started) data.title = `${kind} du ${new Date(started).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}`
         return data
       },
     ],
@@ -60,6 +61,7 @@ export const CrmSearches: CollectionConfig = {
             { label: 'Manuel', value: 'manuel' },
             { label: 'Planifié (lundi)', value: 'planifie' },
             { label: 'Import de fichier', value: 'import' },
+            { label: 'Complément des coordonnées', value: 'completion' },
           ],
         },
         {

@@ -1007,7 +1007,7 @@ export interface CrmSearch {
   title?: string | null;
   startedAt: string;
   finishedAt?: string | null;
-  trigger: 'manuel' | 'planifie' | 'import';
+  trigger: 'manuel' | 'planifie' | 'import' | 'completion';
   status: 'en-cours' | 'terminee' | 'echouee';
   target?: number | null;
   zones?: (number | CrmZone)[] | null;

@@ -35,8 +35,10 @@ export const CrmImport = async (props: AdminViewServerProps) => {
         <section className="crm__card">
           <h2>Importer</h2>
           <p>
-            Ajoute des prospects depuis un fichier CSV. Chaque ligne arrive au statut « À vérifier ». Une ligne déjà connue ou dans la liste « Ne plus
-            contacter » n’est jamais ajoutée. Commence par « Vérifier » : rien n’est enregistré tant que tu n’as pas cliqué sur « Importer ».
+            Ajoute des prospects depuis un fichier CSV. Chaque ligne arrive au statut « À vérifier ». Une ligne dans la liste « Ne plus contacter » n’est
+            jamais ajoutée. Une ligne déjà connue n’est pas ajoutée une 2e fois : elle <b>complète</b> la fiche existante (téléphone, e-mail, site… seulement
+            ce qui est vide ; un numéro ou un e-mail en plus va dans « Autres téléphones / e-mails »). Commence par « Vérifier » : rien n’est enregistré tant
+            que tu n’as pas cliqué sur « Importer ».
           </p>
           <p>
             <a href="/api/crm-export?modele=1">Télécharger un modèle de fichier</a> (seule la colonne « Nom » est obligatoire).

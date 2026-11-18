@@ -15,7 +15,8 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { commercialOf, statusForCommercial } from '@/crm/constants'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { fillTemplate, mailtoLink } from '@/crm/emailTemplate'
-import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
+import { completeExisting, departmentFromPostalCode, importProspects, mapHeaders, parseList } from '@/crm/importExport'
+import { enrichProspect, needsEnrich } from '@/crm/enrich'
 import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
 import { ensureCrmZones } from '@/crm/zones'
 import { crmExport, crmImport, crmSearch } from '@/endpoints/crm'
@@ -481,5 +482,56 @@ describe('Modèles d’e-mails et coordonnées multiples', () => {
   it('un client ne voit pas les modèles d’e-mails', async () => {
     const opts = await as(clientAdmin)
     await expect(payload.create({ collection: 'crm-email-templates', data: { name: 'Intrus', kind: 'autre' }, ...opts })).rejects.toThrow()
+  })
+})
+
+describe('Compléter les coordonnées des fiches existantes', () => {
+  it('lit le site et remplit seulement ce qui est vide', async () => {
+    const p = await payload.create({
+      collection: 'crm-prospects',
+      data: { status: 'nouveau', name: 'Écurie du Complément', phone: '04 67 99 88 77', website: 'https://complement.test' },
+    })
+    expect(needsEnrich(p)).toBe(true)
+    const html = '<html><body>Contact : <a href="mailto:contact@complement.test">écrire</a> · 06 12 34 56 78</body></html>'
+    const fetcher = (async (url: string | URL) => {
+      if (String(url).endsWith('/robots.txt')) return new Response('', { status: 404 })
+      return new Response(html, { status: 200, headers: { 'content-type': 'text/html' } })
+    }) as typeof fetch
+    const r = await enrichProspect(payload, p, { fetcher })
+    expect(r.outcome).toBe('complete')
+    const after = await payload.findByID({ collection: 'crm-prospects', id: p.id, depth: 0 })
+    expect(after.email).toBe('contact@complement.test')
+    expect(after.phone).toBe('04 67 99 88 77') // jamais écrasé
+    expect(after.emailLevel).toBe('a-verifier')
+    expect(after.sources?.some((s) => s.url === 'https://complement.test')).toBe(true)
+    expect(needsEnrich(after)).toBe(false)
+  }, 30_000)
+
+  it('un import complète une fiche connue au lieu de l’ignorer', async () => {
+    await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Haras de la Plaine', commune: 'Mauguio', phone: '04 67 10 20 30' } })
+    const rows = [
+      ['Nom', 'Commune', 'Téléphone', 'E-mail', 'Autres téléphones', 'Autres e-mails'],
+      ['Haras de la Plaine', 'Mauguio', '06 55 44 33 22', 'Non trouvé', '04 67 10 20 30 (fixe)', 'contact@plaine.test ; resa@plaine.test (réservations)'],
+    ]
+    const preview = await importProspects(payload, rows, { dryRun: true })
+    expect(preview.added).toBe(0)
+    expect(preview.completed).toHaveLength(1)
+    await importProspects(payload, rows, { dryRun: false })
+    const { docs } = await payload.find({ collection: 'crm-prospects', where: { name: { equals: 'Haras de la Plaine' } }, depth: 0 })
+    expect(docs).toHaveLength(1)
+    expect(docs[0].phone).toBe('04 67 10 20 30')
+    expect(docs[0].otherPhones?.map((t) => t.number)).toEqual(['06 55 44 33 22'])
+    expect(docs[0].email).toBe('contact@plaine.test')
+    expect(docs[0].otherEmails?.map((e) => [e.address, e.label])).toEqual([['resa@plaine.test', 'réservations']])
+    // Réimporter le même fichier n'ajoute rien de plus
+    const again = await importProspects(payload, rows, { dryRun: true })
+    expect(again.completed).toHaveLength(0)
+    expect(again.known).toHaveLength(1)
+  })
+
+  it('lit les listes « numéro (précision) ; … »', () => {
+    expect(parseList('06 11 22 33 44 (portable) ; 04 67 00 00 00')).toEqual([{ value: '06 11 22 33 44', label: 'portable' }, { value: '04 67 00 00 00', label: undefined }])
+    expect(parseList('Non trouvé')).toEqual([])
+    expect(completeExisting({ id: 1, name: 'X', status: 'nouveau', email: 'a@b.fr' } as never, { email: 'A@B.fr', extraPhones: [], extraEmails: [] })).toBeNull()
   })
 })

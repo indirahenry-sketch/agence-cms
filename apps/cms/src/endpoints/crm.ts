@@ -3,6 +3,7 @@ import { APIError, type Endpoint, type PayloadRequest } from 'payload'
 import { canUseCrm } from '@/crm/access'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { EXPORT_COLUMNS, importProspects, MAX_IMPORT_ROWS } from '@/crm/importExport'
+import { enrichProspect, isEnrichRunning, runCrmEnrich } from '@/crm/enrich'
 import { isSearchRunning, runCrmSearch } from '@/crm/search/run'
 
 /**
@@ -89,6 +90,31 @@ export const crmSearch: Endpoint = {
     }
     const payload = req.payload
     void runCrmSearch(payload, { trigger: 'manuel', zoneIds, target }).catch(() => {}) // erreur notée dans l'historique
+    return Response.json({ started: true }, { status: 202 })
+  },
+}
+
+/**
+ * POST /api/crm-enrich  { id?: number }
+ * - avec id : complète cette fiche tout de suite (lecture de son site) et renvoie le résultat ;
+ * - sans id : complète toute la base en arrière-plan ; le résultat va dans l'historique des recherches.
+ * Seuls les champs vides sont remplis, rien n'est écrasé.
+ */
+export const crmEnrich: Endpoint = {
+  path: '/crm-enrich',
+  method: 'post',
+  handler: async (req) => {
+    guard(req)
+    const body = ((typeof req.json === 'function' ? await req.json().catch(() => ({})) : {}) ?? {}) as { id?: unknown }
+    if (body.id !== undefined && body.id !== null) {
+      const id = Number(body.id)
+      if (!Number.isInteger(id) || id < 1) throw new APIError('Fiche invalide.', 400, undefined, true)
+      const prospect = await req.payload.findByID({ collection: 'crm-prospects', id, depth: 0, overrideAccess: true, req }).catch(() => null)
+      if (!prospect) throw new APIError('Fiche introuvable.', 404, undefined, true)
+      return Response.json(await enrichProspect(req.payload, prospect, { req }))
+    }
+    if (isEnrichRunning()) throw new APIError('Un complément des coordonnées est déjà en cours. Attends qu’il se termine.', 409, undefined, true)
+    void runCrmEnrich(req.payload).catch(() => {}) // erreur notée dans l'historique
     return Response.json({ started: true }, { status: 202 })
   },
 }

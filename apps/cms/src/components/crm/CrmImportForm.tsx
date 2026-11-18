@@ -12,6 +12,7 @@ type Report = {
   optOut: Line[]
   rejected: Line[]
   warnings: Line[]
+  completed?: Line[]
   searchId?: number
 }
 
@@ -75,8 +76,13 @@ export const CrmImportForm: React.FC = () => {
         <button type="button" className="dash__btn" disabled={!file || busy} onClick={() => send(true)}>
           Vérifier (sans rien ajouter)
         </button>
-        <button type="button" className="dash__btn dash__btn--primary" disabled={!file || busy || !report?.dryRun || report.added === 0} onClick={() => send(false)}>
-          Importer {report?.dryRun && report.added ? `${report.added} prospect${report.added > 1 ? 's' : ''}` : ''}
+        <button type="button" className="dash__btn dash__btn--primary" disabled={!file || busy || !report?.dryRun || report.added + (report.completed?.length ?? 0) === 0} onClick={() => send(false)}>
+          Importer{' '}
+          {report?.dryRun
+            ? [report.added && `${report.added} nouveau${report.added > 1 ? 'x' : ''}`, report.completed?.length && `${report.completed.length} complément${report.completed.length > 1 ? 's' : ''}`]
+                .filter(Boolean)
+                .join(' + ')
+            : ''}
         </button>
       </div>
       {busy && <p className="crm__empty">Traitement en cours…</p>}
@@ -86,12 +92,13 @@ export const CrmImportForm: React.FC = () => {
           <p>
             <b>
               {report.dryRun
-                ? `Aperçu : ${report.added} prospect${report.added > 1 ? 's seraient ajoutés' : ' serait ajouté'} sur ${report.total} ligne${report.total > 1 ? 's' : ''}.`
-                : `${report.added} prospect${report.added > 1 ? 's' : ''} ajouté${report.added > 1 ? 's' : ''} sur ${report.total} ligne${report.total > 1 ? 's' : ''}.`}
+                ? `Aperçu : ${report.added} nouveau(x) prospect(s) et ${report.completed?.length ?? 0} fiche(s) existante(s) complétée(s), sur ${report.total} ligne${report.total > 1 ? 's' : ''}.`
+                : `${report.added} prospect(s) ajouté(s) et ${report.completed?.length ?? 0} fiche(s) complétée(s), sur ${report.total} ligne${report.total > 1 ? 's' : ''}.`}
             </b>
           </p>
           <Lines title={report.dryRun ? 'Seraient ajoutés' : 'Ajoutés'} list={report.addedNames.map((name, i) => ({ line: i + 1, name, detail: 'nouveau' }))} />
-          <Lines title="Déjà connus (non ajoutés)" list={report.known} />
+          <Lines title={report.dryRun ? 'Fiches existantes qui seraient complétées' : 'Fiches existantes complétées'} list={report.completed ?? []} />
+          <Lines title="Déjà connus, rien de nouveau" list={report.known} />
           <Lines title="Ne plus contacter (non ajoutés)" list={report.optOut} />
           <Lines title="Lignes écartées" list={report.rejected} />
           <Lines title="Avertissements" list={report.warnings} />

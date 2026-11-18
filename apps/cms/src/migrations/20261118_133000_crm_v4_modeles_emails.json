@@ -16188,7 +16188,8 @@
       "values": [
         "manuel",
         "planifie",
-        "import"
+        "import",
+        "completion"
       ]
     },
     "public.enum_crm_searches_status": {

@@ -205,7 +205,50 @@ const ExtraList = ({
   </div>
 )
 
-const CoordsForm = ({ p, busy, onPatch }: { p: Prospect; busy: boolean; onPatch: (data: Partial<Prospect>) => Promise<boolean> }) => {
+const ENRICH_MESSAGES: Record<string, string> = {
+  'rien-trouve': 'Aucun téléphone ni e-mail affiché sur son site.',
+  'site-injoignable': 'Site injoignable, ou il refuse la lecture automatique.',
+  'deja-complet': 'Téléphone et e-mail déjà renseignés.',
+  'sans-site': 'Pas de site renseigné.',
+  'ne-plus-contacter': 'Prospect à ne plus contacter.',
+}
+
+/** Lit le site du prospect et remplit le téléphone / l'e-mail manquants (jamais écrasés). */
+const EnrichButton = ({ p, onReload }: { p: Prospect; onReload: () => Promise<void> }) => {
+  const [state, setState] = useState<'idle' | 'busy'>('idle')
+  const [msg, setMsg] = useState('')
+  useEffect(() => setMsg(''), [p.id])
+  if (!p.website || p.doNotContact || (p.phone && p.email)) return null
+  const run = async () => {
+    setState('busy')
+    setMsg('Lecture du site…')
+    try {
+      const r = await api<{ outcome: string; phone?: string; email?: string }>('/crm-enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: p.id }),
+      })
+      if (r.outcome === 'complete') {
+        setMsg(`Trouvé : ${[r.phone, r.email].filter(Boolean).join(' · ')} (à vérifier)`)
+        await onReload()
+      } else setMsg(ENRICH_MESSAGES[r.outcome] ?? 'Rien trouvé.')
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setState('idle')
+    }
+  }
+  return (
+    <div className="brow">
+      <button type="button" className="bbtn" disabled={state === 'busy'} onClick={run}>
+        {state === 'busy' ? 'Lecture du site…' : 'Compléter automatiquement depuis son site'}
+      </button>
+      {msg && state === 'idle' && <span className="bmuted">{msg}</span>}
+    </div>
+  )
+}
+
+const CoordsForm = ({ p, busy, onPatch, onReload }: { p: Prospect; busy: boolean; onPatch: (data: Partial<Prospect>) => Promise<boolean>; onReload: () => Promise<void> }) => {
   const [v, setV] = useState({ phone: p.phone ?? '', email: p.email ?? '', website: p.website ?? '' })
   const [phones, setPhones] = useState<Row[]>(phoneRows(p))
   const [emails, setEmails] = useState<Row[]>(emailRows(p))
@@ -242,6 +285,7 @@ const CoordsForm = ({ p, busy, onPatch }: { p: Prospect; busy: boolean; onPatch:
   return (
     <div className="bcoords">
       <h4>Chercher les coordonnées</h4>
+      <EnrichButton p={p} onReload={onReload} />
       <div className="blookup">
         {lookupLinks(p).map((l) => (
           <a key={l.label} className="bbtn" href={l.url} target="_blank" rel="noopener noreferrer">
@@ -589,7 +633,7 @@ const Fiche = ({
               </ul>
             </>
           )}
-          <CoordsForm p={p} busy={busy} onPatch={onPatch} />
+          <CoordsForm p={p} busy={busy} onPatch={onPatch} onReload={onReload} />
           <a className="bbtn bbtn--ghost" href={`/admin/collections/crm-prospects/${p.id}`}>
             Fiche complète
           </a>

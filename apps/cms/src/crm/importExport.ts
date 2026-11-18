@@ -4,7 +4,7 @@ import type { CrmProspect, CrmZone } from '@/payload-types'
 
 import { CRM_INFO_LEVELS, CRM_NEEDS, CRM_PRIORITIES, CRM_PROJECT_STATUSES, CRM_STATUSES, CRM_TYPES, CRM_VERIFICATION_LEVELS, CRM_WEBSITE_STATUSES } from './constants'
 import { findOptOut, matchConditions } from './dedupe'
-import { crmKeys, domainKey, emailKey } from './normalize'
+import { crmKeys, domainKey, emailKey, phoneKey } from './normalize'
 
 /* ------------------------------------------------------------------ */
 /* EXPORT                                                              */
@@ -48,7 +48,9 @@ export const EXPORT_COLUMNS: { header: string; get: (p: CrmProspect) => unknown 
 /* IMPORT                                                              */
 /* ------------------------------------------------------------------ */
 
-type ImportField = 'name' | 'type' | 'commune' | 'department' | 'postalCode' | 'address' | 'phone' | 'email' | 'website' | 'siren' | 'source' | 'notes' | 'priority'
+type ImportField =
+  | 'name' | 'type' | 'commune' | 'department' | 'postalCode' | 'address' | 'phone' | 'email' | 'website' | 'siren' | 'source' | 'notes' | 'priority'
+  | 'otherPhones' | 'otherEmails'
 
 const norm = (s: string) =>
   s
@@ -73,7 +75,18 @@ const HEADERS: Record<ImportField, string[]> = {
   source: ['source', 'sources', 'lien source', 'url source'],
   notes: ['notes', 'note', 'commentaire', 'commentaires', 'remarques'],
   priority: ['priorite', 'priority'],
+  otherPhones: ['autres telephones', 'autre telephone', 'telephone 2', 'tel 2', 'portable', 'mobile'],
+  otherEmails: ['autres e mails', 'autres emails', 'autre e mail', 'autre email', 'e mail 2', 'email 2'],
 }
+
+/** « 06 11 22 33 44 (portable) ; 04 67 00 00 00 » → [{ value, label }] */
+export const parseList = (v: string): { value: string; label?: string }[] =>
+  v
+    .split(/\s*[;\n]\s*/)
+    .map((part) => /^(.*?)\s*(?:\(([^)]*)\))?\s*$/.exec(part.trim()))
+    .filter((m): m is RegExpExecArray => Boolean(m && m[1]))
+    .map((m) => ({ value: m[1].trim(), label: m[2]?.trim() || undefined }))
+    .filter((x) => norm(x.value) !== 'non trouve')
 
 export const mapHeaders = (header: string[]): Partial<Record<ImportField, number>> => {
   const out: Partial<Record<ImportField, number>> = {}
@@ -120,10 +133,60 @@ export type ImportReport = {
   optOut: ImportLine[]
   rejected: ImportLine[]
   warnings: ImportLine[]
+  /** Fiches déjà enregistrées dont les champs vides ont été complétés par le fichier */
+  completed: ImportLine[]
   searchId?: number
 }
 
 export const MAX_IMPORT_ROWS = 2000
+
+type Extra = { value: string; label?: string }
+
+/**
+ * Ce qu'un fichier peut apporter à une fiche existante : seulement les champs vides.
+ * Un téléphone ou un e-mail différent de celui déjà enregistré va dans « Autres téléphones / e-mails ».
+ * Renvoie null s'il n'y a rien de nouveau.
+ */
+export const completeExisting = (
+  existing: CrmProspect,
+  file: { phone?: string; email?: string; website?: string; siren?: string; address?: string; postalCode?: string; extraPhones: Extra[]; extraEmails: Extra[] },
+): { data: Partial<CrmProspect>; summary: string } | null => {
+  const data: Partial<CrmProspect> = {}
+  const added: string[] = []
+  const blank = (v?: string | null) => !String(v ?? '').trim()
+  for (const k of ['website', 'siren', 'address', 'postalCode'] as const) {
+    if (file[k] && blank(existing[k])) {
+      data[k] = file[k]
+      added.push(k === 'website' ? 'site' : k === 'postalCode' ? 'code postal' : k === 'address' ? 'adresse' : 'SIREN')
+    }
+  }
+
+  const phones = [...(existing.otherPhones ?? [])]
+  const knownPhones = new Set([existing.phone, ...phones.map((t) => t.number)].map((v) => phoneKey(v)).filter(Boolean))
+  for (const t of [...(file.phone ? [{ value: file.phone }] : []), ...file.extraPhones]) {
+    const key = phoneKey(t.value)
+    if (!key || knownPhones.has(key)) continue
+    knownPhones.add(key)
+    if (blank(existing.phone) && !data.phone) data.phone = t.value
+    else phones.push({ number: t.value, label: t.label ?? null })
+    added.push(`tél. ${t.value}`)
+  }
+  if (phones.length !== (existing.otherPhones ?? []).length) data.otherPhones = phones
+
+  const emails = [...(existing.otherEmails ?? [])]
+  const knownEmails = new Set([existing.email, ...emails.map((e) => e.address)].map((v) => emailKey(v)).filter(Boolean))
+  for (const e of [...(file.email ? [{ value: file.email }] : []), ...file.extraEmails]) {
+    const key = emailKey(e.value)
+    if (!key || knownEmails.has(key)) continue
+    knownEmails.add(key)
+    if (blank(existing.email) && !data.email) data.email = e.value
+    else emails.push({ address: e.value, label: e.label ?? null })
+    added.push(e.value)
+  }
+  if (emails.length !== (existing.otherEmails ?? []).length) data.otherEmails = emails
+
+  return added.length ? { data, summary: `ajouté ${added.join(', ')}` } : null
+}
 
 /**
  * Ajoute les lignes d'un CSV comme prospects « À vérifier ».
@@ -138,7 +201,7 @@ export const importProspects = async (
   rows: string[][],
   { dryRun, req }: { dryRun: boolean; req?: PayloadRequest },
 ): Promise<ImportReport> => {
-  const report: ImportReport = { dryRun, total: 0, added: 0, addedNames: [], known: [], optOut: [], rejected: [], warnings: [] }
+  const report: ImportReport = { dryRun, total: 0, added: 0, addedNames: [], known: [], optOut: [], rejected: [], warnings: [], completed: [] }
   const [header, ...lines] = rows
   if (!header) return report
   const cols = mapHeaders(header)
@@ -169,7 +232,10 @@ export const importProspects = async (
   }
 
   const seen = new Map<string, string>() // clé → nom de la première ligne du fichier
-  const get = (r: string[], f: ImportField) => (cols[f] === undefined ? '' : (r[cols[f] as number] ?? '').trim())
+  const get = (r: string[], f: ImportField) => {
+    const v = cols[f] === undefined ? '' : (r[cols[f] as number] ?? '').trim()
+    return norm(v) === 'non trouve' ? '' : v // valeur écrite par l'export pour une information absente
+  }
 
   for (const [i, r] of lines.entries()) {
     const line = i + 2
@@ -196,6 +262,12 @@ export const importProspects = async (
     if (depRaw && !zone) warn(`Département inconnu (${depRaw})`)
     const priority = CRM_PRIORITIES.find((p) => norm(p.label) === norm(get(r, 'priority')))?.value
     const source = get(r, 'source')
+    const extraPhones = parseList(get(r, 'otherPhones'))
+    const extraEmails = parseList(get(r, 'otherEmails')).filter((x) => {
+      if (emailKey(x.value)) return true
+      warn(`E-mail invalide ignoré (${x.value})`)
+      return false
+    })
 
     const data = {
       name,
@@ -236,7 +308,31 @@ export const importProspects = async (
       ? (await payload.find({ collection: 'crm-prospects', where: { or }, limit: 1, depth: 0, overrideAccess: true, req })).docs[0]
       : undefined
     if (existing) {
-      report.known.push({ line, name, detail: `Déjà enregistré : ${existing.name}` })
+      // Fiche déjà connue : on COMPLÈTE ce qui est vide, on n'écrase jamais rien
+      const update = completeExisting(existing, {
+        phone: data.phone,
+        email: data.email,
+        website: data.website,
+        siren: data.siren,
+        address: data.address,
+        postalCode: data.postalCode,
+        extraPhones,
+        extraEmails,
+      })
+      if (!update) {
+        report.known.push({ line, name, detail: `Déjà enregistré : ${existing.name}` })
+        continue
+      }
+      report.completed.push({ line, name, detail: `${existing.name} : ${update.summary}` })
+      if (!dryRun) {
+        const isUrl = /^https?:\/\//i.test(source)
+        const sources = [
+          ...(existing.sources ?? []),
+          ...(source ? [{ label: isUrl ? 'Source indiquée dans le fichier' : source, url: isUrl ? source : undefined }] : []),
+          { label: `Complément par import CSV du ${day(now)}` },
+        ]
+        await payload.update({ collection: 'crm-prospects', id: existing.id, data: { ...update.data, sources }, depth: 0, overrideAccess: true, req })
+      }
       continue
     }
 
@@ -249,7 +345,16 @@ export const importProspects = async (
       ]
       await payload.create({
         collection: 'crm-prospects',
-        data: { ...data, status: 'a-verifier', verificationLevel: 'a-verifier', search: searchId, sources, discoveredAt: now },
+        data: {
+          ...data,
+          otherPhones: extraPhones.map((t) => ({ number: t.value, label: t.label })),
+          otherEmails: extraEmails.map((e) => ({ address: e.value, label: e.label })),
+          status: 'a-verifier',
+          verificationLevel: 'a-verifier',
+          search: searchId,
+          sources,
+          discoveredAt: now,
+        },
         overrideAccess: true,
         req,
       })
@@ -270,7 +375,8 @@ export const importProspects = async (
         duplicates: report.known.length,
         rejected: report.rejected.length + report.optOut.length,
         report: [
-          `${report.added} ajouté(s) sur ${report.total} ligne(s).`,
+          `${report.added} ajouté(s) et ${report.completed.length} fiche(s) complétée(s) sur ${report.total} ligne(s).`,
+          ...lines2('Complétés', report.completed),
           ...lines2('Déjà connus', report.known),
           ...lines2('Ne plus contacter', report.optOut),
           ...lines2('Écartés', report.rejected),

@@ -3,12 +3,14 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 /**
  * Prospection v4 :
  * - modèles d'e-mails (collection crm-email-templates) ;
- * - plusieurs téléphones et e-mails par prospect (otherPhones, otherEmails).
+ * - plusieurs téléphones et e-mails par prospect (otherPhones, otherEmails) ;
+ * - historique : type « Complément des coordonnées » (valeur conservée au retour arrière).
  * Ajouts seulement : aucune donnée existante n'est modifiée.
  */
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
-   CREATE TYPE "public"."enum_crm_email_templates_kind" AS ENUM('refonte', 'creation', 'relance', 'autre');
+   ALTER TYPE "public"."enum_crm_searches_trigger" ADD VALUE IF NOT EXISTS 'completion';
+  CREATE TYPE "public"."enum_crm_email_templates_kind" AS ENUM('refonte', 'creation', 'relance', 'autre');
   CREATE TABLE "crm_prospects_other_phones" (
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
