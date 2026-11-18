@@ -2,6 +2,9 @@ import type { Payload } from 'payload'
 
 import { CONTENT_ROLES, hasTenantRole, isSuperAdmin } from '@/access/roles'
 
+import { templateKey } from './render'
+import { SITE_VERSIONS } from './versions'
+
 /**
  * « Modifier depuis le site » : quand un utilisateur CONNECTÉ au CMS (et autorisé à modifier
  * ce client) visite son site, une barre et des crayons apparaissent sur chaque section ;
@@ -11,7 +14,8 @@ import { CONTENT_ROLES, hasTenantRole, isSuperAdmin } from '@/access/roles'
  * session). Sur le nom de domaine du client, le cookie n'existe pas : rien n'est ajouté.
  * La page n'affiche que des liens : toutes les modifications passent par le CMS et ses droits.
  */
-export type EditContext = { collection?: 'pages' | 'posts'; slug?: string }
+/** `version` : identifiant de la maquette archivée affichée (?version=…), absent pour le site actuel. */
+export type EditContext = { collection?: 'pages' | 'posts'; slug?: string; version?: string }
 
 const COOKIE = /(?:^|;\s*)payload-token=/
 
@@ -63,6 +67,14 @@ export async function withEditBar(payload: Payload, req: Request, siteSlug: stri
     }
   }
 
+  // Sélecteur des anciennes versions de la maquette : super-admin seulement, sur l'accueil du site
+  const versions = isSuperAdmin(user) && !ctx.collection ? (SITE_VERSIONS[templateKey(tenant.slug, tenant.name)] ?? []) : []
+  const versionPicker = versions.length
+    ? `<label class="cms-version"><span>Version</span><select id="cmsVersion" aria-label="Version de la maquette"><option value="">Actuelle</option>${versions
+        .map((v) => `<option value="${v.id}"${v.id === ctx.version ? ' selected' : ''}>${escapeHTML(v.label)}</option>`)
+        .join('')}</select></label>`
+    : ''
+
   const config = JSON.stringify({ targets: TARGETS }).replace(/</g, '\\u003c')
   const bar = `
 <style>
@@ -74,12 +86,16 @@ export async function withEditBar(payload: Payload, req: Request, siteSlug: stri
 .cms-pen:hover{opacity:1}.cms-pen svg{width:14px;height:14px}
 .cms-edit-on [data-cms-edit]{outline:2px dashed rgba(124,58,237,.45);outline-offset:-2px}
 html.cms-edit-off .cms-pen{display:none}html.cms-edit-off [data-cms-edit]{outline:0}
+.cms-edit-bar .cms-version{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 4px 0 0;border-radius:999px;background:${ctx.version ? '#b45309' : '#2e2a52'}}
+.cms-edit-bar .cms-version span{padding:0 4px 0 12px;opacity:1}
+.cms-edit-bar select{min-height:28px;border:0;border-radius:999px;padding:0 8px;background:#fff;color:#1e1b39;font:600 13px/1 system-ui,-apple-system,sans-serif;cursor:pointer}
 </style>
 <div class="cms-edit-bar" role="region" aria-label="Mode édition">
 <span>Mode édition · ${escapeHTML(tenant.name)}</span>
 <a class="main" href="${pageHref}">${pageLabel}</a>
 <a href="/admin">Tableau de bord</a>
 <button type="button" id="cmsEditToggle" aria-pressed="true">Masquer les crayons</button>
+${versionPicker}
 </div>
 <script>(function(){var c=${config},pen='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 document.documentElement.classList.add('cms-edit-on');var seen=[];
@@ -87,7 +103,8 @@ c.targets.forEach(function(t){var el=document.querySelector(t[0]);if(!el||seen.i
 if(getComputedStyle(el).position==='static')el.style.position='relative';el.setAttribute('data-cms-edit','');
 var a=document.createElement('a');a.className='cms-pen';a.href=t[2];if(el.offsetHeight<90){a.style.top='calc(100% + 6px)'}a.innerHTML=pen+'<span></span>';a.lastChild.textContent='Modifier · '+t[1];el.appendChild(a)});
 var b=document.getElementById('cmsEditToggle'),h=document.documentElement;
-b.addEventListener('click',function(){var off=h.classList.toggle('cms-edit-off');b.setAttribute('aria-pressed',String(!off));b.textContent=off?'Afficher les crayons':'Masquer les crayons'})})();</script>
+b.addEventListener('click',function(){var off=h.classList.toggle('cms-edit-off');b.setAttribute('aria-pressed',String(!off));b.textContent=off?'Afficher les crayons':'Masquer les crayons'});
+var v=document.getElementById('cmsVersion');if(v)v.addEventListener('change',function(){var u=new URL(location.href);if(v.value)u.searchParams.set('version',v.value);else u.searchParams.delete('version');u.hash='';location.href=u.toString()})})();</script>
 `
   const at = html.lastIndexOf('</body>')
   return { html: at >= 0 ? html.slice(0, at) + bar + html.slice(at) : html + bar, personal: true }
