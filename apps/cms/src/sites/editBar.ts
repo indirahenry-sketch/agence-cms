@@ -103,11 +103,14 @@ c.targets.forEach(function(t){var el=document.querySelector(t[0]);if(!el||seen.i
 if(getComputedStyle(el).position==='static')el.style.position='relative';el.setAttribute('data-cms-edit','');
 var a=document.createElement('a');a.className='cms-pen';a.href=t[2];if(el.offsetHeight<90){a.style.top='calc(100% + 6px)'}a.innerHTML=pen+'<span></span>';a.lastChild.textContent='Modifier · '+t[1];el.appendChild(a)});
 var b=document.getElementById('cmsEditToggle'),h=document.documentElement;
-b.addEventListener('click',function(){var off=h.classList.toggle('cms-edit-off');b.setAttribute('aria-pressed',String(!off));b.textContent=off?'Afficher les crayons':'Masquer les crayons'});
-var v=document.getElementById('cmsVersion');if(v)v.addEventListener('change',function(){var u=new URL(location.href);if(v.value)u.searchParams.set('version',v.value);else u.searchParams.delete('version');u.hash='';location.href=u.toString()})})();</script>
+b.addEventListener('click',function(){var off=h.classList.toggle('cms-edit-off');b.setAttribute('aria-pressed',String(!off));b.textContent=off?'Afficher les crayons':'Masquer les crayons'});${versionPicker ? VERSION_SCRIPT : ''}})();</script>
 `
   const at = html.lastIndexOf('</body>')
   return { html: at >= 0 ? html.slice(0, at) + bar + html.slice(at) : html + bar, personal: true }
 }
+
+/** Le menu « Version » recharge l'accueil avec ?version=… (ou sans, pour « Actuelle »). */
+const VERSION_SCRIPT =
+  "\nvar v=document.getElementById('cmsVersion');v.addEventListener('change',function(){var u=new URL(location.href);if(v.value)u.searchParams.set('version',v.value);else u.searchParams.delete('version');u.hash='';location.href=u.toString()});"
 
 const escapeHTML = (v: string) => v.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!)
