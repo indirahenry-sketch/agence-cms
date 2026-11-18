@@ -2,11 +2,14 @@ import type { CollectionConfig } from 'payload'
 
 import { CRM_GROUP } from '@/crm/constants'
 import { crmAccess, crmHidden } from '@/crm/access'
+import { mergeProspects } from '@/crm/merge'
 import { auditChange, auditDelete } from '@/hooks/audit'
 
 /**
- * Doublons possibles, signalés automatiquement. Rien n'est fusionné ni supprimé tout seul :
- * on regarde les deux fiches, puis on choisit « C'est un doublon » ou « Pas un doublon ».
+ * Doublons possibles, signalés automatiquement.
+ * - Correspondance sûre (même SIREN, même nom + commune, même site ou e-mail) : fusion automatique
+ *   après une recherche ou un import, la fiche la plus complète est gardée.
+ * - Sinon (ex. seulement le même téléphone) : à examiner ; « C'est un doublon » fusionne la paire.
  */
 export const CrmDuplicates: CollectionConfig = {
   slug: 'crm-duplicates',
@@ -15,7 +18,7 @@ export const CrmDuplicates: CollectionConfig = {
     group: CRM_GROUP,
     hidden: crmHidden,
     defaultColumns: ['prospect', 'existing', 'reasons', 'status', 'createdAt'],
-    description: 'Deux fiches qui semblent décrire le même établissement. À valider à la main.',
+    description: 'Deux fiches qui semblent décrire le même établissement. Choisis « C’est un doublon » pour les fusionner : la fiche la plus complète est gardée, complétée avec ce que l’autre a en plus (rien n’est écrasé), et reprend son historique. « Pas un doublon » garde les deux.',
   },
   access: crmAccess,
   defaultSort: '-createdAt',
@@ -26,7 +29,16 @@ export const CrmDuplicates: CollectionConfig = {
         return data
       },
     ],
-    afterChange: [auditChange('crm-duplicates')],
+    afterChange: [
+      async ({ doc, previousDoc, req, context }) => {
+        if (context?.merging || doc.status !== 'doublon' || previousDoc?.status === 'doublon') return doc
+        const a = typeof doc.prospect === 'object' ? doc.prospect?.id : doc.prospect
+        const b = typeof doc.existing === 'object' ? doc.existing?.id : doc.existing
+        if (a && b && a !== b) await mergeProspects(req.payload, a, b, req)
+        return doc
+      },
+      auditChange('crm-duplicates'),
+    ],
     afterDelete: [auditDelete('crm-duplicates')],
   },
   fields: [

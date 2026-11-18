@@ -385,3 +385,7 @@ body.bfiche-open .crm-back-fab { display: none; }
 .bmail__dest { display: grid; gap: 4px; align-content: start; }
 .bmail__to { display: grid; gap: 4px; font-weight: 400; color: var(--cms-ink); overflow-wrap: anywhere; }
 @media (max-width: 520px) { .bmail__grid { grid-template-columns: 1fr; } }
+
+/* Fusion des doublons (tableau de bord) */
+.cmerge { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--cms-line); }
+.cmerge__list { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.85rem; }

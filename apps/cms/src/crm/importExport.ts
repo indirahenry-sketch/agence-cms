@@ -4,6 +4,7 @@ import type { CrmProspect, CrmZone } from '@/payload-types'
 
 import { CRM_INFO_LEVELS, CRM_NEEDS, CRM_PRIORITIES, CRM_PROJECT_STATUSES, CRM_STATUSES, CRM_TYPES, CRM_VERIFICATION_LEVELS, CRM_WEBSITE_STATUSES } from './constants'
 import { findOptOut, prospectMatchConditions } from './dedupe'
+import { autoMergeDuplicates } from './merge'
 import { crmKeys, domainKey, emailKey, phoneKey } from './normalize'
 
 /* ------------------------------------------------------------------ */
@@ -138,6 +139,8 @@ export type ImportReport = {
   optOut: ImportLine[]
   rejected: ImportLine[]
   warnings: ImportLine[]
+  /** Doublons fusionnés automatiquement après l'import (la fiche la plus complète est gardée) */
+  merged?: ImportLine[]
   searchId?: number
 }
 
@@ -325,6 +328,12 @@ export const importProspects = async (
     report.addedNames.push(name)
   }
 
+  if (!dryRun && (report.added || report.completed.length)) {
+    // Doublons sûrs : la fiche la plus complète prend le dessus
+    const merged = await autoMergeDuplicates(payload, req)
+    report.merged = merged.map((m) => ({ line: 0, name: m.keptName, detail: `« ${m.removedName} » fusionné dans cette fiche${m.added.length ? ` (repris : ${m.added.join(', ')})` : ''}` }))
+  }
+
   if (!dryRun && searchId) {
     const lines2 = (title: string, list: ImportLine[]) => (list.length ? [`${title} :`, ...list.map((l) => `- ligne ${l.line} ${l.name} : ${l.detail}`)] : [])
     await payload.update({
@@ -339,6 +348,7 @@ export const importProspects = async (
         report: [
           `${report.added} ajouté(s), ${report.completed.length} complété(s) sur ${report.total} ligne(s).`,
           ...lines2('Complétés', report.completed),
+          ...lines2('Doublons fusionnés (fiche la plus complète gardée)', report.merged ?? []),
           ...lines2('Déjà connus', report.known),
           ...lines2('Ne plus contacter', report.optOut),
           ...lines2('Écartés', report.rejected),

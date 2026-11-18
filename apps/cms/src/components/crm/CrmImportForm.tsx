@@ -13,6 +13,7 @@ type Report = {
   optOut: Line[]
   rejected: Line[]
   warnings: Line[]
+  merged?: Line[]
   searchId?: number
 }
 
@@ -25,8 +26,8 @@ const Lines = ({ title, list }: { title: string; list: Line[] }) =>
       <ul>
         {list.map((l) => (
           <li key={`${l.line}-${l.detail}`}>
-            Ligne {l.line}
-            {l.name ? ` · ${l.name}` : ''} : {l.detail}
+            {l.line ? `Ligne ${l.line}` : ''}
+            {l.name ? `${l.line ? ' · ' : ''}${l.name}` : ''} : {l.detail}
           </li>
         ))}
       </ul>
@@ -108,6 +109,7 @@ export const CrmImportForm: React.FC = () => {
           </p>
           <Lines title={report.dryRun ? 'Seraient ajoutés' : 'Ajoutés'} list={report.addedNames.map((name, i) => ({ line: i + 1, name, detail: 'nouveau' }))} />
           <Lines title={report.dryRun ? 'Seraient complétés' : 'Complétés'} list={report.completed ?? []} />
+          <Lines title="Doublons fusionnés (la fiche la plus complète est gardée)" list={report.merged ?? []} />
           <Lines title="Déjà connus (non ajoutés)" list={report.known} />
           <Lines title="Ne plus contacter (non ajoutés)" list={report.optOut} />
           <Lines title="Lignes écartées" list={report.rejected} />

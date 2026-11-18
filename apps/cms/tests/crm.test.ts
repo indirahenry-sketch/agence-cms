@@ -14,6 +14,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import { commercialOf, statusForCommercial } from '@/crm/constants'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
+import { autoMergeDuplicates, mergeProspects } from '@/crm/merge'
 import { fillTemplate, mailtoLink } from '@/crm/emailTemplate'
 import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
 import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
@@ -560,5 +561,48 @@ describe('Modèles d’e-mails et coordonnées multiples', () => {
   it('un client ne voit pas les modèles d’e-mails', async () => {
     const opts = await as(clientAdmin)
     await expect(payload.create({ collection: 'crm-email-templates', data: { name: 'Intrus', kind: 'autre' }, ...opts })).rejects.toThrow()
+  })
+})
+
+describe('Doublons : la fiche la plus complète prend le dessus', () => {
+  it('fusionne en gardant la fiche la plus complète, sans rien écraser, avec son historique', async () => {
+    const poor = await payload.create({ collection: 'crm-prospects', data: { status: 'email-envoye', name: 'Écurie Fusion', commune: 'Gruissan', phone: '04 68 11 11 11', notes: 'Appelée en octobre' } })
+    await payload.create({ collection: 'crm-activities', data: { prospect: poor.id, kind: 'appel', date: new Date().toISOString(), summary: 'Premier appel' } })
+    const rich = await payload.create({
+      collection: 'crm-prospects',
+      data: { status: 'a-verifier', name: 'Ecurie Fusion', commune: 'Gruissan', phone: '06 22 22 22 22', email: 'contact@fusion.test', website: 'https://fusion.test', siren: '111222333', address: '1 chemin des Pins' },
+    })
+    const r = await mergeProspects(payload, poor.id, rich.id)
+    expect(r.keptId).toBe(rich.id)
+    await expect(payload.findByID({ collection: 'crm-prospects', id: poor.id })).rejects.toThrow()
+    const kept = await payload.findByID({ collection: 'crm-prospects', id: rich.id, depth: 0 })
+    expect(kept.phone).toBe('06 22 22 22 22') // jamais écrasé
+    expect(kept.otherPhones?.map((t) => t.number)).toEqual(['04 68 11 11 11'])
+    expect(kept.status).toBe('email-envoye') // le statut le plus avancé est gardé
+    expect(kept.notes).toContain('Appelée en octobre')
+    const acts = await payload.find({ collection: 'crm-activities', where: { prospect: { equals: rich.id } }, depth: 0 })
+    expect(acts.docs.map((a) => a.summary).join(' | ')).toContain('Premier appel')
+    expect(acts.docs.some((a) => a.summary.includes('Doublon fusionné'))).toBe(true)
+  })
+
+  it('« C’est un doublon » fusionne la paire ; un simple téléphone commun n’est pas fusionné automatiquement', async () => {
+    const a = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Haras du Téléphone', commune: 'Bages', phone: '06 33 33 33 33' } })
+    const b = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Poney Club Voisin', commune: 'Bages', phone: '06 33 33 33 33', email: 'voisin@test.test' } })
+    const dup = (await payload.find({ collection: 'crm-duplicates', where: { prospect: { equals: b.id } }, depth: 0 })).docs[0]
+    expect(dup?.reasons).toEqual(['telephone'])
+    const merged = await autoMergeDuplicates(payload)
+    expect(merged.some((m) => [m.keptId, m.removedId].includes(a.id))).toBe(false)
+
+    await payload.update({ collection: 'crm-duplicates', id: dup.id, data: { status: 'doublon' } })
+    await expect(payload.findByID({ collection: 'crm-prospects', id: a.id })).rejects.toThrow()
+    const kept = await payload.findByID({ collection: 'crm-prospects', id: b.id, depth: 0 })
+    expect(kept.otherNames).toContain('Haras du Téléphone')
+  })
+
+  it('deux SIREN différents ne sont jamais fusionnés automatiquement', async () => {
+    const a = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Domaine Double', commune: 'Pexiora', siren: '444555666' } })
+    await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Domaine Double', commune: 'Pexiora', siren: '777888999', email: 'double@test.test' } })
+    await autoMergeDuplicates(payload)
+    expect((await payload.findByID({ collection: 'crm-prospects', id: a.id })).id).toBe(a.id)
   })
 })
