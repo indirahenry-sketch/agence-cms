@@ -246,6 +246,8 @@ Pour les Écuries de Poigny, le CMS pilote : nom, logo, téléphone, e-mail, adr
 
 **Castelle, version 2 (14 novembre 2026)** : en-tête avec le nom complet, pastille verte / rouge « Ouvert / Fermé » qui affiche les horaires au clic, bannière d'accueil en meilleure qualité, barre de raccourcis en verre dépoli, sections dans l'ordre Le domaine → Activités → Planning → Écurie relais → Tarifs → Agenda (avec calendrier par mois) → Photos → Contact. Le **planning des cours 2026-2027** est dans la maquette (`src/sites/domaine-equestre-castelle/template.ts`). L'import ajoute les onglets de tarifs manquants (Cours & abonnements, Adhésion & licence, Stages & loisirs, Compétition, Pensionnaires, Écurie relais), 3 photos et le lien « Planning » au menu (seulement si le menu n'a pas été modifié). Tant qu'aucune photo n'est cochée « Afficher dans la galerie », la galerie montre les photos de la maquette.
 
+**Anciennes versions des maquettes (super-admin seulement)** : connecté au CMS en super-admin, ouvre l'accueil d'un site (`/sites/<client>`) : la barre « Mode édition » affiche un menu **Version** (Actuelle, V1, V2…). Il mène à `/sites/<client>?version=v1`. Les contenus restent ceux d'aujourd'hui, seule la maquette change. Pour tout autre visiteur (client, éditeur, public, domaine du client), le paramètre est ignoré et le site actuel s'affiche. Versions disponibles : Poigny V1 (4 nov.) et V2 (6 nov.), Montesugui V1 (13 nov.), Castelle V1, V2 et V3 (14 nov.) ; Sourdun n'a qu'une version. Les fichiers sont dans `src/sites/<client>/versions/`, la liste dans `src/sites/versions.ts`.
+
 ---
 
 ## Version 2 (6 novembre 2026)

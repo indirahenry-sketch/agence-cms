@@ -163,6 +163,8 @@ const read = { overrideAccess: true, locale: 'fr' as const, fallbackLocale: 'fr'
 export type RenderOptions = {
   /** Préfixe des liens : /sites/<identifiant> par défaut, '' sur le domaine du client. */
   base?: string
+  /** Maquette archivée à utiliser à la place de l'actuelle (super-admin seulement, voir versions.ts). */
+  template?: string
 }
 
 async function loadTenant(payload: Payload, siteSlug: string): Promise<Tenant | null> {
@@ -444,7 +446,7 @@ export async function renderSite(payload: Payload, siteSlug: string, opts: Rende
   if (!hasSiteTemplate(tenant)) return renderGenericHome(payload, tenant, opts)
   const d = await loadSite(payload, tenant, true, opts)
   const { info } = d
-  let html = TEMPLATES[keyOf(tenant)]
+  let html = opts.template ?? TEMPLATES[keyOf(tenant)]
 
   // Coordonnées (les « Informations » priment sur la fiche client)
   const phone = info?.phone || tenant.phone || ''
