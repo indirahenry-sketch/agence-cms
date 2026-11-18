@@ -1,0 +1,42 @@
+OK  premier compte créé
+OK  connexion super admin
+   (zones : HTTP 200 )
+OK  101 zones créées au démarrage (101)
+OK  8 zones actives
+OK  prospects d’exemple créés
+OK  1 doublon signalé (1)
+OK  connexion compte client
+OK  client refusé sur /api/crm-prospects (HTTP 403)
+OK  client refusé sur /api/crm-zones (HTTP 403)
+OK  client refusé sur /api/crm-activities (HTTP 403)
+OK  client refusé sur /api/crm-optouts (HTTP 403)
+OK  client refusé sur /api/crm-duplicates (HTTP 403)
+OK  client refusé sur /api/crm-searches (HTTP 403)
+OK  client refusé sur les réglages
+OK  lien « Espace Prospection » dans le menu du super admin
+OK  pas de « Retour au CMS » dans le CMS lui-même
+OK  flèche « Retour au CMS » en bas à gauche
+OK  « Retour au CMS » dans le menu ☰
+OK  la flèche ramène au tableau de bord du CMS
+OK  flèche aussi sur la liste des prospects
+OK  page /admin/prospection
+OK  compteurs de la Base de prospection
+OK  statut changé dans le tableau et enregistré (en-attente)
+OK  statut du projet enregistré depuis le tableau
+OK  action groupée : 2 sites « Livré » (2)
+OK  compteur « Sites livrés » à jour après rechargement
+OK  filtre statut commercial (1 ligne(s))
+OK  notes enregistrées depuis la fiche
+OK  relance enregistrée depuis la fiche
+OK  page Recherche
+OK  liens « Chercher les coordonnées »
+OK  coordonnées saisies depuis la fiche
+OK  compteur « À compléter »
+OK  filtre réserve (5 joignables affichés, 1 à compléter)
+OK  nom et autre nom modifiés depuis la fiche
+OK  lien Facebook dans « Chercher les coordonnées »
+OK  export « fiches à compléter »
+OK  import « compléter » : téléphone et e-mail ajoutés
+OK  calendrier des relances
+OK  page import / export
+OK  export CSV (HTTP 200)
