@@ -372,7 +372,7 @@ export const importProspects = async (
         status: 'terminee',
         finishedAt: new Date().toISOString(),
         added: report.added,
-        duplicates: report.known.length,
+        duplicates: report.known.length + report.completed.length,
         rejected: report.rejected.length + report.optOut.length,
         report: [
           `${report.added} ajouté(s) et ${report.completed.length} fiche(s) complétée(s) sur ${report.total} ligne(s).`,

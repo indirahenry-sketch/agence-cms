@@ -253,7 +253,8 @@ describe('Import CSV', () => {
     const r = await importProspects(payload, file, { dryRun: false })
     expect(r.total).toBe(6)
     expect(r.addedNames).toEqual(['Écurie Nouvelle', 'Poney-club Neuf'])
-    expect(r.known.map((l) => l.line)).toEqual([3, 7])
+    expect(r.known.map((l) => l.line)).toEqual([7])
+    expect(r.completed.map((l) => l.line)).toEqual([3]) // fiche déjà connue : code postal ajouté, rien d'autre
     expect(r.optOut.map((l) => l.line)).toEqual([4])
     expect(r.rejected.map((l) => l.line)).toEqual([5])
     expect(r.warnings.map((w) => w.detail)).toEqual(expect.arrayContaining([expect.stringContaining('E-mail invalide'), expect.stringContaining('site invalide')]))
