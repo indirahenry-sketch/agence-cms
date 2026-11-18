@@ -138,6 +138,7 @@ await shot(admin, '/admin/collections/crm-prospects', '04-liste-prospects')
   const txt = await page.locator('.bcounts').innerText()
   check(/Prospects/.test(txt) && /Sites livrés/.test(txt), 'compteurs de la Base de prospection')
   await page.screenshot({ path: `${OUT}/20-base-prospection.png`, fullPage: true })
+  await page.locator('.bfilters select[aria-label="Réserve"]').selectOption('all')
 
   // Statut commercial changé directement dans le tableau
   const row = page.locator('tr', { hasText: 'Exemple · Poney-club des Oliviers' })
@@ -166,6 +167,7 @@ await shot(admin, '/admin/collections/crm-prospects', '04-liste-prospects')
   check(shown >= 1, `filtre statut commercial (${shown} ligne(s))`)
   await page.screenshot({ path: `${OUT}/21-base-filtre.png` })
   await page.getByRole('button', { name: 'Effacer les filtres' }).click()
+  await page.locator('.bfilters select[aria-label="Réserve"]').selectOption('all')
 
   // Fiche latérale : notes + échange avec relance
   await page.locator('tr', { hasText: 'Exemple · Domaine de la Garrigue' }).locator('.bname').click()
