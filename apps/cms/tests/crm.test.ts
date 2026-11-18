@@ -289,8 +289,8 @@ describe('Export et import : réservés à l’agence', () => {
     const res = await crmExport.handler(await reqAs(superAdmin))
     expect(res.headers.get('Content-Type')).toContain('text/csv')
     const rows = parseCsv(await res.text())
-    expect(rows[0].slice(0, 4)).toEqual(['Nom', 'Type', 'Commune', 'Département'])
-    const line = rows.find((r) => r[0] === 'Poney-club Neuf')!
+    expect(rows[0].slice(0, 5)).toEqual(['ID', 'Nom', 'Autre nom', 'Type', 'Commune'])
+    const line = rows.find((r) => r[1] === 'Poney-club Neuf')!
     expect(line[rows[0].indexOf('E-mail')]).toBe('Non trouvé')
   })
 
@@ -347,7 +347,7 @@ describe('Base de prospection', () => {
     const rows = parseCsv(await res.text())
     const col = rows[0].indexOf('Statut du projet')
     expect(col).toBeGreaterThan(-1)
-    expect(rows.find((r) => r[0] === 'Écurie du Tableau')?.[col]).toBe('En cours')
+    expect(rows.find((r) => r[1] === 'Écurie du Tableau')?.[col]).toBe('En cours')
   })
 })
 
@@ -436,4 +436,65 @@ describe('Recherche de prospects', () => {
     const req = { payload, user: (await as(clientAdmin)).user, json: async () => ({}) } as unknown as PayloadRequest
     await expect(crmSearch.handler(req)).rejects.toThrow()
   })
+})
+
+/* ------------------------------------------------------------------ */
+/* Autre nom, joignables uniquement, import qui complète                */
+/* ------------------------------------------------------------------ */
+
+describe('Autre nom et complément des fiches', () => {
+  it('l’autre nom repère un doublon sous le nom d’usage', async () => {
+    const legal = await payload.create({
+      collection: 'crm-prospects',
+      data: { status: 'nouveau', name: 'Écuries de la Payssière', otherNames: 'Haras des As', commune: 'Pézenas' },
+    })
+    expect(legal.altNameKey).toBe('as')
+    const usage = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Haras des As', commune: 'Pezenas' } })
+    const dup = await payload.find({ collection: 'crm-duplicates', where: { prospect: { equals: usage.id } }, depth: 0 })
+    expect(dup.docs[0]?.existing).toBe(legal.id)
+  })
+
+  it('l’import complète une fiche par son ID sans rien remplacer', async () => {
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'a-verifier', name: 'Écurie à compléter', website: 'https://deja-la.test' } })
+    const rows = [
+      ['ID', 'Nom', 'Autre nom', 'Téléphone', 'E-mail', 'Site', 'Source'],
+      [String(p.id), 'Écurie à compléter', 'Le Petit Haras', '06 98 76 54 32', 'contact@petit-haras.test', 'https://autre-site.test', 'https://facebook.com/petitharas'],
+    ]
+    const preview = await importProspects(payload, rows, { dryRun: true, complete: true })
+    expect(preview.completed).toHaveLength(1)
+    expect((await payload.findByID({ collection: 'crm-prospects', id: p.id })).phone ?? '').toBe('')
+
+    const r = await importProspects(payload, rows, { dryRun: false, complete: true })
+    expect(r.added).toBe(0)
+    expect(r.completed[0].detail).toContain('téléphone')
+    const after = await payload.findByID({ collection: 'crm-prospects', id: p.id })
+    expect(after).toMatchObject({ phone: '06 98 76 54 32', email: 'contact@petit-haras.test', otherNames: 'Le Petit Haras', website: 'https://deja-la.test' })
+    expect(after.sources?.map((x) => x.url)).toContain('https://facebook.com/petitharas')
+
+    // Sans la case « compléter », la ligne est seulement signalée comme déjà connue
+    const plain = await importProspects(payload, rows, { dryRun: true })
+    expect(plain.completed).toHaveLength(0)
+    expect(plain.known).toHaveLength(1)
+  })
+
+  it('« joignables uniquement » : une structure sans téléphone ni e-mail n’est pas ajoutée', async () => {
+    const zone = (await payload.find({ collection: 'crm-zones', where: { code: { equals: '30' } }, limit: 1 })).docs[0]
+    const lonely = (async (input: string | URL | Request) => {
+      const url = String(input instanceof Request ? input.url : input)
+      if (url.includes('recherche-entreprises'))
+        return Response.json({ results: [company('999999999', 'ECURIE SANS CONTACT', { matching_etablissements: [{ code_postal: '30000', libelle_commune: 'NIMES' }] })], total_pages: 1 })
+      if (url.includes('interpreter')) return Response.json({ elements: [] })
+      return new Response('', { status: 404 })
+    }) as typeof fetch
+    await payload.updateGlobal({ slug: 'crm-settings', data: { onlyReachable: true } })
+    const a = await runCrmSearch(payload, { trigger: 'manuel', zoneIds: [zone.id], target: 5 }, lonely)
+    const sa = await payload.findByID({ collection: 'crm-searches', id: a })
+    expect(sa.added).toBe(0)
+    expect(sa.report).toContain('sans téléphone ni e-mail')
+
+    await payload.updateGlobal({ slug: 'crm-settings', data: { onlyReachable: false } })
+    const b = await runCrmSearch(payload, { trigger: 'manuel', zoneIds: [zone.id], target: 5 }, lonely)
+    expect((await payload.findByID({ collection: 'crm-searches', id: b })).added).toBe(1)
+    await payload.updateGlobal({ slug: 'crm-settings', data: { onlyReachable: true } })
+  }, 30_000)
 })

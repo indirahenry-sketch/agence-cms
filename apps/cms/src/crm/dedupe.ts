@@ -15,6 +15,16 @@ export const matchConditions = (k: Partial<CrmKeys>): Where[] => {
   return or
 }
 
+/**
+ * Pour les PROSPECTS seulement : on compare aussi le nom avec l'« autre nom » déjà saisi
+ * (ex. nom légal « Écuries de la Payssière », nom d'usage « Haras des As »).
+ */
+export const prospectMatchConditions = (k: Partial<CrmKeys>): Where[] => {
+  const or = matchConditions(k)
+  if (k.nameKey) or.push({ altNameKey: { equals: k.nameKey } })
+  return or
+}
+
 /** Pourquoi deux fiches semblent être le même établissement. */
 export const reasonsBetween = (a: Partial<CrmKeys>, b: Partial<CrmKeys>): DuplicateReason[] => {
   const r: DuplicateReason[] = []
@@ -39,7 +49,7 @@ export const findOptOut = async (payload: Payload, keys: Partial<CrmKeys>, req?:
  * Chaque paire n'est signalée qu'une fois ; la décision reste manuelle.
  */
 export const flagDuplicates = async (payload: Payload, prospect: { id: number } & Partial<CrmKeys>, req?: PayloadRequest) => {
-  const or = matchConditions(prospect)
+  const or = prospectMatchConditions(prospect)
   if (!or.length) return 0
   const { docs } = await payload.find({
     collection: 'crm-prospects',

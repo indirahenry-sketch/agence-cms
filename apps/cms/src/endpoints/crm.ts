@@ -27,6 +27,9 @@ export const crmExport: Endpoint = {
     guard(req)
     const header = EXPORT_COLUMNS.map((c) => c.header)
     const modele = req.searchParams?.get('modele') === '1'
+    // « Fiches à compléter » : ni téléphone ni e-mail, et pas « ne plus contacter »
+    const reserve = req.searchParams?.get('reserve') === '1'
+    const empty = (f: string) => ({ or: [{ [f]: { exists: false } }, { [f]: { equals: '' } }] })
     const rows = modele
       ? []
       : (
@@ -36,6 +39,7 @@ export const crmExport: Endpoint = {
             pagination: false,
             depth: 1,
             sort: 'name',
+            where: reserve ? { and: [empty('phone'), empty('email'), { doNotContact: { not_equals: true } }] } : undefined,
             overrideAccess: true,
             req,
           })
@@ -44,7 +48,7 @@ export const crmExport: Endpoint = {
     return new Response(toCsv(header, rows), {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${modele ? 'modele-prospects' : `prospects-${day}`}.csv"`,
+        'Content-Disposition': `attachment; filename="${modele ? 'modele-prospects' : reserve ? `prospects-a-completer-${day}` : `prospects-${day}`}.csv"`,
         'Cache-Control': 'no-store',
       },
     })
@@ -65,7 +69,8 @@ export const crmImport: Endpoint = {
       throw new APIError(`Trop de lignes (${rows.length - 1}). Maximum ${MAX_IMPORT_ROWS} par fichier : coupez-le en plusieurs.`, 413, undefined, true)
     }
     const dryRun = req.searchParams?.get('apercu') === '1'
-    const report = await importProspects(req.payload, rows, { dryRun, req })
+    const complete = req.searchParams?.get('completer') === '1'
+    const report = await importProspects(req.payload, rows, { dryRun, req, complete })
     return Response.json(report)
   },
 }

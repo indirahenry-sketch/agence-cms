@@ -13,7 +13,7 @@ import {
 } from '@/crm/constants'
 import { crmAccess, crmHidden } from '@/crm/access'
 import { findOptOut, flagDuplicates } from '@/crm/dedupe'
-import { crmKeys, type CrmKeys } from '@/crm/normalize'
+import { crmKeys, nameKey, type CrmKeys } from '@/crm/normalize'
 import { auditChange, auditDelete } from '@/hooks/audit'
 
 const KEY_FIELDS: (keyof CrmKeys)[] = ['nameKey', 'communeKey', 'phoneKey', 'emailKey', 'domainKey', 'sirenKey']
@@ -29,6 +29,7 @@ const prepare: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) =
   const d = { ...(originalDoc ?? {}), ...data }
   const keys = crmKeys(d)
   Object.assign(data, keys)
+  data.altNameKey = nameKey(d.otherNames) || null
 
   const level = (value: unknown, current: unknown) => {
     if (!String(value ?? '').trim()) return 'non-trouve'
@@ -110,7 +111,7 @@ export const CrmProspects: CollectionConfig = {
     hidden: crmHidden,
     useAsTitle: 'name',
     defaultColumns: ['name', 'type', 'commune', 'department', 'websiteStatus', 'status', 'projectStatus', 'nextFollowUpAt'],
-    listSearchableFields: ['name', 'commune', 'email', 'phone', 'website'],
+    listSearchableFields: ['name', 'otherNames', 'commune', 'email', 'phone', 'website'],
     description: 'Structures à démarcher. Rien n’est inventé : une information introuvable reste « Non trouvé ».',
     pagination: { defaultLimit: 50 },
   },
@@ -129,7 +130,18 @@ export const CrmProspects: CollectionConfig = {
         {
           label: 'Fiche',
           fields: [
-            { name: 'name', label: 'Nom de la structure', type: 'text', required: true },
+            {
+              type: 'row',
+              fields: [
+                { name: 'name', label: 'Nom de la structure', type: 'text', required: true },
+                {
+                  name: 'otherNames',
+                  label: 'Autre nom / nom d’usage',
+                  type: 'text',
+                  admin: { description: 'Ex. nom légal « Écuries de la Payssière », connu comme « Haras des As ». Sert aux recherches et aux doublons.' },
+                },
+              ],
+            },
             {
               type: 'row',
               fields: [
@@ -253,7 +265,7 @@ export const CrmProspects: CollectionConfig = {
       admin: { position: 'sidebar', readOnly: true, description: 'Coché automatiquement : statut « Ne plus contacter » ou demande enregistrée.' },
     },
     // Clés de comparaison (doublons), calculées automatiquement
-    ...(['nameKey', 'communeKey', 'phoneKey', 'emailKey', 'domainKey', 'sirenKey'] as const).map((name) => ({
+    ...(['nameKey', 'altNameKey', 'communeKey', 'phoneKey', 'emailKey', 'domainKey', 'sirenKey'] as const).map((name) => ({
       name,
       type: 'text' as const,
       index: true,
