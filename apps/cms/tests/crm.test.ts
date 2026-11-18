@@ -17,7 +17,10 @@ import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
 import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
 import { ensureCrmZones } from '@/crm/zones'
-import { crmExport, crmImport } from '@/endpoints/crm'
+import { crmExport, crmImport, crmSearch } from '@/endpoints/crm'
+import { runCrmSearch } from '@/crm/search/run'
+import { isMondayAfter9Paris } from '@/crm/search/scheduler'
+import { title } from '@/crm/search/sources'
 import type { Tenant, User } from '@/payload-types'
 import type { PayloadRequest } from 'payload'
 
@@ -345,5 +348,92 @@ describe('Base de prospection', () => {
     const col = rows[0].indexOf('Statut du projet')
     expect(col).toBeGreaterThan(-1)
     expect(rows.find((r) => r[0] === 'Écurie du Tableau')?.[col]).toBe('En cours')
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* ÉTAPE 4 : recherche automatique (sources simulées, aucun accès Internet) */
+/* ------------------------------------------------------------------ */
+
+const company = (siren: string, nom: string, extra: Record<string, unknown> = {}) => ({
+  siren,
+  nom_complet: nom,
+  nom_raison_sociale: nom,
+  nature_juridique: '5499',
+  activite_principale: '93.19Z',
+  nombre_etablissements_ouverts: 1,
+  matching_etablissements: [{ code_postal: '34270', libelle_commune: 'SAINT-MATHIEU-DE-TREVIERS', adresse: '1 CHEMIN DES PINS 34270 SAINT-MATHIEU-DE-TREVIERS' }],
+  ...extra,
+})
+const COMPANIES = [
+  company('111111111', 'ECURIE DU SOLEIL LEVANT'),
+  company('222222222', 'JEAN MARTIN', { activite_principale: '01.43Z', matching_etablissements: [{ code_postal: '34000', libelle_commune: 'MONTPELLIER' }] }),
+  company('333333333', 'COMMUNE DE TRUC CENTRE EQUESTRE MUNICIPAL', { nature_juridique: '7210' }),
+  company('444444444', 'HARAS GRANDE CHAINE', { nombre_etablissements_ouverts: 12 }),
+  company('555555555', 'DOMAINE REFUS', { matching_etablissements: [{ code_postal: '34000', libelle_commune: 'MONTPELLIER' }] }),
+]
+const OSM = [
+  { type: 'node', id: 1, tags: { name: 'Ecurie du Soleil Levant', 'addr:city': 'Saint-Mathieu-de-Tréviers', phone: '04 67 55 55 55' } },
+  { type: 'node', id: 2, tags: { name: 'Domaine Refus', email: 'contact@refus.fr' } },
+  { type: 'way', id: 3, tags: { name: 'Poney Club des Garrigues', 'addr:city': 'Viols-le-Fort', website: 'https://garrigues.test' } },
+  { type: 'node', id: 4, tags: { name: 'Haras Soleil', phone: '+33611223344' } },
+]
+const fakeFetch = (async (input: string | URL | Request) => {
+  const url = String(input instanceof Request ? input.url : input)
+  if (url.includes('recherche-entreprises')) return Response.json({ results: COMPANIES, total_pages: 1 })
+  if (url.includes('interpreter')) return Response.json({ elements: OSM })
+  if (url.endsWith('/robots.txt')) return new Response('', { status: 404 })
+  if (url.startsWith('https://garrigues.test')) {
+    return new Response('<html><a href="mailto:contact@garrigues.test">Écrire</a> 04 67 12 34 56</html>', { headers: { 'content-type': 'text/html' } })
+  }
+  return new Response('', { status: 404 })
+}) as typeof fetch
+
+describe('Recherche de prospects', () => {
+  it('met les noms en forme sans inventer', () => {
+    expect(title('ECURIE DU SOLEIL LEVANT')).toBe('Ecurie du Soleil Levant')
+    expect(title('SAINT-MATHIEU-DE-TREVIERS')).toBe('Saint-Mathieu-de-Treviers')
+  })
+
+  it('la recherche du lundi part le lundi à partir de 9 h (heure de Paris)', () => {
+    expect(isMondayAfter9Paris(new Date('2026-11-23T08:30:00Z'))).toBe(true) // lundi 9 h 30 à Paris
+    expect(isMondayAfter9Paris(new Date('2026-11-23T07:30:00Z'))).toBe(false) // lundi 8 h 30
+    expect(isMondayAfter9Paris(new Date('2026-11-24T09:00:00Z'))).toBe(false) // mardi
+    expect(isMondayAfter9Paris(new Date('2026-06-22T07:05:00Z'))).toBe(true) // lundi 9 h 05, heure d’été
+  })
+
+  it('ajoute les nouvelles structures, écarte doublons, refus, public, réseaux et élevages', async () => {
+    const zone = (await payload.find({ collection: 'crm-zones', where: { code: { equals: '34' } }, limit: 1 })).docs[0]
+    await payload.updateGlobal({ slug: 'crm-settings', data: { includeBreeders: false, maxSiteChecks: 10 } })
+    const id = await runCrmSearch(payload, { trigger: 'manuel', zoneIds: [zone.id], target: 5 }, fakeFetch)
+
+    const search = await payload.findByID({ collection: 'crm-searches', id })
+    expect(search).toMatchObject({ status: 'terminee', trigger: 'manuel', target: 5, added: 2, duplicates: 1, rejected: 4 })
+    expect(search.report).toContain('Rien n’a été inventé')
+
+    const { docs } = await payload.find({ collection: 'crm-prospects', where: { search: { equals: id } }, sort: 'name', depth: 0 })
+    expect(docs.map((d) => d.name)).toEqual(['Ecurie du Soleil Levant', 'Poney Club des Garrigues'])
+
+    const ecurie = docs[0]
+    expect(ecurie).toMatchObject({ status: 'a-verifier', siren: '111111111', phone: '04 67 55 55 55', commune: 'Saint-Mathieu-de-Treviers', department: zone.id })
+    expect(ecurie.email ?? '').toBe('')
+    expect(ecurie.emailLevel).toBe('non-trouve')
+    expect(ecurie.websiteStatus).toBe('a-verifier') // absent des sources ≠ « pas de site »
+    expect(ecurie.sources?.map((x) => x.label)).toEqual(expect.arrayContaining(['Annuaire des entreprises (État)', 'OpenStreetMap']))
+
+    const poney = docs[1]
+    expect(poney).toMatchObject({ email: 'contact@garrigues.test', website: 'https://garrigues.test', websiteStatus: 'site-existant', type: 'poney-club' })
+    expect(poney.sources?.map((x) => x.label)).toContain('Site de l’établissement')
+
+    expect((await payload.findByID({ collection: 'crm-zones', id: zone.id })).lastSearchedAt).toBeTruthy()
+
+    // Relancée : tout est déjà connu, rien n'est ajouté deux fois
+    const again = await runCrmSearch(payload, { trigger: 'manuel', zoneIds: [zone.id], target: 5 }, fakeFetch)
+    expect((await payload.findByID({ collection: 'crm-searches', id: again })).added).toBe(0)
+  }, 60_000)
+
+  it('un client ne peut pas lancer de recherche', async () => {
+    const req = { payload, user: (await as(clientAdmin)).user, json: async () => ({}) } as unknown as PayloadRequest
+    await expect(crmSearch.handler(req)).rejects.toThrow()
   })
 })

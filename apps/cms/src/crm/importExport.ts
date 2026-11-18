@@ -84,7 +84,7 @@ export const mapHeaders = (header: string[]): Partial<Record<ImportField, number
   return out
 }
 
-const guessType = (v: string): string | undefined => {
+export const guessType = (v: string): string | undefined => {
   const n = norm(v)
   if (!n) return undefined
   const exact = CRM_TYPES.find((t) => norm(t.label) === n || t.value === n)

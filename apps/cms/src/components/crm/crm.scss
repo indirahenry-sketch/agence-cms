@@ -355,3 +355,14 @@ body.bfiche-open { overflow: hidden; }
 body.bfiche-open .crm-back-fab { display: none; }
 .bfiche { z-index: 400; }
 .bfiche .bsel { max-width: none; }
+
+/* Compléter les coordonnées */
+.bcoords { display: grid; gap: 8px; padding-top: 10px; border-top: 1px dashed var(--cms-line); }
+.bcoords h4 { margin: 0; }
+.blookup { display: flex; flex-wrap: wrap; gap: 6px; }
+.blookup .bbtn { height: 32px; font-size: 0.8rem; }
+.bcoords__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.bcoords__grid input { width: 100%; min-width: 0; }
+@media (max-width: 520px) { .bcoords__grid { grid-template-columns: 1fr; } }
+.bbanner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 8px 14px; border-radius: 12px; background: var(--t-sky-bg); color: var(--t-sky-fg); font-weight: 600; font-size: 0.88rem; }
+.breport { margin: 0; white-space: pre-wrap; font: inherit; font-size: 0.85rem; color: var(--cms-ink); }

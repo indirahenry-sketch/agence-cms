@@ -1957,6 +1957,18 @@ export interface CrmSetting {
    * Le nombre que tu veux. La recherche s’arrête à cet objectif, et n’ajoute jamais de fiche inventée pour l’atteindre.
    */
   weeklyTarget: number;
+  /**
+   * Cherche de nouveaux prospects dans les zones actives, jusqu’à l’objectif de la semaine.
+   */
+  autoSearch?: boolean | null;
+  /**
+   * Éleveurs de chevaux dont le nom ne contient ni « écurie », ni « haras », ni « équestre »… Souvent des particuliers, rarement joignables.
+   */
+  includeBreeders?: boolean | null;
+  /**
+   * Lecture polie : une page à la fois. Plus le nombre est grand, plus la recherche est longue.
+   */
+  maxSiteChecks?: number | null;
   followUpDays: number;
   updatedAt?: string | null;
   createdAt?: string | null;
@@ -1967,6 +1979,9 @@ export interface CrmSetting {
  */
 export interface CrmSettingsSelect<T extends boolean = true> {
   weeklyTarget?: T;
+  autoSearch?: T;
+  includeBreeders?: T;
+  maxSiteChecks?: T;
   followUpDays?: T;
   updatedAt?: T;
   createdAt?: T;
