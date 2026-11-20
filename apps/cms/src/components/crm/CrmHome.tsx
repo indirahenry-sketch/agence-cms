@@ -3,10 +3,11 @@ import React from 'react'
 
 import { extractID } from '@/access/roles'
 import { CRM_ACTIVITY_KINDS, CRM_STATUSES, CRM_TYPES } from '@/crm/constants'
-import { loadFollowUps, monthCells, parisDay, ymd } from '@/crm/followUps'
+import { loadFollowUps, loadTasks, monthCells, parisDay, ymd } from '@/crm/followUps'
 import { countSafeDuplicates } from '@/crm/merge'
 import type { CrmProspect } from '@/payload-types'
 
+import { CrmDayTasks } from './CrmDayTasks'
 import { CrmMergeButton } from './CrmMergeButton'
 import { CrmHeader, crmAllowed, crmDenied, crmPage } from './template'
 
@@ -85,7 +86,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
   const soon = new Date(now.getTime() + 7 * 864e5).toISOString()
   const base = { overrideAccess: true, req } as const
 
-  const safeDuplicates = await countSafeDuplicates(payload, req)
+  const [safeDuplicates, tasks] = await Promise.all([countSafeDuplicates(payload, req), loadTasks(payload, req, cells)])
   const [settings, prospects, replies, emailsSent, duplicates, recent, activity, zones, followUps] = await Promise.all([
     payload.findGlobal({ slug: 'crm-settings', ...base }),
     payload.find({
@@ -122,6 +123,9 @@ export const CrmHome = async (props: AdminViewServerProps) => {
   const todo = followUps.filter((f) => f.day <= parisDay(soon)).slice(0, 6)
   const perDay = new Map<string, number>()
   for (const f of followUps) perDay.set(f.day, (perDay.get(f.day) ?? 0) + 1)
+  // Tâches du calendrier (non faites)
+  const tasksPerDay = new Map<string, number>()
+  for (const t of tasks) if (!t.done) tasksPerDay.set(t.day, (tasksPerDay.get(t.day) ?? 0) + 1)
   const late = followUps.filter((f) => f.day < today).length
   const dayLabel = (d: string) =>
     d === today ? 'Aujourd’hui' : d < today ? 'En retard' : new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`))
@@ -144,6 +148,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
     props,
     <div className="crm crm--dash">
       <CrmHeader title="Prospection" current="accueil" />
+      <CrmDayTasks />
 
       <div className="cdash">
         {/* ---------- Colonne gauche ---------- */}
@@ -334,20 +339,25 @@ export const CrmHome = async (props: AdminViewServerProps) => {
               {cells.map((d) => {
                 const k = ymd(d)
                 const n = perDay.get(k) ?? 0
-                const cls = ['cmini__day', d.getMonth() !== m - 1 && 'out', k === today && 'today', n > 0 && (k < today ? 'has tone-rose' : 'has tone-lav')].filter(Boolean).join(' ')
-                return n > 0 ? (
-                  <a key={k} className={cls} href="/admin/prospection/relances" title={`${n} relance${n > 1 ? 's' : ''}`}>
+                const t = tasksPerDay.get(k) ?? 0
+                const cls = [
+                  'cmini__day',
+                  d.getMonth() !== m - 1 && 'out',
+                  k === today && 'today',
+                  n + t > 0 && (k < today ? 'has tone-rose' : n ? 'has tone-lav' : 'has tone-mint'),
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+                const title = [n && `${n} relance${n > 1 ? 's' : ''}`, t && `${t} tâche${t > 1 ? 's' : ''}`].filter(Boolean).join(', ')
+                return (
+                  <button key={k} type="button" className={cls} data-crm-day={k} title={title ? `${title} · cliquer pour voir ou ajouter` : 'Ajouter une tâche'}>
                     {d.getDate()}
-                  </a>
-                ) : (
-                  <span key={k} className={cls}>
-                    {d.getDate()}
-                  </span>
+                  </button>
                 )
               })}
             </div>
             <p className="cmuted cmini__legend">
-              <span className="cdot tone-lav" /> prévue <span className="cdot tone-rose" /> en retard
+              <span className="cdot tone-lav" /> relance <span className="cdot tone-mint" /> tâche <span className="cdot tone-rose" /> retard
             </p>
           </section>
 

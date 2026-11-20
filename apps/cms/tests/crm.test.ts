@@ -14,6 +14,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import { commercialOf, statusForCommercial } from '@/crm/constants'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
+import { loadTasks, monthCells } from '@/crm/followUps'
 import { autoMergeDuplicates, mergeProspects } from '@/crm/merge'
 import { fillTemplate, mailtoLink } from '@/crm/emailTemplate'
 import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
@@ -38,7 +39,7 @@ const as = async (user: User) => ({
   overrideAccess: false as const,
 })
 
-const CRM_COLLECTIONS = ['crm-prospects', 'crm-activities', 'crm-zones', 'crm-searches', 'crm-duplicates', 'crm-optouts', 'crm-email-templates'] as const
+const CRM_COLLECTIONS = ['crm-prospects', 'crm-activities', 'crm-zones', 'crm-searches', 'crm-duplicates', 'crm-optouts', 'crm-email-templates', 'crm-tasks'] as const
 
 beforeAll(async () => {
   payload = await getPayload({ config })
@@ -604,5 +605,17 @@ describe('Doublons : la fiche la plus complète prend le dessus', () => {
     await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Domaine Double', commune: 'Pexiora', siren: '777888999', email: 'double@test.test' } })
     await autoMergeDuplicates(payload)
     expect((await payload.findByID({ collection: 'crm-prospects', id: a.id })).id).toBe(a.id)
+  })
+})
+
+describe('Calendrier : tâches du jour', () => {
+  it('enregistre une tâche (avec ou sans prospect) et la place au bon jour', async () => {
+    const p = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie du Calendrier', commune: 'Limoux' } })
+    await payload.create({ collection: 'crm-tasks', data: { kind: 'appel', title: 'Appeler pour le devis', date: '2026-12-03T12:00:00.000Z', time: '14:30', prospect: p.id } })
+    await payload.create({ collection: 'crm-tasks', data: { kind: 'recherche', title: 'Recherche Hérault', date: '2026-12-03T12:00:00.000Z' } })
+    const tasks = await loadTasks(payload, undefined as never, monthCells(2026, 12))
+    const day = tasks.filter((t) => t.day === '2026-12-03')
+    expect(day.map((t) => t.title).sort()).toEqual(['Appeler pour le devis', 'Recherche Hérault'])
+    expect(day.find((t) => t.kind === 'appel')?.prospectName).toBe('Écurie du Calendrier')
   })
 })

@@ -56,3 +56,27 @@ export const loadFollowUps = async (payload: Payload, req: PayloadRequest, cells
   }
   return items.sort((a, b) => a.day.localeCompare(b.day))
 }
+
+export type DayTask = { id: number; day: string; title: string; kind: string; time?: string | null; done: boolean; prospectId?: number | null; prospectName?: string | null }
+
+/** Tâches du calendrier entre deux dates (faites ou non). */
+export const loadTasks = async (payload: Payload, req: PayloadRequest, cells: Date[]): Promise<DayTask[]> => {
+  const first = cells[0]
+  const last = cells[cells.length - 1]
+  const from = new Date(Date.UTC(first.getFullYear(), first.getMonth(), first.getDate() - 1)).toISOString()
+  const to = new Date(Date.UTC(last.getFullYear(), last.getMonth(), last.getDate() + 2)).toISOString()
+  const { docs } = await payload.find({
+    collection: 'crm-tasks',
+    where: { and: [{ date: { greater_than_equal: from } }, { date: { less_than: to } }] },
+    depth: 1,
+    sort: 'date',
+    limit: 0,
+    pagination: false,
+    overrideAccess: true,
+    req,
+  })
+  return docs.map((t) => {
+    const p = typeof t.prospect === 'object' && t.prospect ? (t.prospect as CrmProspect) : null
+    return { id: t.id, day: parisDay(t.date), title: t.title, kind: t.kind, time: t.time, done: Boolean(t.done), prospectId: p?.id ?? (typeof t.prospect === 'number' ? t.prospect : null), prospectName: p?.name ?? null }
+  })
+}
