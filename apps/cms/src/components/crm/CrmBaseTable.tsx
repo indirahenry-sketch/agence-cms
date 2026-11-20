@@ -772,6 +772,8 @@ export const CrmBaseTable: React.FC = () => {
     const rech = params.get('recherche')
     if (rech && /^\d+$/.test(rech)) setFilters((f) => ({ ...f, search: rech }))
     // Recherche venue du tableau de bord : ?q=texte
+    const dep = params.get('dep')
+    if (dep && /^\d+$/.test(dep)) setFilters((f) => ({ ...f, dep }))
     const text = params.get('q')
     if (text) setFilters((f) => ({ ...f, q: text }))
   }, [load])

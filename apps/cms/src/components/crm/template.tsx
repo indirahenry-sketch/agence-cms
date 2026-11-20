@@ -49,7 +49,7 @@ export const crmAllowed = (props: AdminViewServerProps) => canUseCrm(props.initP
 const TABS = ['accueil', 'base', 'recherche', 'relances', 'import', 'modeles']
 const DASHBOARD_TABS = ['accueil', 'base', 'ajouter', 'import', 'modeles']
 
-export const CrmHeader = ({ title, current }: { title: string; current: 'accueil' | 'base' | 'recherche' | 'relances' | 'import' }) => (
+export const CrmHeader = ({ title, current }: { title: string; current: 'accueil' | 'base' | 'recherche' | 'relances' | 'import' | 'zones' }) => (
   <header className="crm__head">
     <div>
       <p className="crm__kicker">Espace séparé des sites clients</p>
