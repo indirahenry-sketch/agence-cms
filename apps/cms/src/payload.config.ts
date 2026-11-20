@@ -44,7 +44,7 @@ import { removeOrphans } from './hooks/tenantCleanup'
 import { startKeepAwake } from './lib/keepAwake'
 import { startTrashPurge } from './lib/trashPurge'
 import { checkS3 } from './lib/s3-check'
-import { crmExport, crmImport, crmSearch } from './endpoints/crm'
+import { crmExport, crmImport, crmMergeDuplicates, crmSearch } from './endpoints/crm'
 import { notifications } from './endpoints/notifications'
 import { storageCheck } from './endpoints/storage'
 import { readableErrors } from './hooks/readableErrors'
@@ -101,7 +101,7 @@ export default buildConfig({
     },
   },
 
-  endpoints: [notifications, storageCheck, crmExport, crmImport, crmSearch],
+  endpoints: [notifications, storageCheck, crmExport, crmImport, crmSearch, crmMergeDuplicates],
 
   // Messages d'erreur compréhensibles au lieu de « Something went wrong »
   hooks: { afterError: [readableErrors] },

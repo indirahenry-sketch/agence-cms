@@ -4,8 +4,10 @@ import React from 'react'
 import { extractID } from '@/access/roles'
 import { CRM_ACTIVITY_KINDS, CRM_STATUSES, CRM_TYPES } from '@/crm/constants'
 import { loadFollowUps, monthCells, parisDay, ymd } from '@/crm/followUps'
+import { countSafeDuplicates } from '@/crm/merge'
 import type { CrmProspect } from '@/payload-types'
 
+import { CrmMergeButton } from './CrmMergeButton'
 import { CrmHeader, crmAllowed, crmDenied, crmPage } from './template'
 
 const LIST = '/admin/collections/crm-prospects'
@@ -83,6 +85,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
   const soon = new Date(now.getTime() + 7 * 864e5).toISOString()
   const base = { overrideAccess: true, req } as const
 
+  const safeDuplicates = await countSafeDuplicates(payload, req)
   const [settings, prospects, replies, emailsSent, duplicates, recent, activity, zones, followUps] = await Promise.all([
     payload.findGlobal({ slug: 'crm-settings', ...base }),
     payload.find({
@@ -163,6 +166,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
               <li><a href="/admin/collections/crm-optouts"><i className="tone-rose">⊘</i>Ne plus contacter</a></li>
               <li><a href="/admin/globals/crm-settings"><i className="tone-sky">⚙</i>Réglages</a></li>
             </ul>
+            <CrmMergeButton safe={safeDuplicates} />
           </section>
 
           <section className="ccard">

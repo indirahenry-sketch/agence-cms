@@ -3,6 +3,7 @@ import { APIError, type Endpoint, type PayloadRequest } from 'payload'
 import { canUseCrm } from '@/crm/access'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { EXPORT_COLUMNS, importProspects, MAX_IMPORT_ROWS } from '@/crm/importExport'
+import { autoMergeDuplicates } from '@/crm/merge'
 import { isSearchRunning, runCrmSearch } from '@/crm/search/run'
 
 /**
@@ -95,5 +96,20 @@ export const crmSearch: Endpoint = {
     const payload = req.payload
     void runCrmSearch(payload, { trigger: 'manuel', zoneIds, target }).catch(() => {}) // erreur notée dans l'historique
     return Response.json({ started: true }, { status: 202 })
+  },
+}
+
+/**
+ * POST /api/crm-merge-duplicates
+ * Fusionne les doublons « à examiner » dont la correspondance est sûre (même SIREN, même nom +
+ * commune, même site ou e-mail) : la fiche la plus complète est gardée. Les autres restent à examiner.
+ */
+export const crmMergeDuplicates: Endpoint = {
+  path: '/crm-merge-duplicates',
+  method: 'post',
+  handler: async (req) => {
+    guard(req)
+    const merged = await autoMergeDuplicates(req.payload, req)
+    return Response.json({ merged })
   },
 }

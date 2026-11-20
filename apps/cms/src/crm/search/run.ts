@@ -4,6 +4,7 @@ import type { CrmZone } from '@/payload-types'
 
 import { findOptOut, prospectMatchConditions } from '../dedupe'
 import { guessType } from '../importExport'
+import { autoMergeDuplicates } from '../merge'
 import { crmKeys, domainKey, emailKey, type CrmKeys } from '../normalize'
 import { type Candidate, type EtatStats, type Fetcher, fromEtat, fromOsm, fromWebsite } from './sources'
 
@@ -216,6 +217,10 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
       '',
     )
     if (stats.failures) report.push(`Annuaire des entreprises : ${stats.failures} requête(s) en échec sur ${stats.calls}.`)
+
+    // Doublons sûrs : la fiche la plus complète prend le dessus
+    const merged = added ? await autoMergeDuplicates(payload).catch((err) => (payload.logger.error({ err }, 'Prospection : fusion des doublons échouée'), [])) : []
+    if (merged.length) report.push('', `Doublons fusionnés (fiche la plus complète gardée) : ${merged.length}`, ...merged.map((m) => `- « ${m.removedName} » → « ${m.keptName} »`))
 
     await payload.update({
       collection: 'crm-searches',
