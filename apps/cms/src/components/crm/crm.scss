@@ -84,7 +84,7 @@
 /* ================================================================== */
 /* Tableau de bord Prospection : 3 colonnes, couleurs pastel           */
 /* ================================================================== */
-.crm, .bfiche {
+.crm, .bfiche, .crm-sidemenu {
   --t-lav-bg: #ede9fe; --t-lav-fg: #6d28d9;
   --t-sky-bg: #e0f2fe; --t-sky-fg: #0369a1;
   --t-peach-bg: #ffedd5; --t-peach-fg: #c2410c;
@@ -92,7 +92,7 @@
   --t-rose-bg: #ffe4e6; --t-rose-fg: #be123c;
   --t-butter-bg: #fef9c3; --t-butter-fg: #a16207;
 }
-html[data-theme='dark'] .crm, html[data-theme='dark'] .bfiche {
+html[data-theme='dark'] .crm, html[data-theme='dark'] .bfiche, html[data-theme='dark'] .crm-sidemenu {
   --t-lav-bg: rgba(167, 139, 250, 0.18); --t-lav-fg: #c4b5fd;
   --t-sky-bg: rgba(56, 189, 248, 0.16); --t-sky-fg: #7dd3fc;
   --t-peach-bg: rgba(251, 146, 60, 0.16); --t-peach-fg: #fdba74;
@@ -101,7 +101,7 @@ html[data-theme='dark'] .crm, html[data-theme='dark'] .bfiche {
   --t-butter-bg: rgba(250, 204, 21, 0.15); --t-butter-fg: #fde047;
 }
 @each $t in lav, sky, peach, mint, rose, butter {
-  .crm .tone-#{$t}, .bfiche .tone-#{$t} { background: var(--t-#{$t}-bg); color: var(--t-#{$t}-fg); }
+  .crm .tone-#{$t}, .bfiche .tone-#{$t}, .crm-sidemenu .tone-#{$t} { background: var(--t-#{$t}-bg); color: var(--t-#{$t}-fg); }
 }
 
 .cdash {
@@ -422,7 +422,8 @@ body.crm-space [class*='nav-group'] { display: none !important; }
 .crm-sidemenu__link {
   display: flex !important; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px;
   color: var(--cms-ink); font-weight: 600; text-decoration: none;
-  span { width: 18px; text-align: center; opacity: 0.8; }
+  i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; font-style: normal; font-size: 0.9rem; flex: none; }
+  .cbadge { margin-left: auto; }
   &:hover { background: color-mix(in srgb, var(--cms-accent) 10%, transparent); }
   &.on { background: color-mix(in srgb, var(--cms-accent) 16%, transparent); color: var(--cms-accent); }
 }
@@ -517,3 +518,8 @@ button.cmini__day { border: 0; background: transparent; font: inherit; cursor: p
 .crm .cmini__day.has { color: var(--cms-ink); font-weight: 700; }
 .crm .cmini__day.late { color: #e11d48; }
 .cmini__dots i { width: 5px; height: 5px; }
+
+/* Onglets de la prospection : icône colorée comme dans le menu */
+.crm__tabs a { display: inline-flex; align-items: center; gap: 7px; }
+.crm__tabs a i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; font-style: normal; font-size: 0.78rem; flex: none; }
+.crm__tabs a.on i { background: rgba(255, 255, 255, 0.22) !important; color: #fff !important; }

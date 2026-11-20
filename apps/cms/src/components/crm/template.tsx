@@ -5,6 +5,8 @@ import React from 'react'
 
 import { canUseCrm } from '@/crm/access'
 
+import { crmMenuItem } from './menu'
+
 import '../welcome.scss'
 import './crm.scss'
 
@@ -43,6 +45,10 @@ export const crmDenied = (props: AdminViewServerProps) =>
 export const crmAllowed = (props: AdminViewServerProps) => canUseCrm(props.initPageResult.req.user)
 
 /** En-tête commun : titre + navigation entre les pages de la prospection. */
+/** Onglets en haut des pages de la prospection (sur le tableau de bord : « Ajouter un prospect » au lieu de Recherche et Relances). */
+const TABS = ['accueil', 'base', 'recherche', 'relances', 'import', 'modeles']
+const DASHBOARD_TABS = ['accueil', 'base', 'ajouter', 'import', 'modeles']
+
 export const CrmHeader = ({ title, current }: { title: string; current: 'accueil' | 'base' | 'recherche' | 'relances' | 'import' }) => (
   <header className="crm__head">
     <div>
@@ -50,22 +56,17 @@ export const CrmHeader = ({ title, current }: { title: string; current: 'accueil
       <h1>{title}</h1>
     </div>
     <nav className="crm__tabs" aria-label="Prospection">
-      <a className={current === 'accueil' ? 'on' : ''} href="/admin/prospection">
-        Tableau de bord
-      </a>
-      <a className={current === 'base' ? 'on' : ''} href="/admin/prospection/base">
-        Base de prospection
-      </a>
-      <a className={current === 'recherche' ? 'on' : ''} href="/admin/prospection/recherche">
-        Recherche
-      </a>
-      <a className={current === 'relances' ? 'on' : ''} href="/admin/prospection/relances">
-        Relances
-      </a>
-      <a className={current === 'import' ? 'on' : ''} href="/admin/prospection/import">
-        Importer / exporter
-      </a>
-      <a href="/admin/collections/crm-email-templates">Modèles d’e-mails</a>
+      {(current === 'accueil' ? DASHBOARD_TABS : TABS).map((key) => {
+        const item = crmMenuItem(key)
+        return (
+          <a key={key} className={current === key ? 'on' : ''} href={item.href}>
+            <i className={`tone-${item.tone}`} aria-hidden>
+              {item.icon}
+            </i>
+            {item.label}
+          </a>
+        )
+      })}
     </nav>
   </header>
 )
