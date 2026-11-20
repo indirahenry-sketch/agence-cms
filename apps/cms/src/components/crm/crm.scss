@@ -523,3 +523,7 @@ button.cmini__day { border: 0; background: transparent; font: inherit; cursor: p
 .crm__tabs a { display: inline-flex; align-items: center; gap: 7px; }
 .crm__tabs a i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; font-style: normal; font-size: 0.78rem; flex: none; }
 .crm__tabs a.on i { background: rgba(255, 255, 255, 0.22) !important; color: #fff !important; }
+
+/* Menu de la prospection : pas l'icône générique du menu du CMS (carré vide), on a nos propres icônes */
+.crm-sidemenu__link::before,
+.crm-back-nav::before { content: none !important; display: none !important; }
