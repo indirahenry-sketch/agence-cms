@@ -318,11 +318,11 @@ export const CrmHome = async (props: AdminViewServerProps) => {
 
         {/* ---------- Colonne droite ---------- */}
         <aside className="cdash__right">
-          <section className="ccard">
+          <section className="ccard ccard--cal">
             <div className="ccard__row">
               <h2 className="ccard__title">{monthTitle.charAt(0).toUpperCase() + monthTitle.slice(1)}</h2>
-              <a className="clink" href="/admin/prospection/relances">
-                Ouvrir →
+              <a className="clink" href="/admin/prospection/relances" aria-label="Ouvrir les relances">
+                →
               </a>
             </div>
             <div className="cmini">
@@ -347,7 +347,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
               })}
             </div>
             <p className="cmuted cmini__legend">
-              <span className="cdot tone-lav" /> relance prévue <span className="cdot tone-rose" /> en retard
+              <span className="cdot tone-lav" /> prévue <span className="cdot tone-rose" /> en retard
             </p>
           </section>
 

@@ -389,3 +389,24 @@ body.bfiche-open .crm-back-fab { display: none; }
 /* Fusion des doublons (tableau de bord) */
 .cmerge { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--cms-line); }
 .cmerge__list { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.85rem; }
+
+/* Tableau de bord : calendrier en petit carré, à droite */
+.ccard--cal {
+  justify-self: end; width: 100%; max-width: 224px; padding: 12px 14px;
+  .ccard__row { margin-bottom: 6px; }
+  .ccard__title { font-size: 0.88rem; }
+  .cmini { gap: 2px; }
+  .cmini__dow { font-size: 0.6rem; padding-bottom: 2px; }
+  .cmini__day { height: 22px; border-radius: 6px; font-size: 0.7rem; }
+  .cmini__legend { margin-top: 6px; font-size: 0.66rem; gap: 4px; .cdot { width: 7px; height: 7px; } .cdot:last-of-type { margin-left: 6px; } }
+}
+@media (max-width: 1200px) {
+  /* Activité à gauche, calendrier en petit carré à droite */
+  .cdash__right { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  .cdash__right > .ccard { grid-row: 1; grid-column: 1; }
+  .cdash__right > .ccard--cal { grid-column: 2; width: 224px; }
+}
+@media (max-width: 760px) {
+  .cdash__right { grid-template-columns: minmax(0, 1fr); }
+  .cdash__right > .ccard, .cdash__right > .ccard--cal { grid-row: auto; grid-column: auto; }
+}
