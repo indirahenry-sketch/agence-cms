@@ -13,6 +13,7 @@ import { getPayload, type Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { commercialOf, statusForCommercial } from '@/crm/constants'
+import { checkClosedProspects } from '@/crm/closed'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { loadTasks, monthCells } from '@/crm/followUps'
 import { autoMergeDuplicates, mergeProspects } from '@/crm/merge'
@@ -617,5 +618,28 @@ describe('Calendrier : tâches du jour', () => {
     const day = tasks.filter((t) => t.day === '2026-12-03')
     expect(day.map((t) => t.title).sort()).toEqual(['Appeler pour le devis', 'Recherche Hérault'])
     expect(day.find((t) => t.kind === 'appel')?.prospectName).toBe('Écurie du Calendrier')
+  })
+})
+
+describe('Entreprises qui n’existent plus', () => {
+  it('passe en « N’existe plus » une entreprise cessée (SIREN), sans toucher aux autres', async () => {
+    const closed = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Ancienne Écurie', siren: '111 111 111' } })
+    const open = await payload.create({ collection: 'crm-prospects', data: { status: 'nouveau', name: 'Écurie Ouverte', siren: '222222222' } })
+    const fetcher = (async (url: string | URL) => {
+      const siren = new URL(String(url)).searchParams.get('q')
+      const etat = siren === '111111111' ? 'C' : 'A'
+      return new Response(JSON.stringify({ results: [{ siren, etat_administratif: etat, date_fermeture: etat === 'C' ? '2024-06-30' : null }] }), { status: 200 })
+    }) as typeof fetch
+    const r = await checkClosedProspects(payload, { ids: [closed.id, open.id], fetcher, pauseMs: 0 })
+    expect(r.closed.map((c) => c.id)).toEqual([closed.id])
+    const a = await payload.findByID({ collection: 'crm-prospects', id: closed.id, depth: 0 })
+    expect(a.status).toBe('ferme')
+    expect(a.doNotContact).toBe(true)
+    const b = await payload.findByID({ collection: 'crm-prospects', id: open.id, depth: 0 })
+    expect(b.status).toBe('nouveau')
+    const notes = await payload.find({ collection: 'crm-activities', where: { prospect: { equals: closed.id } }, depth: 0 })
+    expect(notes.docs[0]?.summary).toContain('Entreprise fermée')
+    // pas ajoutée à la liste « ne plus contacter » (qui sert aux refus)
+    expect((await payload.count({ collection: 'crm-optouts', where: { prospect: { equals: closed.id } } })).totalDocs).toBe(0)
   })
 })

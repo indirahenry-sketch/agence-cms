@@ -15,6 +15,7 @@ import * as migration_20261117_195739_crm_v3 from './20261117_195739_crm_v3';
 import * as migration_20261118_133000_crm_v4_modeles_emails from './20261118_133000_crm_v4_modeles_emails';
 import * as migration_20261118_163000_crm_v5_autre_nom from './20261118_163000_crm_v5_autre_nom';
 import * as migration_20261120_183000_crm_v6_taches from './20261120_183000_crm_v6_taches';
+import * as migration_20261120_213000_crm_v7_fermee from './20261120_213000_crm_v7_fermee';
 
 export const migrations = [
   {
@@ -100,6 +101,11 @@ export const migrations = [
   {
     up: migration_20261120_183000_crm_v6_taches.up,
     down: migration_20261120_183000_crm_v6_taches.down,
-    name: '20261120_183000_crm_v6_taches'
+    name: '20261120_183000_crm_v6_taches',
+  },
+  {
+    up: migration_20261120_213000_crm_v7_fermee.up,
+    down: migration_20261120_213000_crm_v7_fermee.down,
+    name: '20261120_213000_crm_v7_fermee'
   },
 ];

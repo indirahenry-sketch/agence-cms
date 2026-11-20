@@ -50,7 +50,7 @@ const SITE = [
 ] as const
 const PROJECT_TONE: Record<string, string> = { 'a-faire': 'lav', 'en-cours': 'sky', 'en-livraison': 'peach', livre: 'mint' }
 const COMMERCIAL_TONE = Object.fromEntries(CRM_COMMERCIAL.map((c) => [c.value, c.tone])) as Record<CrmCommercial, string>
-const COMMERCIAL_DOT: Record<CrmCommercial, string> = { 'a-contacter': '🟠', contacte: '🔵', accepte: '🟢', refuse: '🔴' }
+const COMMERCIAL_DOT: Record<CrmCommercial, string> = { 'a-contacter': '🟠', contacte: '🔵', accepte: '🟢', refuse: '🔴', ferme: '⚫' }
 
 const typeLabel = (v?: string | null) => CRM_TYPES.find((t) => t.value === v)?.label ?? ''
 const kindLabel = (v?: string | null) => CRM_ACTIVITY_KINDS.find((k) => k.value === v)?.label ?? v ?? ''
@@ -443,6 +443,46 @@ const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates
 }
 
 /* ------------------------------------------------------------------ */
+/* Entreprise fermée ? (Annuaire des entreprises, par le SIREN)         */
+/* ------------------------------------------------------------------ */
+
+type ClosedResult = { checked: number; closed: { id: number; name: string; closedOn?: string | null }[]; errors: number }
+const checkClosed = (id?: number) =>
+  api<ClosedResult>('/crm-check-closed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(id ? { id } : {}) })
+
+const ClosedCheckButton = ({ p, onReload }: { p: Prospect; onReload: () => Promise<void> }) => {
+  const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => setMsg(''), [p.id])
+  return (
+    <div className="brow">
+      <button
+        type="button"
+        className="bbtn bbtn--ghost"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true)
+          try {
+            const r = await checkClosed(p.id)
+            if (r.closed.length) {
+              setMsg('Fermée : passée en « N’existe plus ».')
+              await onReload()
+            } else setMsg(r.errors ? 'Annuaire injoignable, réessaie plus tard.' : 'Toujours en activité ✓')
+          } catch (e) {
+            setMsg(e instanceof Error ? e.message : 'Erreur')
+          } finally {
+            setBusy(false)
+          }
+        }}
+      >
+        {busy ? 'Vérification…' : 'Existe-t-elle encore ?'}
+      </button>
+      {msg && <span className="bmuted">{msg}</span>}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /* Fiche individuelle (panneau latéral)                                */
 /* ------------------------------------------------------------------ */
 
@@ -547,8 +587,9 @@ const Fiche = ({
             ✕
           </button>
         </header>
+        {p.status === 'ferme' && <p className="bwarn bfiche__closed">Cette entreprise n’existe plus (fermée). Elle n’est plus proposée dans les relances ni les recherches ; la fiche est gardée pour éviter de la recréer.</p>}
 
-        {p.doNotContact && <p className="bwarn">Ne plus contacter : ce prospect a refusé toute sollicitation.</p>}
+        {p.doNotContact && p.status !== 'ferme' && <p className="bwarn">Ne plus contacter : ce prospect a refusé toute sollicitation.</p>}
 
         <section className="bfiche__block">
           <div className="bfiche__selects">
@@ -605,7 +646,10 @@ const Fiche = ({
             {p.siren && (
               <>
                 <dt>SIREN</dt>
-                <dd>{p.siren}</dd>
+                <dd>
+                  {p.siren}
+                  {p.status !== 'ferme' && <ClosedCheckButton p={p} onReload={onReload} />}
+                </dd>
               </>
             )}
           </dl>
@@ -816,7 +860,7 @@ export const CrmBaseTable: React.FC = () => {
 
   const all = prospects ?? []
   const counts = useMemo(() => {
-    const c = { total: all.length, 'a-contacter': 0, contacte: 0, accepte: 0, refuse: 0, livre: 0 }
+    const c = { total: all.length, 'a-contacter': 0, contacte: 0, accepte: 0, refuse: 0, ferme: 0, livre: 0 }
     for (const p of all) {
       c[commercialOf(p.status)]++
       if (p.projectStatus === 'livre') c.livre++
@@ -883,6 +927,24 @@ export const CrmBaseTable: React.FC = () => {
         <button type="button" className={`bcount tone-butter${filters.reserve === 'only' ? ' on' : ''}`} onClick={() => setFilters({ ...EMPTY, reserve: 'only' })} aria-pressed={filters.reserve === 'only'}>
           <b>{all.filter(inReserve).length}</b>
           <span>À compléter</span>
+        </button>
+        <button
+          type="button"
+          className="bcount bcount--action"
+          title="Vérifie dans l’Annuaire des entreprises (par le SIREN) si des prospects ont fermé"
+          onClick={async () => {
+            setToast('Vérification des entreprises fermées…')
+            try {
+              const r = await checkClosed()
+              await load()
+              setToast(r.closed.length ? `${r.closed.length} entreprise(s) fermée(s) passée(s) en « N’existe plus » : ${r.closed.map((c) => c.name).join(', ')}` : `Aucune fermeture trouvée (${r.checked} vérifiée(s))${r.errors ? `, ${r.errors} non joignable(s)` : ''}`)
+            } catch (e) {
+              setToast(e instanceof Error ? e.message : 'Erreur')
+            }
+          }}
+        >
+          <b>⚫</b>
+          <span>Vérifier les fermetures</span>
         </button>
       </div>
 
