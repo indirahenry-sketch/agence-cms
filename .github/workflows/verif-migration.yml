@@ -1,0 +1,16 @@
+# Vérification ponctuelle (branche temporaire) : les styles du CRM compilent-ils ?
+name: Verif styles
+on: push
+jobs:
+  verif:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.23.4, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Compilation SCSS
+        working-directory: apps/cms
+        run: |
+          for f in src/components/crm/crm.scss "src/app/(payload)/custom.scss"; do pnpm dlx sass@1 --no-source-map "$f" > /dev/null && echo "OK $f"; done
