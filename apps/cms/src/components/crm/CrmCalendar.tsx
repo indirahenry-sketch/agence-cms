@@ -3,6 +3,7 @@ import React from 'react'
 
 import { CRM_TASK_KINDS } from '@/crm/constants'
 import { loadFollowUps, loadTasks, monthCells, parisDay, ymd } from '@/crm/followUps'
+import { KIND_LEGEND, toneOfKind } from '@/crm/tones'
 
 import { CrmDayTasks } from './CrmDayTasks'
 import { CrmHeader, crmAllowed, crmDenied, crmPage } from './template'
@@ -58,6 +59,16 @@ export const CrmCalendar = async (props: AdminViewServerProps) => {
             <span>{inMonth.length} relance{inMonth.length > 1 ? 's' : ''} ce mois-ci</span>
             {late > 0 && <span className="crm__late">{late} en retard</span>}
           </div>
+          <p className="cmini__legend cmuted">
+            {KIND_LEGEND.map((l) => (
+              <span key={l.kind}>
+                <span className={`cdot tone-${toneOfKind(l.kind)}`} /> {l.label}
+              </span>
+            ))}
+            <span>
+              <span className="cdot" style={{ background: '#e11d48' }} /> trait rouge = en retard
+            </span>
+          </p>
         </div>
         <div className="ecal__grid">
           {DAYS.map((d) => (
@@ -75,13 +86,13 @@ export const CrmCalendar = async (props: AdminViewServerProps) => {
               <div key={k} className={`ecal__day${out ? ' out' : ''}${k === today ? ' today' : ''}`} data-crm-day={k} title="Cliquer pour voir ou ajouter une tâche">
                 <span className="ecal__num">{d.getDate()}</span>
                 {dayTasks.slice(0, 3).map((t) => (
-                  <span key={`t${t.id}`} className={`ecal__ev crm__ev crm__ev--task${t.done ? ' done' : ''}`} data-crm-task={t.id} title={`${kindLabel(t.kind)}${t.prospectName ? ` · ${t.prospectName}` : ''}`}>
+                  <span key={`t${t.id}`} className={`ecal__ev crm__ev crm__ev--task tone-${toneOfKind(t.kind)}${t.done ? ' done' : ''}${!t.done && k < today ? ' is-late' : ''}`} data-crm-task={t.id} title={`${kindLabel(t.kind)}${t.prospectName ? ` · ${t.prospectName}` : ''}`}>
                     {t.time ? `${t.time} ` : ''}
                     {t.title}
                   </span>
                 ))}
                 {list.slice(0, room).map((i) => (
-                  <a key={i.key} className={`ecal__ev crm__ev${k < today ? ' crm__ev--late' : ''}`} href={`${LIST}/${i.prospectId}`} title={i.detail ? `${i.name} · ${i.detail}` : i.name}>
+                  <a key={i.key} className={`ecal__ev crm__ev tone-${toneOfKind('relance')}${k < today ? ' is-late' : ''}`} href={`${LIST}/${i.prospectId}`} title={i.detail ? `${i.name} · ${i.detail}` : i.name}>
                     {i.name}
                   </a>
                 ))}

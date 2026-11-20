@@ -401,14 +401,15 @@ body.bfiche-open .crm-back-fab { display: none; }
   .cmini__legend { margin-top: 6px; font-size: 0.66rem; gap: 4px; .cdot { width: 7px; height: 7px; } .cdot:last-of-type { margin-left: 6px; } }
 }
 @media (max-width: 1200px) {
-  /* Activité à gauche, calendrier en petit carré à droite */
-  .cdash__right { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
-  .cdash__right > .ccard { grid-row: 1; grid-column: 1; }
-  .cdash__right > .ccard--cal { grid-column: 2; width: 224px; }
+  /* Activité + statistiques à gauche, calendrier et « À faire » en colonne étroite à droite */
+  .cdash__right { grid-template-columns: minmax(0, 1fr) 240px; grid-template-areas: 'feed cal' 'feed todo' 'stats stats'; align-items: start; }
+  .cdash__right > .ccard--cal { grid-area: cal; width: 100%; max-width: none; }
+  .cdash__right > .ccard--todo { grid-area: todo; }
+  .cdash__right > .ccard--feed { grid-area: feed; }
+  .cdash__right > .ccard--stats { grid-area: stats; }
 }
 @media (max-width: 760px) {
-  .cdash__right { grid-template-columns: minmax(0, 1fr); }
-  .cdash__right > .ccard, .cdash__right > .ccard--cal { grid-row: auto; grid-column: auto; }
+  .cdash__right { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'cal' 'todo' 'feed' 'stats'; }
 }
 
 /* Dans la prospection : menu de gauche = menu du CRM (celui du CMS est masqué) */
@@ -428,7 +429,12 @@ body.crm-space [class*='nav-group'] { display: none !important; }
 button.cmini__day { border: 0; background: transparent; font: inherit; cursor: pointer; padding: 0; &:hover { outline: 1px solid var(--cms-accent); outline-offset: -1px; } }
 .ccard--cal .cmini__legend .cdot { margin-left: 4px; }
 .ecal__day[data-crm-day] { cursor: pointer; }
-.crm__ev--task { background: color-mix(in srgb, #10b981 16%, transparent) !important; color: var(--cms-ink) !important; cursor: pointer; &.done { opacity: 0.5; text-decoration: line-through; } }
+.crm__ev--task { cursor: pointer; &.done { opacity: 0.5; text-decoration: line-through; } }
+/* Événements du grand calendrier : couleur du type ; en retard = contour rouge */
+@each $t in lav, sky, peach, mint, rose, butter {
+  .crm .ecal__ev.crm__ev.tone-#{$t} { background: var(--t-#{$t}-bg); color: var(--t-#{$t}-fg); }
+}
+.crm .ecal__ev.crm__ev.is-late { box-shadow: inset 3px 0 0 #e11d48; }
 
 /* Fenêtre « tâches du jour » */
 .ctask__backdrop { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 16px; background: rgba(15, 12, 35, 0.45); }
@@ -453,3 +459,45 @@ button.cmini__day { border: 0; background: transparent; font: inherit; cursor: p
 .ctask__picked { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 4px 6px 10px; border: 1px solid var(--cms-accent); border-radius: 10px; font-weight: 600; }
 @media (max-width: 520px) { .ctask__row { grid-template-columns: 1fr; } }
 .crm__done { opacity: 0.55; }
+
+/* Petit calendrier : pastilles de couleur par type ; en retard = chiffre rouge */
+.cmini__day { position: relative; flex-direction: column; gap: 1px; }
+.cmini__day.late { color: #e11d48; }
+.cmini__dots { display: flex; gap: 2px; height: 4px; i { display: block; width: 4px; height: 4px; border-radius: 50%; background: var(--t-lav-fg); } }
+@each $t in lav, sky, peach, mint, rose, butter { .cmini__dots i.tone-#{$t} { background: var(--t-#{$t}-fg) !important; } }
+.ccard--cal .cmini__day { height: 26px; }
+.cmini__legend { flex-wrap: wrap; row-gap: 2px; > span { display: inline-flex; align-items: center; gap: 3px; } }
+.cmini__late { color: #e11d48; font-weight: 700; margin-left: 4px; }
+
+/* À faire (sous le calendrier) */
+.ctasks li.late b { color: #e11d48; }
+.ctasks__open { display: grid; gap: 1px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+
+/* Barre de recherche du tableau de bord */
+.csearch { position: relative; }
+.csearch form { display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 1px solid var(--cms-line); border-radius: 14px; background: var(--cms-card); &:focus-within { border-color: var(--cms-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cms-accent) 15%, transparent); } span { color: var(--cms-muted); font-size: 1.1rem; } }
+.csearch input { flex: 1; min-width: 0; padding: 12px 0; border: 0; outline: 0; background: transparent; color: var(--cms-ink); font: inherit; font-size: 0.95rem; }
+.csearch__hits { position: absolute; z-index: 50; left: 0; right: 0; top: calc(100% + 6px); margin: 0; padding: 6px; list-style: none; border: 1px solid var(--cms-line); border-radius: 14px; background: var(--cms-card); box-shadow: 0 12px 32px rgba(15, 12, 35, 0.15); }
+.csearch__hits button { display: grid; gap: 1px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: none; color: var(--cms-ink); font: inherit; text-align: left; cursor: pointer; small { color: var(--cms-muted); } &:hover, &.on { background: color-mix(in srgb, var(--cms-accent) 10%, transparent); } }
+.csearch__none { padding: 8px 10px; color: var(--cms-muted); }
+.csearch__all { display: block; padding: 8px 10px; color: var(--cms-accent); font-weight: 600; text-decoration: none; }
+
+/* Statistiques */
+.cstats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cstats > div { display: grid; gap: 1px; padding: 9px 10px; border: 1px solid var(--cms-line); border-radius: 12px; span { font-size: 0.75rem; } b { font-size: 1.25rem; small { font-size: 0.8rem; color: var(--cms-muted); font-weight: 600; } } }
+.cdelta { font-size: 0.7rem; color: var(--cms-muted); &.up { color: #059669; } &.down { color: #e11d48; } }
+.cchart { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; align-items: end; height: 96px; margin-top: 14px; }
+.cchart__col { display: grid; grid-template-rows: 1fr auto; height: 100%; gap: 3px; small { font-size: 0.58rem; color: var(--cms-muted); text-align: center; white-space: nowrap; } }
+.cchart__bars { display: flex; align-items: flex-end; justify-content: center; gap: 2px; span { width: 40%; min-height: 2px; border-radius: 3px 3px 0 0; } }
+@each $t in sky, lav { .cchart__bars span.tone-#{$t} { background: var(--t-#{$t}-fg) !important; } }
+@media (max-width: 1200px) { .ccard--stats .cstats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .ccard--stats .cstats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Fenêtre des tâches : couleur du type */
+.ctask__kinds button .cdot { margin-right: 4px; }
+/* Pastilles : couleur franche du type (et non le fond pâle) pour bien les distinguer */
+@each $t in lav, sky, peach, mint, rose, butter {
+  .crm .cdot.tone-#{$t}, .bfiche .cdot.tone-#{$t} { background: var(--t-#{$t}-fg); }
+}
+.cmini__legend > span .cdot { margin-left: 0 !important; }
+.cmini__legend { column-gap: 8px; }
