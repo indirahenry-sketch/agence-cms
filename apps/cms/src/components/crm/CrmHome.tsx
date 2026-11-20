@@ -92,23 +92,13 @@ export const CrmHome = async (props: AdminViewServerProps) => {
 
   const weekStart = startOfWeekParis(now)
   const weeksAgo = (n: number) => new Date(weekStart.getTime() - n * 7 * 864e5)
-  const [safeDuplicates, tasks, recentActs, recentTasks] = await Promise.all([
+  const [safeDuplicates, tasks, recentActs] = await Promise.all([
     countSafeDuplicates(payload, req),
     loadTasks(payload, req, cells),
     payload.find({
       collection: 'crm-activities',
       where: { date: { greater_than_equal: weeksAgo(7).toISOString() } },
       select: { kind: true, date: true },
-      limit: 0,
-      pagination: false,
-      depth: 0,
-      overrideAccess: true,
-      req,
-    }),
-    payload.find({
-      collection: 'crm-tasks',
-      where: { date: { greater_than_equal: weeksAgo(1).toISOString() } },
-      select: { date: true, done: true },
       limit: 0,
       pagination: false,
       depth: 0,
@@ -178,8 +168,6 @@ export const CrmHome = async (props: AdminViewServerProps) => {
   const callsW = perWeek(['appel'])
   const repliesW = perWeek(['reponse'])
   const meetingsW = perWeek(['rdv'])
-  const tasksThisWeek = recentTasks.docs.filter((t) => weekIndex(t.date) === 0)
-  const tasksDone = tasksThisWeek.filter((t) => t.done).length
   const chartMax = Math.max(1, ...emailsW, ...repliesW)
   const weekLabel = (i: number) => (i === 0 ? 'Cette sem.' : new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', timeZone: 'Europe/Paris' }).format(weeksAgo(i)))
   const dayLabel = (d: string) =>
@@ -493,18 +481,6 @@ export const CrmHome = async (props: AdminViewServerProps) => {
                 <span className="cmuted">Rendez-vous</span>
                 <b>{meetingsW[0]}</b>
                 <Delta now={meetingsW[0]} before={meetingsW[1]} />
-              </div>
-              <div>
-                <span className="cmuted">Tâches faites</span>
-                <b>
-                  {tasksDone} <small>/ {tasksThisWeek.length}</small>
-                </b>
-                <small className="cdelta">cette semaine</small>
-              </div>
-              <div>
-                <span className="cmuted">Deals finalisés</span>
-                <b>{clients}</b>
-                <small className="cdelta">clients signés</small>
               </div>
               <div>
                 <span className="cmuted">Taux de réponse</span>
