@@ -106,7 +106,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
       req,
     }),
   ])
-  const [settings, prospects, replies, emailsSent, duplicates, recent, activity, zones, followUps] = await Promise.all([
+  const [settings, prospects, replies, emailsSent, recent, activity, zones, followUps] = await Promise.all([
     payload.findGlobal({ slug: 'crm-settings', ...base }),
     payload.find({
       collection: 'crm-prospects',
@@ -118,7 +118,6 @@ export const CrmHome = async (props: AdminViewServerProps) => {
     }),
     payload.find({ collection: 'crm-activities', where: { kind: { equals: 'reponse' } }, limit: 0, pagination: false, depth: 0, select: { prospect: true }, ...base }),
     payload.count({ collection: 'crm-activities', where: { kind: { equals: 'email-envoye' } }, ...base }),
-    payload.count({ collection: 'crm-duplicates', where: { status: { equals: 'a-examiner' } }, ...base }),
     payload.find({ collection: 'crm-prospects', sort: '-createdAt', limit: 6, depth: 0, ...base }),
     payload.find({ collection: 'crm-activities', sort: '-updatedAt', limit: 7, depth: 1, ...base }),
     payload.find({ collection: 'crm-zones', limit: 0, pagination: false, depth: 0, select: { label: true }, ...base }),
@@ -197,24 +196,36 @@ export const CrmHome = async (props: AdminViewServerProps) => {
       <div className="cdash">
         {/* ---------- Colonne gauche ---------- */}
         <aside className="cdash__left">
-          <section className="ccard">
-            <h2 className="ccard__title">Raccourcis</h2>
-            <ul className="cnav">
-              <li><a href={`${LIST}/create`}><i className="tone-lav">＋</i>Ajouter un prospect</a></li>
-              <li><a href="/admin/prospection/base"><i className="tone-sky">☰</i>Base de prospection</a></li>
-              <li><a href="/admin/prospection/relances"><i className="tone-peach">◷</i>Relances</a></li>
-              <li><a href="/admin/collections/crm-activities"><i className="tone-mint">✎</i>Suivi des échanges</a></li>
-              <li><a href="/admin/prospection/import"><i className="tone-butter">⇅</i>Importer / exporter</a></li>
-              <li><a href="/admin/collections/crm-email-templates"><i className="tone-sky">✉</i>Modèles d’e-mails</a></li>
-              <li><a href="/admin/collections/crm-zones?where[active][equals]=true"><i className="tone-lav">⌖</i>Zones actives</a></li>
-              <li>
-                <a href="/admin/collections/crm-duplicates?where[status][equals]=a-examiner">
-                  <i className="tone-rose">⧉</i>Doublons{duplicates.totalDocs ? <b className="cbadge tone-rose">{duplicates.totalDocs}</b> : null}
-                </a>
-              </li>
-              <li><a href="/admin/collections/crm-optouts"><i className="tone-rose">⊘</i>Ne plus contacter</a></li>
-              <li><a href="/admin/globals/crm-settings"><i className="tone-sky">⚙</i>Réglages</a></li>
-            </ul>
+          <section className="ccard ccard--todo">
+            <h2 className="ccard__title">
+              À faire {late > 0 && <b className="cbadge tone-rose">{late} en retard</b>}
+            </h2>
+            {todo.length ? (
+              <ul className="ctasks">
+                {todo.map((t) => (
+                  <li key={t.key} className={t.day < today ? 'late' : ''}>
+                    <span className={`cdot tone-${toneOfKind(t.kind)}`} />
+                    {t.href ? (
+                      <a href={t.href}>
+                        <b>{t.title}</b>
+                        <small>
+                          {t.detail} · {dayLabel(t.day)}
+                        </small>
+                      </a>
+                    ) : (
+                      <button type="button" className="ctasks__open" data-crm-day={t.day}>
+                        <b>{t.title}</b>
+                        <small>
+                          {t.detail} · {dayLabel(t.day)}
+                        </small>
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="cempty">Rien de prévu cette semaine. Clique sur un jour du calendrier pour ajouter une tâche.</p>
+            )}
             <CrmMergeButton safe={safeDuplicates} />
           </section>
 
@@ -397,37 +408,6 @@ export const CrmHome = async (props: AdminViewServerProps) => {
             </p>
           </section>
 
-          <section className="ccard ccard--todo">
-            <h2 className="ccard__title">
-              À faire {late > 0 && <b className="cbadge tone-rose">{late} en retard</b>}
-            </h2>
-            {todo.length ? (
-              <ul className="ctasks">
-                {todo.map((t) => (
-                  <li key={t.key} className={t.day < today ? 'late' : ''}>
-                    <span className={`cdot tone-${toneOfKind(t.kind)}`} />
-                    {t.href ? (
-                      <a href={t.href}>
-                        <b>{t.title}</b>
-                        <small>
-                          {t.detail} · {dayLabel(t.day)}
-                        </small>
-                      </a>
-                    ) : (
-                      <button type="button" className="ctasks__open" data-crm-day={t.day}>
-                        <b>{t.title}</b>
-                        <small>
-                          {t.detail} · {dayLabel(t.day)}
-                        </small>
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="cempty">Rien de prévu cette semaine. Clique sur un jour du calendrier pour ajouter une tâche.</p>
-            )}
-          </section>
 
           </div>
 
