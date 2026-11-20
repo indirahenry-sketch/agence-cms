@@ -92,23 +92,13 @@ export const CrmHome = async (props: AdminViewServerProps) => {
 
   const weekStart = startOfWeekParis(now)
   const weeksAgo = (n: number) => new Date(weekStart.getTime() - n * 7 * 864e5)
-  const [safeDuplicates, tasks, recentActs, recentTasks] = await Promise.all([
+  const [safeDuplicates, tasks, recentActs] = await Promise.all([
     countSafeDuplicates(payload, req),
     loadTasks(payload, req, cells),
     payload.find({
       collection: 'crm-activities',
       where: { date: { greater_than_equal: weeksAgo(7).toISOString() } },
       select: { kind: true, date: true },
-      limit: 0,
-      pagination: false,
-      depth: 0,
-      overrideAccess: true,
-      req,
-    }),
-    payload.find({
-      collection: 'crm-tasks',
-      where: { date: { greater_than_equal: weeksAgo(1).toISOString() } },
-      select: { date: true, done: true },
       limit: 0,
       pagination: false,
       depth: 0,
@@ -178,8 +168,6 @@ export const CrmHome = async (props: AdminViewServerProps) => {
   const callsW = perWeek(['appel'])
   const repliesW = perWeek(['reponse'])
   const meetingsW = perWeek(['rdv'])
-  const tasksThisWeek = recentTasks.docs.filter((t) => weekIndex(t.date) === 0)
-  const tasksDone = tasksThisWeek.filter((t) => t.done).length
   const chartMax = Math.max(1, ...emailsW, ...repliesW)
   const weekLabel = (i: number) => (i === 0 ? 'Cette sem.' : new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', timeZone: 'Europe/Paris' }).format(weeksAgo(i)))
   const dayLabel = (d: string) =>
@@ -357,6 +345,8 @@ export const CrmHome = async (props: AdminViewServerProps) => {
 
         {/* ---------- Colonne droite ---------- */}
         <aside className="cdash__right">
+          {/* Calendrier puis « À faire » */}
+          <div className="cdash__side">
           <section className="ccard ccard--cal">
             <div className="ccard__row">
               <h2 className="ccard__title">{monthTitle.charAt(0).toUpperCase() + monthTitle.slice(1)}</h2>
@@ -374,14 +364,19 @@ export const CrmHome = async (props: AdminViewServerProps) => {
                 const k = ymd(d)
                 const kinds = [...(kindsPerDay.get(k)?.entries() ?? [])]
                 const total = kinds.reduce((a, [, n]) => a + n, 0)
-                const cls = ['cmini__day', d.getMonth() !== m - 1 && 'out', k === today && 'today', total > 0 && 'has', total > 0 && k < today && 'late'].filter(Boolean).join(' ')
+                // Le carré prend la couleur pastel de la 1re tâche du jour ; les autres types en pastilles sous le chiffre
+                const first = kinds[0]?.[0]
+                const others = kinds.slice(1)
+                const cls = ['cmini__day', d.getMonth() !== m - 1 && 'out', k === today && 'today', total > 0 && 'has', first && `fill-${toneOfKind(first)}`, total > 0 && k < today && 'late']
+                  .filter(Boolean)
+                  .join(' ')
                 const title = kinds.map(([kind, n]) => `${n} ${taskKindLabel(kind).toLowerCase()}`).join(', ')
                 return (
                   <button key={k} type="button" className={cls} data-crm-day={k} title={title ? `${title}${k < today ? ' (en retard)' : ''} · cliquer pour voir ou ajouter` : 'Ajouter une tâche'}>
                     {d.getDate()}
-                    {total > 0 && (
+                    {others.length > 0 && (
                       <span className="cmini__dots" aria-hidden>
-                        {kinds.slice(0, 3).map(([kind]) => (
+                        {others.slice(0, 3).map(([kind]) => (
                           <i key={kind} className={`tone-${toneOfKind(kind)}`} />
                         ))}
                       </span>
@@ -396,7 +391,9 @@ export const CrmHome = async (props: AdminViewServerProps) => {
                   <span className={`cdot tone-${toneOfKind(l.kind)}`} /> {l.label}
                 </span>
               ))}
-              <span className="cmini__late">12</span> en retard
+              <span>
+                <span className="cmini__late">chiffre rouge</span> = en retard
+              </span>
             </p>
           </section>
 
@@ -432,6 +429,10 @@ export const CrmHome = async (props: AdminViewServerProps) => {
             )}
           </section>
 
+          </div>
+
+          {/* Activité récente puis statistiques juste en dessous */}
+          <div className="cdash__flow">
           <section className="ccard ccard--feed">
             <h2 className="ccard__title">Activité récente</h2>
             {activity.docs.length ? (
@@ -482,18 +483,6 @@ export const CrmHome = async (props: AdminViewServerProps) => {
                 <Delta now={meetingsW[0]} before={meetingsW[1]} />
               </div>
               <div>
-                <span className="cmuted">Tâches faites</span>
-                <b>
-                  {tasksDone} <small>/ {tasksThisWeek.length}</small>
-                </b>
-                <small className="cdelta">cette semaine</small>
-              </div>
-              <div>
-                <span className="cmuted">Deals finalisés</span>
-                <b>{clients}</b>
-                <small className="cdelta">clients signés</small>
-              </div>
-              <div>
                 <span className="cmuted">Taux de réponse</span>
                 <b>{percent(answered, contacted)}</b>
                 <small className="cdelta">
@@ -526,6 +515,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
               </span>
             </p>
           </section>
+          </div>
         </aside>
       </div>
     </div>,
