@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import { CRM_TASK_KINDS } from '@/crm/constants'
+import { toneOfKind } from '@/crm/tones'
 
 type Task = { id: number; title: string; kind: string; time?: string | null; done?: boolean | null; prospect?: { id: number; name: string } | number | null }
 type Hit = { id: number; name: string; commune?: string | null }
@@ -150,6 +151,7 @@ export const CrmDayTasks: React.FC = () => {
               return (
                 <li key={t.id} className={t.done ? 'done' : ''}>
                   <label>
+                    <span className={`cdot tone-${toneOfKind(t.kind)}`} aria-hidden />
                     <input type="checkbox" checked={Boolean(t.done)} onChange={() => toggle(t)} />
                     <span>
                       <b>{t.time ? `${t.time} · ` : ''}{t.title}</b>
@@ -190,6 +192,7 @@ export const CrmDayTasks: React.FC = () => {
                   if (!titleTouched.current) setTitle(k.label)
                 }}
               >
+                <span className={`cdot tone-${toneOfKind(k.value)}`} aria-hidden />
                 {k.label}
               </button>
             ))}

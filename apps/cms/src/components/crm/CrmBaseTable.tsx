@@ -771,6 +771,9 @@ export const CrmBaseTable: React.FC = () => {
     if (id) setOpenId(id)
     const rech = params.get('recherche')
     if (rech && /^\d+$/.test(rech)) setFilters((f) => ({ ...f, search: rech }))
+    // Recherche venue du tableau de bord : ?q=texte
+    const text = params.get('q')
+    if (text) setFilters((f) => ({ ...f, q: text }))
   }, [load])
 
   useEffect(() => {

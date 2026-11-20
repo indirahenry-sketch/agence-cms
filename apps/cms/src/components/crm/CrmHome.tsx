@@ -2,13 +2,15 @@ import type { AdminViewServerProps } from 'payload'
 import React from 'react'
 
 import { extractID } from '@/access/roles'
-import { CRM_ACTIVITY_KINDS, CRM_STATUSES, CRM_TYPES } from '@/crm/constants'
+import { CRM_ACTIVITY_KINDS, CRM_STATUSES, CRM_TASK_KINDS, CRM_TYPES } from '@/crm/constants'
 import { loadFollowUps, loadTasks, monthCells, parisDay, ymd } from '@/crm/followUps'
 import { countSafeDuplicates } from '@/crm/merge'
+import { KIND_ICON, KIND_LEGEND, KIND_TONE, toneOfKind } from '@/crm/tones'
 import type { CrmProspect } from '@/payload-types'
 
 import { CrmDayTasks } from './CrmDayTasks'
 import { CrmMergeButton } from './CrmMergeButton'
+import { CrmSearchBar } from './CrmSearchBar'
 import { CrmHeader, crmAllowed, crmDenied, crmPage } from './template'
 
 const LIST = '/admin/collections/crm-prospects'
@@ -52,9 +54,11 @@ const STATUS_TONE: Record<string, Tone> = Object.fromEntries(PIPELINE.flatMap((s
 const statusLabel = (v?: string | null) => CRM_STATUSES.find((s) => s.value === v)?.label ?? '—'
 const typeLabel = (v?: string | null) => CRM_TYPES.find((t) => t.value === v)?.label ?? ''
 
-const KIND_ICON: Record<string, string> = { note: '✎', appel: '☎', 'email-envoye': '✉', reponse: '↩', relance: '↻', rdv: '◷', autre: '•' }
-const KIND_TONE: Record<string, Tone> = { note: 'butter', appel: 'mint', 'email-envoye': 'sky', reponse: 'lav', relance: 'peach', rdv: 'rose', autre: 'lav' }
 const kindLabel = (v?: string | null) => CRM_ACTIVITY_KINDS.find((k) => k.value === v)?.label ?? ''
+const taskKindLabel = (v?: string | null) => CRM_TASK_KINDS.find((k) => k.value === v)?.label ?? 'Tâche'
+/** Évolution par rapport à la semaine dernière. */
+const Delta = ({ now, before }: { now: number; before: number }) =>
+  now === before ? <small className="cdelta">= sem. dernière</small> : <small className={`cdelta ${now > before ? 'up' : 'down'}`}>{now > before ? '▲' : '▼'} {Math.abs(now - before)} vs sem. dernière</small>
 
 /** Statuts qui supposent qu'on a déjà pris contact / reçu une réponse. */
 const CONTACTED = new Set(['email-envoye', 'en-attente', 'relance', 'client', 'non-interesse'])
@@ -86,7 +90,32 @@ export const CrmHome = async (props: AdminViewServerProps) => {
   const soon = new Date(now.getTime() + 7 * 864e5).toISOString()
   const base = { overrideAccess: true, req } as const
 
-  const [safeDuplicates, tasks] = await Promise.all([countSafeDuplicates(payload, req), loadTasks(payload, req, cells)])
+  const weekStart = startOfWeekParis(now)
+  const weeksAgo = (n: number) => new Date(weekStart.getTime() - n * 7 * 864e5)
+  const [safeDuplicates, tasks, recentActs, recentTasks] = await Promise.all([
+    countSafeDuplicates(payload, req),
+    loadTasks(payload, req, cells),
+    payload.find({
+      collection: 'crm-activities',
+      where: { date: { greater_than_equal: weeksAgo(7).toISOString() } },
+      select: { kind: true, date: true },
+      limit: 0,
+      pagination: false,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    }),
+    payload.find({
+      collection: 'crm-tasks',
+      where: { date: { greater_than_equal: weeksAgo(1).toISOString() } },
+      select: { date: true, done: true },
+      limit: 0,
+      pagination: false,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    }),
+  ])
   const [settings, prospects, replies, emailsSent, duplicates, recent, activity, zones, followUps] = await Promise.all([
     payload.findGlobal({ slug: 'crm-settings', ...base }),
     payload.find({
@@ -119,14 +148,40 @@ export const CrmHome = async (props: AdminViewServerProps) => {
   const stages = PIPELINE.map((s) => ({ ...s, n: count((p) => s.statuses.includes(p.status ?? '')) }))
   const totalInStages = stages.reduce((a, s) => a + s.n, 0)
 
-  // Relances à faire : en retard et à venir (7 jours)
-  const todo = followUps.filter((f) => f.day <= parisDay(soon)).slice(0, 6)
-  const perDay = new Map<string, number>()
-  for (const f of followUps) perDay.set(f.day, (perDay.get(f.day) ?? 0) + 1)
-  // Tâches du calendrier (non faites)
-  const tasksPerDay = new Map<string, number>()
-  for (const t of tasks) if (!t.done) tasksPerDay.set(t.day, (tasksPerDay.get(t.day) ?? 0) + 1)
-  const late = followUps.filter((f) => f.day < today).length
+  // À faire : relances (suivi des prospects) + tâches du calendrier non faites, en retard et 7 prochains jours
+  type Todo = { key: string; day: string; kind: string; title: string; detail: string; href?: string }
+  const allTodo: Todo[] = [
+    ...followUps.map((f) => ({ key: f.key, day: f.day, kind: 'relance', title: f.name, detail: f.kind && f.kind !== 'relance' ? `Relance · ${kindLabel(f.kind)}` : 'Relance', href: `${LIST}/${f.prospectId}` })),
+    ...tasks.filter((t) => !t.done).map((t) => ({ key: `t${t.id}`, day: t.day, kind: t.kind, title: t.title, detail: [taskKindLabel(t.kind), t.time, t.prospectName].filter(Boolean).join(' · ') })),
+  ].sort((a, b) => a.day.localeCompare(b.day))
+  const todo = allTodo.filter((t) => t.day <= parisDay(soon)).slice(0, 8)
+  const late = allTodo.filter((t) => t.day < today).length
+  // Calendrier : les types prévus chaque jour (une pastille de couleur par type)
+  const kindsPerDay = new Map<string, Map<string, number>>()
+  for (const t of allTodo) {
+    const day = kindsPerDay.get(t.day) ?? new Map<string, number>()
+    day.set(t.kind, (day.get(t.kind) ?? 0) + 1)
+    kindsPerDay.set(t.day, day)
+  }
+
+  // Statistiques : 8 dernières semaines (lundi → dimanche, heure de Paris)
+  const weekIndex = (iso: string) => Math.floor((weekStart.getTime() + 7 * 864e5 - new Date(iso).getTime()) / (7 * 864e5)) // 0 = cette semaine
+  const perWeek = (kinds: string[]) => {
+    const arr = Array.from({ length: 8 }, () => 0)
+    for (const a of recentActs.docs) {
+      const i = weekIndex(a.date)
+      if (i >= 0 && i < 8 && kinds.includes(a.kind)) arr[i]++
+    }
+    return arr
+  }
+  const emailsW = perWeek(['email-envoye'])
+  const callsW = perWeek(['appel'])
+  const repliesW = perWeek(['reponse'])
+  const meetingsW = perWeek(['rdv'])
+  const tasksThisWeek = recentTasks.docs.filter((t) => weekIndex(t.date) === 0)
+  const tasksDone = tasksThisWeek.filter((t) => t.done).length
+  const chartMax = Math.max(1, ...emailsW, ...repliesW)
+  const weekLabel = (i: number) => (i === 0 ? 'Cette sem.' : new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', timeZone: 'Europe/Paris' }).format(weeksAgo(i)))
   const dayLabel = (d: string) =>
     d === today ? 'Aujourd’hui' : d < today ? 'En retard' : new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`))
 
@@ -148,6 +203,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
     props,
     <div className="crm crm--dash">
       <CrmHeader title="Prospection" current="accueil" />
+      <CrmSearchBar />
       <CrmDayTasks />
 
       <div className="cdash">
@@ -174,28 +230,6 @@ export const CrmHome = async (props: AdminViewServerProps) => {
             <CrmMergeButton safe={safeDuplicates} />
           </section>
 
-          <section className="ccard">
-            <h2 className="ccard__title">
-              À faire {late > 0 && <b className="cbadge tone-rose">{late} en retard</b>}
-            </h2>
-            {todo.length ? (
-              <ul className="ctasks">
-                {todo.map((t) => (
-                  <li key={t.key}>
-                    <span className={`cdot ${t.day < today ? 'tone-rose' : t.day === today ? 'tone-peach' : 'tone-lav'}`} />
-                    <a href={`${LIST}/${t.prospectId}`}>
-                      <b>{t.name}</b>
-                      <small>
-                        {t.kind ? kindLabel(t.kind) : 'Relance'} · {dayLabel(t.day)}
-                      </small>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="cempty">Rien à relancer cette semaine.</p>
-            )}
-          </section>
         </aside>
 
         {/* ---------- Centre ---------- */}
@@ -338,30 +372,67 @@ export const CrmHome = async (props: AdminViewServerProps) => {
               ))}
               {cells.map((d) => {
                 const k = ymd(d)
-                const n = perDay.get(k) ?? 0
-                const t = tasksPerDay.get(k) ?? 0
-                const cls = [
-                  'cmini__day',
-                  d.getMonth() !== m - 1 && 'out',
-                  k === today && 'today',
-                  n + t > 0 && (k < today ? 'has tone-rose' : n ? 'has tone-lav' : 'has tone-mint'),
-                ]
-                  .filter(Boolean)
-                  .join(' ')
-                const title = [n && `${n} relance${n > 1 ? 's' : ''}`, t && `${t} tâche${t > 1 ? 's' : ''}`].filter(Boolean).join(', ')
+                const kinds = [...(kindsPerDay.get(k)?.entries() ?? [])]
+                const total = kinds.reduce((a, [, n]) => a + n, 0)
+                const cls = ['cmini__day', d.getMonth() !== m - 1 && 'out', k === today && 'today', total > 0 && 'has', total > 0 && k < today && 'late'].filter(Boolean).join(' ')
+                const title = kinds.map(([kind, n]) => `${n} ${taskKindLabel(kind).toLowerCase()}`).join(', ')
                 return (
-                  <button key={k} type="button" className={cls} data-crm-day={k} title={title ? `${title} · cliquer pour voir ou ajouter` : 'Ajouter une tâche'}>
+                  <button key={k} type="button" className={cls} data-crm-day={k} title={title ? `${title}${k < today ? ' (en retard)' : ''} · cliquer pour voir ou ajouter` : 'Ajouter une tâche'}>
                     {d.getDate()}
+                    {total > 0 && (
+                      <span className="cmini__dots" aria-hidden>
+                        {kinds.slice(0, 3).map(([kind]) => (
+                          <i key={kind} className={`tone-${toneOfKind(kind)}`} />
+                        ))}
+                      </span>
+                    )}
                   </button>
                 )
               })}
             </div>
             <p className="cmuted cmini__legend">
-              <span className="cdot tone-lav" /> relance <span className="cdot tone-mint" /> tâche <span className="cdot tone-rose" /> retard
+              {KIND_LEGEND.map((l) => (
+                <span key={l.kind}>
+                  <span className={`cdot tone-${toneOfKind(l.kind)}`} /> {l.label}
+                </span>
+              ))}
+              <span className="cmini__late">12</span> en retard
             </p>
           </section>
 
-          <section className="ccard">
+          <section className="ccard ccard--todo">
+            <h2 className="ccard__title">
+              À faire {late > 0 && <b className="cbadge tone-rose">{late} en retard</b>}
+            </h2>
+            {todo.length ? (
+              <ul className="ctasks">
+                {todo.map((t) => (
+                  <li key={t.key} className={t.day < today ? 'late' : ''}>
+                    <span className={`cdot tone-${toneOfKind(t.kind)}`} />
+                    {t.href ? (
+                      <a href={t.href}>
+                        <b>{t.title}</b>
+                        <small>
+                          {t.detail} · {dayLabel(t.day)}
+                        </small>
+                      </a>
+                    ) : (
+                      <button type="button" className="ctasks__open" data-crm-day={t.day}>
+                        <b>{t.title}</b>
+                        <small>
+                          {t.detail} · {dayLabel(t.day)}
+                        </small>
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="cempty">Rien de prévu cette semaine. Clique sur un jour du calendrier pour ajouter une tâche.</p>
+            )}
+          </section>
+
+          <section className="ccard ccard--feed">
             <h2 className="ccard__title">Activité récente</h2>
             {activity.docs.length ? (
               <ul className="cfeed">
@@ -385,6 +456,75 @@ export const CrmHome = async (props: AdminViewServerProps) => {
             ) : (
               <p className="cempty">Aucun échange enregistré.</p>
             )}
+          </section>
+
+          <section className="ccard ccard--stats">
+            <h2 className="ccard__title">Statistiques</h2>
+            <div className="cstats">
+              <div>
+                <span className="cmuted">E-mails envoyés</span>
+                <b>{emailsW[0]}</b>
+                <Delta now={emailsW[0]} before={emailsW[1]} />
+              </div>
+              <div>
+                <span className="cmuted">Appels</span>
+                <b>{callsW[0]}</b>
+                <Delta now={callsW[0]} before={callsW[1]} />
+              </div>
+              <div>
+                <span className="cmuted">Réponses reçues</span>
+                <b>{repliesW[0]}</b>
+                <Delta now={repliesW[0]} before={repliesW[1]} />
+              </div>
+              <div>
+                <span className="cmuted">Rendez-vous</span>
+                <b>{meetingsW[0]}</b>
+                <Delta now={meetingsW[0]} before={meetingsW[1]} />
+              </div>
+              <div>
+                <span className="cmuted">Tâches faites</span>
+                <b>
+                  {tasksDone} <small>/ {tasksThisWeek.length}</small>
+                </b>
+                <small className="cdelta">cette semaine</small>
+              </div>
+              <div>
+                <span className="cmuted">Deals finalisés</span>
+                <b>{clients}</b>
+                <small className="cdelta">clients signés</small>
+              </div>
+              <div>
+                <span className="cmuted">Taux de réponse</span>
+                <b>{percent(answered, contacted)}</b>
+                <small className="cdelta">
+                  {answered} / {contacted} contactés
+                </small>
+              </div>
+              <div>
+                <span className="cmuted">Conversion</span>
+                <b>{percent(clients, contacted)}</b>
+                <small className="cdelta">contactés → clients</small>
+              </div>
+            </div>
+            <div className="cchart" role="img" aria-label="E-mails envoyés et réponses reçues, 8 dernières semaines">
+              {[7, 6, 5, 4, 3, 2, 1, 0].map((i) => (
+                <div key={i} className="cchart__col" title={`${weekLabel(i)} : ${emailsW[i]} e-mail(s), ${repliesW[i]} réponse(s)`}>
+                  <div className="cchart__bars">
+                    <span className="tone-sky" style={{ height: `${(emailsW[i] / chartMax) * 100}%` }} />
+                    <span className="tone-lav" style={{ height: `${(repliesW[i] / chartMax) * 100}%` }} />
+                  </div>
+                  <small>{i === 0 ? 'Cette sem.' : `S-${i}`}</small>
+                </div>
+              ))}
+            </div>
+            <p className="cmuted cmini__legend">
+              <span>
+                <span className="cdot tone-sky" /> E-mails envoyés
+              </span>
+              <span>
+                <span className="cdot tone-lav" /> Réponses
+              </span>
+            </p>
           </section>
         </aside>
       </div>
