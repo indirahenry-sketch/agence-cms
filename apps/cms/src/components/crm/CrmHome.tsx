@@ -357,6 +357,8 @@ export const CrmHome = async (props: AdminViewServerProps) => {
 
         {/* ---------- Colonne droite ---------- */}
         <aside className="cdash__right">
+          {/* Calendrier puis « À faire » */}
+          <div className="cdash__side">
           <section className="ccard ccard--cal">
             <div className="ccard__row">
               <h2 className="ccard__title">{monthTitle.charAt(0).toUpperCase() + monthTitle.slice(1)}</h2>
@@ -374,14 +376,19 @@ export const CrmHome = async (props: AdminViewServerProps) => {
                 const k = ymd(d)
                 const kinds = [...(kindsPerDay.get(k)?.entries() ?? [])]
                 const total = kinds.reduce((a, [, n]) => a + n, 0)
-                const cls = ['cmini__day', d.getMonth() !== m - 1 && 'out', k === today && 'today', total > 0 && 'has', total > 0 && k < today && 'late'].filter(Boolean).join(' ')
+                // Le carré prend la couleur pastel de la 1re tâche du jour ; les autres types en pastilles sous le chiffre
+                const first = kinds[0]?.[0]
+                const others = kinds.slice(1)
+                const cls = ['cmini__day', d.getMonth() !== m - 1 && 'out', k === today && 'today', total > 0 && 'has', first && `fill-${toneOfKind(first)}`, total > 0 && k < today && 'late']
+                  .filter(Boolean)
+                  .join(' ')
                 const title = kinds.map(([kind, n]) => `${n} ${taskKindLabel(kind).toLowerCase()}`).join(', ')
                 return (
                   <button key={k} type="button" className={cls} data-crm-day={k} title={title ? `${title}${k < today ? ' (en retard)' : ''} · cliquer pour voir ou ajouter` : 'Ajouter une tâche'}>
                     {d.getDate()}
-                    {total > 0 && (
+                    {others.length > 0 && (
                       <span className="cmini__dots" aria-hidden>
-                        {kinds.slice(0, 3).map(([kind]) => (
+                        {others.slice(0, 3).map(([kind]) => (
                           <i key={kind} className={`tone-${toneOfKind(kind)}`} />
                         ))}
                       </span>
@@ -396,7 +403,9 @@ export const CrmHome = async (props: AdminViewServerProps) => {
                   <span className={`cdot tone-${toneOfKind(l.kind)}`} /> {l.label}
                 </span>
               ))}
-              <span className="cmini__late">12</span> en retard
+              <span>
+                <span className="cmini__late">chiffre rouge</span> = en retard
+              </span>
             </p>
           </section>
 
@@ -432,6 +441,10 @@ export const CrmHome = async (props: AdminViewServerProps) => {
             )}
           </section>
 
+          </div>
+
+          {/* Activité récente puis statistiques juste en dessous */}
+          <div className="cdash__flow">
           <section className="ccard ccard--feed">
             <h2 className="ccard__title">Activité récente</h2>
             {activity.docs.length ? (
@@ -526,6 +539,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
               </span>
             </p>
           </section>
+          </div>
         </aside>
       </div>
     </div>,

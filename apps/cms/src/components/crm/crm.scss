@@ -398,18 +398,20 @@ body.bfiche-open .crm-back-fab { display: none; }
   .cmini { gap: 2px; }
   .cmini__dow { font-size: 0.6rem; padding-bottom: 2px; }
   .cmini__day { height: 22px; border-radius: 6px; font-size: 0.7rem; }
-  .cmini__legend { margin-top: 6px; font-size: 0.66rem; gap: 4px; .cdot { width: 7px; height: 7px; } .cdot:last-of-type { margin-left: 6px; } }
+  .cmini__legend { margin-top: 6px; font-size: 0.66rem; gap: 4px; .cdot { width: 7px; height: 7px; } }
 }
+/* Colonne de droite : [calendrier + À faire] puis [activité récente + statistiques en dessous] */
+.cdash__side, .cdash__flow { display: grid; gap: 18px; align-content: start; min-width: 0; }
 @media (max-width: 1200px) {
-  /* Activité + statistiques à gauche, calendrier et « À faire » en colonne étroite à droite */
-  .cdash__right { grid-template-columns: minmax(0, 1fr) 240px; grid-template-areas: 'feed cal' 'feed todo' 'stats stats'; align-items: start; }
-  .cdash__right > .ccard--cal { grid-area: cal; width: 100%; max-width: none; }
-  .cdash__right > .ccard--todo { grid-area: todo; }
-  .cdash__right > .ccard--feed { grid-area: feed; }
-  .cdash__right > .ccard--stats { grid-area: stats; }
+  /* À gauche : activité puis statistiques ; à droite : calendrier puis À faire */
+  .cdash__right { grid-template-columns: minmax(0, 1fr) 240px; align-items: start; }
+  .cdash__flow { grid-column: 1; grid-row: 1; }
+  .cdash__side { grid-column: 2; grid-row: 1; }
+  .cdash__right > .cdash__side > .ccard--cal { width: 100%; max-width: none; }
 }
 @media (max-width: 760px) {
-  .cdash__right { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'cal' 'todo' 'feed' 'stats'; }
+  .cdash__right { grid-template-columns: minmax(0, 1fr); }
+  .cdash__flow, .cdash__side { grid-column: auto; grid-row: auto; }
 }
 
 /* Dans la prospection : menu de gauche = menu du CRM (celui du CMS est masqué) */
@@ -501,3 +503,17 @@ button.cmini__day { border: 0; background: transparent; font: inherit; cursor: p
 }
 .cmini__legend > span .cdot { margin-left: 0 !important; }
 .cmini__legend { column-gap: 8px; }
+
+/* ---- Calendriers en pastel : carré du jour = couleur de la 1re tâche, pastilles = autres types ---- */
+.crm, .bfiche {
+  --t-lav-dot: #c4b5fd; --t-sky-dot: #7dd3fc; --t-peach-dot: #fdba74;
+  --t-mint-dot: #86efac; --t-rose-dot: #fda4af; --t-butter-dot: #fde047;
+}
+@each $t in lav, sky, peach, mint, rose, butter {
+  .crm .cmini__day.fill-#{$t} { background: var(--t-#{$t}-bg); }
+  .crm .cmini__dots i.tone-#{$t} { background: var(--t-#{$t}-dot) !important; }
+  .crm .cdot.tone-#{$t}, .bfiche .cdot.tone-#{$t} { background: var(--t-#{$t}-dot); }
+}
+.crm .cmini__day.has { color: var(--cms-ink); font-weight: 700; }
+.crm .cmini__day.late { color: #e11d48; }
+.cmini__dots i { width: 5px; height: 5px; }
