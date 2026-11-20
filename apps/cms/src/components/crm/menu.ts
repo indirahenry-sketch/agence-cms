@@ -12,7 +12,7 @@ export const CRM_MENU: CrmMenuItem[] = [
   { key: 'echanges', href: '/admin/collections/crm-activities', label: 'Suivi des échanges', icon: '✎', tone: 'mint' },
   { key: 'import', href: '/admin/prospection/import', label: 'Importer / exporter', icon: '⇅', tone: 'butter' },
   { key: 'modeles', href: '/admin/collections/crm-email-templates', label: 'Modèles d’e-mails', icon: '✉', tone: 'sky' },
-  { key: 'zones', href: '/admin/collections/crm-zones?where[active][equals]=true', match: '/admin/collections/crm-zones', label: 'Zones actives', icon: '⌖', tone: 'lav' },
+  { key: 'zones', href: '/admin/prospection/zones', label: 'Zones (carte)', icon: '⌖', tone: 'lav' },
   { key: 'doublons', href: '/admin/collections/crm-duplicates?where[status][equals]=a-examiner', match: '/admin/collections/crm-duplicates', label: 'Doublons', icon: '⧉', tone: 'rose' },
   { key: 'historique', href: '/admin/collections/crm-searches', label: 'Historique des recherches', icon: '↻', tone: 'mint' },
   { key: 'optouts', href: '/admin/collections/crm-optouts', label: 'Ne plus contacter', icon: '⊘', tone: 'rose' },

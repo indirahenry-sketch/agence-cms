@@ -86,6 +86,7 @@ export default buildConfig({
         prospectionRelances: { Component: '@/components/crm/CrmCalendar#CrmCalendar', path: '/prospection/relances' },
         prospectionImport: { Component: '@/components/crm/CrmImport#CrmImport', path: '/prospection/import' },
         prospectionRecherche: { Component: '@/components/crm/CrmSearchPage#CrmSearchPage', path: '/prospection/recherche' },
+        prospectionZones: { Component: '@/components/crm/CrmZones#CrmZones', path: '/prospection/zones' },
       },
       actions: ['@/components/HeaderTools#HeaderTools'],
       providers: ['@/components/MobileBar#MobileBar', '@/components/ArticlesName#ArticlesNameNav'],
