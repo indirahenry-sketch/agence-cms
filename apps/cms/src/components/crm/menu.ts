@@ -1,4 +1,4 @@
-import type { Tone } from './tones'
+import type { Tone } from '@/crm/tones'
 
 /** Les liens de l'espace Prospection, avec la même icône et la même couleur partout (menu de gauche, onglets). */
 export type CrmMenuItem = { key: string; href: string; label: string; icon: string; tone: Tone; match?: string }
