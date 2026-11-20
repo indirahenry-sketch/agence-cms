@@ -86,6 +86,16 @@ export const CRM_ACTIVITY_KINDS = [
   { label: 'Autre', value: 'autre' },
 ] as const satisfies readonly Option[]
 
+/** Types de tâches du calendrier (relance, appel, recherche, envoi d'e-mail…). */
+export const CRM_TASK_KINDS = [
+  { label: 'Relance client', value: 'relance' },
+  { label: 'Appel client', value: 'appel' },
+  { label: 'Envoi d’e-mail', value: 'email' },
+  { label: 'Recherche de prospects', value: 'recherche' },
+  { label: 'Rendez-vous', value: 'rdv' },
+  { label: 'Autre', value: 'autre' },
+] as const satisfies readonly Option[]
+
 /** Types de modèles d'e-mails (le type « Refonte » ou « Création » est proposé selon le besoin du prospect). */
 export const CRM_TEMPLATE_KINDS = [
   { label: 'Refonte de site', value: 'refonte' },

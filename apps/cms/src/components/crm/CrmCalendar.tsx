@@ -1,8 +1,10 @@
 import type { AdminViewServerProps } from 'payload'
 import React from 'react'
 
-import { loadFollowUps, monthCells, parisDay, ymd } from '@/crm/followUps'
+import { CRM_TASK_KINDS } from '@/crm/constants'
+import { loadFollowUps, loadTasks, monthCells, parisDay, ymd } from '@/crm/followUps'
 
+import { CrmDayTasks } from './CrmDayTasks'
 import { CrmHeader, crmAllowed, crmDenied, crmPage } from './template'
 
 const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -23,7 +25,10 @@ export const CrmCalendar = async (props: AdminViewServerProps) => {
   const [y, m] = /^\d{4}-\d{2}$/.test(param) ? param.split('-').map(Number) : today.split('-').map(Number).slice(0, 2)
   const month = new Date(y, m - 1, 1)
   const cells = monthCells(y, m)
-  const items = await loadFollowUps(payload, req, cells)
+  const [items, tasks] = await Promise.all([loadFollowUps(payload, req, cells), loadTasks(payload, req, cells)])
+  const tasksByDay = new Map<string, typeof tasks>()
+  for (const t of tasks) tasksByDay.set(t.day, [...(tasksByDay.get(t.day) ?? []), t])
+  const kindLabel = (v: string) => CRM_TASK_KINDS.find((k) => k.value === v)?.label ?? v
   const byDay = new Map<string, typeof items>()
   for (const i of items) byDay.set(i.day, [...(byDay.get(i.day) ?? []), i])
 
@@ -40,6 +45,7 @@ export const CrmCalendar = async (props: AdminViewServerProps) => {
     props,
     <div className="crm">
       <CrmHeader title="Relances" current="relances" />
+      <CrmDayTasks />
       <div className="ecal crm__cal">
         <div className="ecal__bar">
           <strong className="ecal__title">{title.charAt(0).toUpperCase() + title.slice(1)}</strong>
@@ -62,21 +68,60 @@ export const CrmCalendar = async (props: AdminViewServerProps) => {
           {cells.map((d) => {
             const k = ymd(d)
             const list = byDay.get(k) ?? []
+            const dayTasks = tasksByDay.get(k) ?? []
             const out = d.getMonth() !== m - 1
+            const room = Math.max(0, 3 - dayTasks.length)
             return (
-              <div key={k} className={`ecal__day${out ? ' out' : ''}${k === today ? ' today' : ''}`}>
+              <div key={k} className={`ecal__day${out ? ' out' : ''}${k === today ? ' today' : ''}`} data-crm-day={k} title="Cliquer pour voir ou ajouter une tâche">
                 <span className="ecal__num">{d.getDate()}</span>
-                {list.slice(0, 3).map((i) => (
+                {dayTasks.slice(0, 3).map((t) => (
+                  <span key={`t${t.id}`} className={`ecal__ev crm__ev crm__ev--task${t.done ? ' done' : ''}`} data-crm-task={t.id} title={`${kindLabel(t.kind)}${t.prospectName ? ` · ${t.prospectName}` : ''}`}>
+                    {t.time ? `${t.time} ` : ''}
+                    {t.title}
+                  </span>
+                ))}
+                {list.slice(0, room).map((i) => (
                   <a key={i.key} className={`ecal__ev crm__ev${k < today ? ' crm__ev--late' : ''}`} href={`${LIST}/${i.prospectId}`} title={i.detail ? `${i.name} · ${i.detail}` : i.name}>
                     {i.name}
                   </a>
                 ))}
-                {list.length > 3 && <span className="ecal__more">+{list.length - 3}</span>}
+                {list.length + dayTasks.length > 3 && <span className="ecal__more">+{list.length + dayTasks.length - 3}</span>}
               </div>
             )
           })}
         </div>
       </div>
+
+      <section className="crm__card">
+        <h2>Tâches du mois</h2>
+        {tasks.filter((t) => t.day.startsWith(`${y}-${String(m).padStart(2, '0')}`)).length ? (
+          <ul className="crm__list">
+            {tasks
+              .filter((t) => t.day.startsWith(`${y}-${String(m).padStart(2, '0')}`))
+              .map((t) => (
+                <li key={`t${t.id}`} data-crm-day={t.day} data-crm-task={t.id}>
+                  <a href="#" className={t.done ? 'crm__done' : ''}>
+                    <span>
+                      {t.done ? '✓ ' : ''}
+                      {t.title}
+                      <small>
+                        {' · '}
+                        {kindLabel(t.kind)}
+                        {t.prospectName ? ` · ${t.prospectName}` : ''}
+                      </small>
+                    </span>
+                    <b className={!t.done && t.day < today ? 'crm__late' : ''}>
+                      {fmt.format(new Date(`${t.day}T12:00:00Z`))}
+                      {t.time ? ` ${t.time}` : ''}
+                    </b>
+                  </a>
+                </li>
+              ))}
+          </ul>
+        ) : (
+          <p className="crm__empty">Aucune tâche ce mois-ci. Clique sur un jour du calendrier pour en ajouter une.</p>
+        )}
+      </section>
 
       <section className="crm__card">
         <h2>Relances du mois</h2>
@@ -98,8 +143,8 @@ export const CrmCalendar = async (props: AdminViewServerProps) => {
           <p className="crm__empty">Aucune relance prévue ce mois-ci.</p>
         )}
         <p className="crm__more">
-          Pour prévoir une relance : sur la fiche du prospect, onglet « Suivi », ajoutez un échange avec une date « Relancer le ». Cochez « Relance faite »
-          une fois l’appel ou l’e-mail fait.
+          Pour ajouter une tâche (relance, appel, e-mail, recherche…) : clique sur un jour du calendrier. Les relances notées dans le suivi d’un prospect
+          (« Relancer le ») s’affichent aussi ici ; coche « Relance faite » une fois l’appel ou l’e-mail fait.
         </p>
       </section>
     </div>,

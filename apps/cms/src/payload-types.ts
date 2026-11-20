@@ -92,6 +92,7 @@ export interface Config {
     'crm-duplicates': CrmDuplicate;
     'crm-optouts': CrmOptout;
     'crm-email-templates': CrmEmailTemplate;
+    'crm-tasks': CrmTask;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -128,6 +129,7 @@ export interface Config {
     'crm-duplicates': CrmDuplicatesSelect<false> | CrmDuplicatesSelect<true>;
     'crm-optouts': CrmOptoutsSelect<false> | CrmOptoutsSelect<true>;
     'crm-email-templates': CrmEmailTemplatesSelect<false> | CrmEmailTemplatesSelect<true>;
+    'crm-tasks': CrmTasksSelect<false> | CrmTasksSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -1099,6 +1101,24 @@ export interface CrmEmailTemplate {
   createdAt: string;
 }
 /**
+ * Tâches du calendrier : relance, appel, envoi d'e-mail, recherche… avec ou sans prospect.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-tasks".
+ */
+export interface CrmTask {
+  id: number;
+  kind: 'relance' | 'appel' | 'email' | 'recherche' | 'rdv' | 'autre';
+  title: string;
+  date: string;
+  time?: string | null;
+  done?: boolean | null;
+  prospect?: (number | null) | CrmProspect;
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -1221,6 +1241,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'crm-email-templates';
         value: number | CrmEmailTemplate;
+      } | null)
+    | ({
+        relationTo: 'crm-tasks';
+        value: number | CrmTask;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1978,6 +2002,21 @@ export interface CrmEmailTemplatesSelect<T extends boolean = true> {
   kind?: T;
   subject?: T;
   body?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "crm-tasks_select".
+ */
+export interface CrmTasksSelect<T extends boolean = true> {
+  kind?: T;
+  title?: T;
+  date?: T;
+  time?: T;
+  done?: T;
+  prospect?: T;
+  notes?: T;
   updatedAt?: T;
   createdAt?: T;
 }
