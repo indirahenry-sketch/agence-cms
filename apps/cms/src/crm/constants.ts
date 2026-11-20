@@ -21,12 +21,13 @@ export const CRM_STATUSES = [
   { label: 'Client', value: 'client' },
   { label: 'Non intéressé', value: 'non-interesse' },
   { label: 'Ne plus contacter', value: 'ne-plus-contacter' },
+  { label: 'N’existe plus (fermée)', value: 'ferme' },
 ] as const satisfies readonly Option[]
 
 export type CrmStatus = (typeof CRM_STATUSES)[number]['value']
 
 /** Statuts après lesquels on ne sollicite plus jamais le prospect. */
-export const CRM_STOP_STATUSES: CrmStatus[] = ['non-interesse', 'ne-plus-contacter']
+export const CRM_STOP_STATUSES: CrmStatus[] = ['non-interesse', 'ne-plus-contacter', 'ferme']
 
 /** Types de structures équestres recherchées. */
 export const CRM_TYPES = [
@@ -165,6 +166,7 @@ export const CRM_COMMERCIAL = [
   { value: 'contacte', label: 'Contacté', tone: 'sky', set: 'en-attente', statuses: ['email-envoye', 'en-attente', 'relance'] },
   { value: 'accepte', label: 'Accepté', tone: 'mint', set: 'client', statuses: ['client'] },
   { value: 'refuse', label: 'Refusé', tone: 'rose', set: 'non-interesse', statuses: ['non-interesse', 'ne-plus-contacter'] },
+  { value: 'ferme', label: 'N’existe plus', tone: 'none', set: 'ferme', statuses: ['ferme'] },
 ] as const
 
 export type CrmCommercial = (typeof CRM_COMMERCIAL)[number]['value']

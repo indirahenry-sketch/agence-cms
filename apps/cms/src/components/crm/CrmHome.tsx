@@ -48,7 +48,7 @@ const PIPELINE: { label: string; tone: Tone; statuses: string[] }[] = [
   { label: 'E-mail', tone: 'sky', statuses: ['email-a-preparer', 'brouillon-cree', 'email-envoye', 'en-attente'] },
   { label: 'À relancer', tone: 'peach', statuses: ['relance'] },
   { label: 'Clients', tone: 'mint', statuses: ['client'] },
-  { label: 'Perdus', tone: 'rose', statuses: ['non-interesse', 'ne-plus-contacter'] },
+  { label: 'Perdus', tone: 'rose', statuses: ['non-interesse', 'ne-plus-contacter', 'ferme'] },
 ]
 const STATUS_TONE: Record<string, Tone> = Object.fromEntries(PIPELINE.flatMap((s) => s.statuses.map((st) => [st, s.tone])))
 const statusLabel = (v?: string | null) => CRM_STATUSES.find((s) => s.value === v)?.label ?? '—'

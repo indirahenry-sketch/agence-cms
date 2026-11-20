@@ -41,7 +41,7 @@ export const isSafeMerge = (reasons: DuplicateReason[], a: P, b: P) => {
 
 const STATUS_ORDER: string[] = CRM_STATUSES.map((s) => s.value)
 const mergedStatus = (a: P['status'], b: P['status']): P['status'] => {
-  for (const stop of ['ne-plus-contacter', 'non-interesse', 'client'] as const) if (a === stop || b === stop) return stop
+  for (const stop of ['ferme', 'ne-plus-contacter', 'non-interesse', 'client'] as const) if (a === stop || b === stop) return stop
   return STATUS_ORDER.indexOf(a) >= STATUS_ORDER.indexOf(b) ? a : b
 }
 const best = <T extends string>(order: T[], a?: T | null, b?: T | null): T | null | undefined => {

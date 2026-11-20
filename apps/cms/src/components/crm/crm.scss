@@ -527,3 +527,8 @@ button.cmini__day { border: 0; background: transparent; font: inherit; cursor: p
 /* Menu de la prospection : pas l'icône générique du menu du CMS (carré vide), on a nos propres icônes */
 .crm-sidemenu__link::before,
 .crm-back-nav::before { content: none !important; display: none !important; }
+
+/* « N'existe plus » : gris neutre */
+.crm .bcount.tone-none, .bfiche .bcount.tone-none { background: var(--theme-elevation-50); color: var(--cms-muted); }
+.bcount--action { background: transparent; border: 1px dashed var(--cms-line) !important; color: var(--cms-muted); cursor: pointer; }
+.bfiche__closed { margin: 0 0 8px; }
