@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { CRM_ACTIVITY_KINDS, CRM_COMMERCIAL, CRM_PROJECT_STATUSES, CRM_TEMPLATE_KINDS, CRM_TYPES, commercialOf, statusForCommercial, type CrmCommercial } from '@/crm/constants'
-import { fillTemplate, mailtoLink } from '@/crm/emailTemplate'
+import { fillTemplate, MAIL_VIA_OPTIONS, outlookLink, type MailVia } from '@/crm/emailTemplate'
 
 import { api, qs } from '../admin/client'
 
@@ -324,6 +324,8 @@ const kindOfTemplate = (v?: string | null) => CRM_TEMPLATE_KINDS.find((k) => k.v
  * Choisit un modèle, le personnalise avec la fiche, puis le copie ou l'ouvre dans la messagerie.
  * Rien n'est envoyé par le CMS : c'est toi qui relis et envoies.
  */
+const MAIL_VIA_KEY = 'crm-mail-via'
+
 const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates: EmailTemplate[] | null; busy: boolean; onPatch: (data: Partial<Prospect>) => Promise<boolean> }) => {
   const addresses = useMemo(() => [p.email, ...(p.otherEmails ?? []).map((e) => e.address)].filter((a): a is string => Boolean(a && a.trim())), [p.email, p.otherEmails])
   const suggested = useMemo(() => {
@@ -335,6 +337,24 @@ const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [done, setDone] = useState('')
+  // Choix de la messagerie mémorisé sur cet appareil (Outlook application par défaut)
+  const [via, setVia] = useState<MailVia>('app')
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(MAIL_VIA_KEY)
+      if (MAIL_VIA_OPTIONS.some((o) => o.value === saved)) setVia(saved as MailVia)
+    } catch {
+      /* stockage indisponible : on garde l'application Outlook */
+    }
+  }, [])
+  const chooseVia = (v: MailVia) => {
+    setVia(v)
+    try {
+      window.localStorage.setItem(MAIL_VIA_KEY, v)
+    } catch {
+      /* rien : le choix vaut pour cette session */
+    }
+  }
 
   const apply = useCallback(
     (t: EmailTemplate | null | undefined) => {
@@ -373,8 +393,14 @@ const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates
     }
   }
   const open = async () => {
-    window.location.href = mailtoLink(to, subject, body)
-    setDone('Ouvert dans ta messagerie ✓ Relis puis envoie.')
+    const link = outlookLink(via, to, subject, body)
+    if (via === 'pro' || via === 'perso') {
+      // Outlook web : nouvel onglet, la fiche reste ouverte ici
+      if (!window.open(link, '_blank', 'noopener')) window.location.href = link
+    } else {
+      window.location.href = link
+    }
+    setDone(via === 'mailto' ? 'Ouvert dans ta messagerie ✓ Relis puis envoie.' : 'Ouvert dans Outlook ✓ Relis puis envoie.')
     await markDraft()
   }
   const missing = /\[(nom|commune|site|type) \?\]/.test(`${subject} ${body}`)
@@ -430,8 +456,18 @@ const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates
           Copier le texte
         </button>
         <button type="button" className="bbtn bbtn--primary" disabled={busy || !to.length || !body.trim()} onClick={open}>
-          Ouvrir dans ma messagerie
+          {via === 'mailto' ? 'Ouvrir dans ma messagerie' : 'Ouvrir dans Outlook'}
         </button>
+        <label className="bmail__via">
+          via
+          <select value={via} onChange={(e) => chooseVia(e.target.value as MailVia)}>
+            {MAIL_VIA_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
         {done && <span className="bok">{done}</span>}
       </div>
       <p className="bmuted">

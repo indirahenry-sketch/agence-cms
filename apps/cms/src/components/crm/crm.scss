@@ -384,6 +384,8 @@ body.bfiche-open .crm-back-fab { display: none; }
 .bmail select, .bmail input[type='text'] { width: 100%; min-width: 0; padding: 7px 10px; border: 1px solid var(--cms-line); border-radius: 10px; background: var(--cms-card); color: var(--cms-ink); font: inherit; font-size: 0.88rem; }
 .bmail__dest { display: grid; gap: 4px; align-content: start; }
 .bmail__to { display: grid; gap: 4px; font-weight: 400; color: var(--cms-ink); overflow-wrap: anywhere; }
+.bmail__via { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--cms-muted, inherit); }
+.bmail .bmail__via select { width: auto; padding: 5px 8px; font-size: 0.82rem; }
 @media (max-width: 520px) { .bmail__grid { grid-template-columns: 1fr; } }
 
 /* Fusion des doublons (tableau de bord) */

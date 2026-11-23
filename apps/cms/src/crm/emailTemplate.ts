@@ -57,3 +57,29 @@ export const mailtoLink = (to: string[], subject: string, body: string): string 
   // Adresses laissées lisibles (certaines messageries ne décodent pas « %40 ») ; seuls ? & # sont retirés
   return `mailto:${to.map((a) => a.trim().replace(/[?&#\s]/g, '')).join(',')}?${params.join('&')}`
 }
+
+/** Où ouvrir le brouillon : application Outlook (iPad, iPhone, Mac), Outlook web pro (Microsoft 365), Outlook.com perso, ou messagerie par défaut. */
+export type MailVia = 'app' | 'pro' | 'perso' | 'mailto'
+
+export const MAIL_VIA_OPTIONS: { value: MailVia; label: string }[] = [
+  { value: 'app', label: 'Application Outlook' },
+  { value: 'pro', label: 'Outlook web (Microsoft 365)' },
+  { value: 'perso', label: 'Outlook.com (web)' },
+  { value: 'mailto', label: 'Messagerie par défaut' },
+]
+
+const cleanAddress = (a: string) => a.trim().replace(/[?&#;,\s]/g, '')
+
+/** Lien qui ouvre un nouvel e-mail prérempli directement dans Outlook (jamais envoyé automatiquement). */
+export const outlookLink = (via: MailVia, to: string[], subject: string, body: string): string => {
+  if (via === 'mailto') return mailtoLink(to, subject, body)
+  const text = body.replace(/\r\n/g, '\n')
+  const addresses = to.map(cleanAddress).filter(Boolean)
+  if (via === 'app') {
+    const params = [`to=${addresses.join(',')}`, `subject=${encodeURIComponent(subject)}`, `body=${encodeURIComponent(text)}`]
+    return `ms-outlook://compose?${params.join('&')}`
+  }
+  const base = via === 'pro' ? 'https://outlook.office.com/mail/deeplink/compose' : 'https://outlook.live.com/mail/0/deeplink/compose'
+  const params = [`to=${addresses.map(encodeURIComponent).join(';')}`, `subject=${encodeURIComponent(subject)}`, `body=${encodeURIComponent(text)}`]
+  return `${base}?${params.join('&')}`
+}
