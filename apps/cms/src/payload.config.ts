@@ -38,6 +38,8 @@ import { CrmProspects } from './collections/crm/CrmProspects'
 import { CrmSearches } from './collections/crm/CrmSearches'
 import { CrmZones } from './collections/crm/CrmZones'
 import { startCrmScheduler } from './crm/search/scheduler'
+import { startOutlookScheduler } from './crm/outlook/scheduler'
+import { crmOutlookEndpoints } from './endpoints/crmOutlook'
 import { ensureCrmZones } from './crm/zones'
 import { CrmSettings } from './globals/CrmSettings'
 import { migrations } from './migrations'
@@ -88,6 +90,7 @@ export default buildConfig({
         prospectionRecherche: { Component: '@/components/crm/CrmSearchPage#CrmSearchPage', path: '/prospection/recherche' },
         prospectionZones: { Component: '@/components/crm/CrmZones#CrmZones', path: '/prospection/zones' },
         prospectionRegistre: { Component: '@/components/crm/CrmRegistre#CrmRegistre', path: '/prospection/registre' },
+        prospectionEnvoi: { Component: '@/components/crm/CrmOutlook#CrmOutlook', path: '/prospection/envoi' },
       },
       actions: ['@/components/HeaderTools#HeaderTools'],
       providers: ['@/components/MobileBar#MobileBar', '@/components/ArticlesName#ArticlesNameNav'],
@@ -104,7 +107,7 @@ export default buildConfig({
     },
   },
 
-  endpoints: [notifications, storageCheck, crmExport, crmImport, crmSearch, crmMergeDuplicates, crmCheckClosed, crmAgenda],
+  endpoints: [notifications, storageCheck, crmExport, crmImport, crmSearch, crmMergeDuplicates, crmCheckClosed, crmAgenda, ...crmOutlookEndpoints],
 
   // Messages d'erreur compréhensibles au lieu de « Something went wrong »
   hooks: { afterError: [readableErrors] },
@@ -186,6 +189,7 @@ export default buildConfig({
     await ensureCrmZones(payload).catch((err) => payload.logger.error({ err }, 'Zones de prospection non créées'))
     // Prospection : recherche automatique chaque lundi à 9 h (heure de Paris)
     startCrmScheduler(payload)
+    startOutlookScheduler(payload)
     if (process.env.SKIP_DEMO_IMPORT === 'true') return
     try {
       await importEcuriesPoigny(payload)

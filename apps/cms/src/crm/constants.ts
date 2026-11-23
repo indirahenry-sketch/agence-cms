@@ -18,6 +18,7 @@ export const CRM_STATUSES = [
   { label: 'E-mail envoyé', value: 'email-envoye' },
   { label: 'En attente de réponse', value: 'en-attente' },
   { label: 'Relance à effectuer', value: 'relance' },
+  { label: 'A répondu (à traiter)', value: 'a-repondu' },
   { label: 'Client', value: 'client' },
   { label: 'Non intéressé', value: 'non-interesse' },
   { label: 'Ne plus contacter', value: 'ne-plus-contacter' },
@@ -163,7 +164,7 @@ export const FRENCH_DEPARTMENTS: { code: string; name: string; region: string }[
  */
 export const CRM_COMMERCIAL = [
   { value: 'a-contacter', label: 'À contacter', tone: 'peach', set: 'nouveau', statuses: ['nouveau', 'a-verifier', 'qualifie', 'email-a-preparer', 'brouillon-cree'] },
-  { value: 'contacte', label: 'Contacté', tone: 'sky', set: 'en-attente', statuses: ['email-envoye', 'en-attente', 'relance'] },
+  { value: 'contacte', label: 'Contacté', tone: 'sky', set: 'en-attente', statuses: ['email-envoye', 'en-attente', 'relance', 'a-repondu'] },
   { value: 'accepte', label: 'Accepté', tone: 'mint', set: 'client', statuses: ['client'] },
   { value: 'refuse', label: 'Refusé', tone: 'rose', set: 'non-interesse', statuses: ['non-interesse', 'ne-plus-contacter'] },
   { value: 'ferme', label: 'N’existe plus', tone: 'none', set: 'ferme', statuses: ['ferme'] },

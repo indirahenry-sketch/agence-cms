@@ -16,6 +16,7 @@ import * as migration_20261118_133000_crm_v4_modeles_emails from './20261118_133
 import * as migration_20261118_163000_crm_v5_autre_nom from './20261118_163000_crm_v5_autre_nom';
 import * as migration_20261120_183000_crm_v6_taches from './20261120_183000_crm_v6_taches';
 import * as migration_20261120_213000_crm_v7_fermee from './20261120_213000_crm_v7_fermee';
+import * as migration_20261123_150000_crm_v8_outlook from './20261123_150000_crm_v8_outlook';
 
 export const migrations = [
   {
@@ -107,5 +108,10 @@ export const migrations = [
     up: migration_20261120_213000_crm_v7_fermee.up,
     down: migration_20261120_213000_crm_v7_fermee.down,
     name: '20261120_213000_crm_v7_fermee'
+  },
+  {
+    up: migration_20261123_150000_crm_v8_outlook.up,
+    down: migration_20261123_150000_crm_v8_outlook.down,
+    name: '20261123_150000_crm_v8_outlook',
   },
 ];

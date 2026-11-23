@@ -10,7 +10,7 @@
  */
 import config from '@payload-config'
 import { getPayload, type Payload } from 'payload'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { commercialOf, statusForCommercial } from '@/crm/constants'
 import { checkClosedProspects } from '@/crm/closed'
@@ -23,6 +23,10 @@ import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/imp
 import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
 import { ensureCrmZones } from '@/crm/zones'
 import { crmAgenda, crmExport, crmImport, crmSearch } from '@/endpoints/crm'
+import { AUTO_MARK, autoSendTick, inSendingWindow, planFor } from '@/crm/outlook/autoSend'
+import { checkState, decrypt, encrypt, makeState } from '@/crm/outlook/crypto'
+import { resetTokenCache } from '@/crm/outlook/graph'
+import { checkReplies, isStopReply, ownText } from '@/crm/outlook/replies'
 import { runCrmSearch } from '@/crm/search/run'
 import { isMondayAfter9Paris } from '@/crm/search/scheduler'
 import { title } from '@/crm/search/sources'
@@ -694,5 +698,120 @@ describe('Entreprises qui n’existent plus', () => {
     expect(notes.docs[0]?.summary).toContain('Entreprise fermée')
     // pas ajoutée à la liste « ne plus contacter » (qui sert aux refus)
     expect((await payload.count({ collection: 'crm-optouts', where: { prospect: { equals: closed.id } } })).totalDocs).toBe(0)
+  })
+})
+
+describe('Outlook : envoi automatique et réponses', () => {
+  const MONDAY_1030 = new Date('2026-11-23T09:30:00Z') // lundi 10 h 30 à Paris
+  const calls: { url: string; body?: string }[] = []
+  let inbox: unknown[] = []
+
+  const stubGraph = () => {
+    process.env.MS_CLIENT_ID = 'test-client'
+    process.env.MS_CLIENT_SECRET = 'test-secret'
+    resetTokenCache()
+    calls.length = 0
+    vi.stubGlobal('fetch', (async (url: string | URL, init?: RequestInit) => {
+      const u = String(url)
+      calls.push({ url: u, body: typeof init?.body === 'string' ? init.body : init?.body ? String(init.body) : undefined })
+      if (u.includes('/oauth2/v2.0/token')) return Response.json({ access_token: 'jeton-acces', refresh_token: 'jeton-renouvele', expires_in: 3600 })
+      if (u.endsWith('/me/sendMail')) return new Response(null, { status: 202 })
+      if (u.includes('/me/messages')) return Response.json({ value: inbox })
+      return Response.json({ error: { message: 'inattendu' } }, { status: 404 })
+    }) as typeof fetch)
+  }
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete process.env.MS_CLIENT_ID
+    delete process.env.MS_CLIENT_SECRET
+    resetTokenCache()
+  })
+
+  it('chiffre le jeton et signe la connexion', () => {
+    const packed = encrypt('secret-de-renouvellement')
+    expect(packed).not.toContain('secret')
+    expect(decrypt(packed)).toBe('secret-de-renouvellement')
+    expect(decrypt(packed.slice(0, -2) + 'xx')).toBeNull()
+    const state = makeState(7)
+    expect(checkState(state, 7)).toBe(true)
+    expect(checkState(state, 8)).toBe(false)
+    expect(checkState(state, 7, Date.now() + 20 * 60000)).toBe(false)
+  })
+
+  it('reconnaît un « STOP » sans se tromper sur le texte cité', () => {
+    expect(isStopReply('STOP')).toBe(true)
+    expect(isStopReply('Merci de ne plus me contacter.')).toBe(true)
+    expect(isStopReply('Bonjour, oui ça m’intéresse, appelez-moi.')).toBe(false)
+    const reply = ownText({ uniqueBody: { content: 'Oui, intéressé !\n\nLe lun. 23 nov. 2026, Eye Design a écrit :\n> répondez simplement « STOP »' } })
+    expect(reply).toBe('Oui, intéressé !')
+    expect(isStopReply(reply)).toBe(false)
+  })
+
+  it('choisit le bon modèle et écarte ce qui n’est pas prêt', () => {
+    const templates = [
+      { id: 1, name: 'Refonte', kind: 'refonte' as const, subject: 'Votre site, {{nom}}', body: 'Bonjour {{nom}} à {{commune}}' },
+      { id: 2, name: 'Relance', kind: 'relance' as const, subject: 'Re : votre site', body: 'Je me permets de revenir vers vous.' },
+    ]
+    const settings = { autoSendScope: 'choisis' as const, autoSendRelances: 1, followUpDays: 7 }
+    const base = { id: 1, name: 'Écurie du Pré', email: 'pre@ecurie.fr', status: 'nouveau' as const, need: 'refonte' as const, autoSend: 'oui' as const, commune: 'Sète' }
+    const first = planFor(base, templates, settings, 0, MONDAY_1030)
+    expect('skip' in first ? first.skip : first.subject).toBe('Votre site, Écurie du Pré')
+    expect('skip' in first ? '' : first.body).toContain(OPT_OUT_LINE)
+    expect(planFor({ ...base, autoSend: 'defaut' }, templates, settings, 0)).toEqual({ skip: 'Hors envoi automatique' })
+    expect(planFor({ ...base, autoSend: 'defaut', status: 'a-verifier' }, templates, { ...settings, autoSendScope: 'tous' }, 0)).toEqual({ skip: 'Hors envoi automatique' })
+    expect(planFor({ ...base, commune: null }, templates, settings, 0)).toEqual({ skip: 'Information manquante sur la fiche : [commune ?]' })
+    expect(planFor({ ...base, need: 'creation' }, templates, settings, 0)).toEqual({ skip: 'Pas de modèle « Création »' })
+    const old = new Date(MONDAY_1030.getTime() - 8 * 864e5).toISOString()
+    const relance = planFor({ ...base, status: 'en-attente', lastContactAt: old }, templates, settings, 0, MONDAY_1030)
+    expect('skip' in relance ? relance.skip : relance.kind).toBe('relance')
+    expect(planFor({ ...base, status: 'en-attente', lastContactAt: old }, templates, settings, 1, MONDAY_1030)).toEqual({ skip: 'Relances automatiques déjà faites' })
+    expect(planFor({ ...base, status: 'a-repondu' }, templates, settings, 0)).toEqual({ skip: 'Statut non concerné' })
+    expect(inSendingWindow(MONDAY_1030)).toBe(true)
+    expect(inSendingWindow(new Date('2026-11-22T10:00:00Z'))).toBe(false) // dimanche
+  })
+
+  it('envoie un seul e-mail, le note, puis repère les réponses et les « STOP »', async () => {
+    stubGraph()
+    await payload.create({ collection: 'crm-email-templates', data: { name: 'Création auto', kind: 'creation', subject: 'Un site pour {{nom}}', body: 'Bonjour {{nom}},\nUn site ?' }, overrideAccess: true })
+    const a = await payload.create({ collection: 'crm-prospects', data: { name: 'Haras Automatique', email: 'auto@haras-test.fr', need: 'creation', status: 'nouveau', autoSend: 'oui' }, overrideAccess: true, context: ctx })
+    const b = await payload.create({ collection: 'crm-prospects', data: { name: 'Écurie Stop', email: 'stop@ecurie-test.fr', otherEmails: [{ address: 'gerant@ecurie-test.fr' }], need: 'creation', status: 'en-attente', autoSend: 'non' }, overrideAccess: true, context: ctx })
+    await payload.updateGlobal({ slug: 'crm-settings', data: { autoSend: true, autoSendScope: 'choisis', outlookToken: encrypt('jeton-initial'), outlookEmail: 'moi@outlook.fr', outlookLastCheck: '2026-11-23T08:00:00.000Z' }, overrideAccess: true })
+
+    const r1 = await autoSendTick(payload, MONDAY_1030)
+    expect(r1).toEqual({ sent: 1, prospect: 'Haras Automatique' })
+    const sent = calls.find((c) => c.url.endsWith('/me/sendMail'))
+    expect(JSON.parse(sent!.body!).message.toRecipients).toEqual([{ emailAddress: { address: 'auto@haras-test.fr' } }])
+    expect(JSON.parse(sent!.body!).message.body.content).toContain('STOP')
+    // Le jeton renouvelé est re-chiffré, et une mise à jour des réglages ne l'efface pas
+    await payload.updateGlobal({ slug: 'crm-settings', data: { autoSendDailyCap: 12 }, overrideAccess: true })
+    const settings = await payload.findGlobal({ slug: 'crm-settings', overrideAccess: true, showHiddenFields: true })
+    expect(decrypt(settings.outlookToken)).toBe('jeton-renouvele')
+    const plain = await payload.findGlobal({ slug: 'crm-settings', overrideAccess: true })
+    expect(plain.outlookToken).toBeUndefined()
+
+    const log = await payload.find({ collection: 'crm-activities', where: { prospect: { equals: a.id } }, overrideAccess: true })
+    expect(log.docs[0].summary).toContain(AUTO_MARK)
+    expect(log.docs[0].followUpAt).toBeTruthy()
+    expect((await payload.findByID({ collection: 'crm-prospects', id: a.id, overrideAccess: true })).status).toBe('en-attente')
+    // Second passage immédiat : l'écart minimum bloque
+    expect((await autoSendTick(payload, MONDAY_1030)).sent).toBe(0)
+
+    inbox = [
+      { id: 'm1', subject: 'Re: Un site pour Haras Automatique', receivedDateTime: '2026-11-23T09:40:00Z', from: { emailAddress: { address: 'AUTO@haras-test.fr' } }, uniqueBody: { content: 'Oui, rappelez-moi demain.' } },
+      { id: 'm2', subject: 'Re: relance', receivedDateTime: '2026-11-23T09:41:00Z', from: { emailAddress: { address: 'gerant@ecurie-test.fr' } }, uniqueBody: { content: 'STOP' } },
+      { id: 'm3', subject: 'Newsletter', receivedDateTime: '2026-11-23T09:42:00Z', from: { emailAddress: { address: 'news@ailleurs.fr' } }, uniqueBody: { content: 'Promo' } },
+    ]
+    const replies = await checkReplies(payload, MONDAY_1030)
+    expect(replies).toEqual({ checked: 3, replies: 2, stops: 1 })
+    const pa = await payload.findByID({ collection: 'crm-prospects', id: a.id, overrideAccess: true })
+    expect(pa.status).toBe('a-repondu')
+    expect(pa.nextFollowUpAt ?? null).toBeNull() // la relance est annulée
+    const pb = await payload.findByID({ collection: 'crm-prospects', id: b.id, overrideAccess: true })
+    expect(pb.status).toBe('ne-plus-contacter')
+    expect(pb.doNotContact).toBe(true)
+    expect((await payload.count({ collection: 'crm-activities', where: { summary: { contains: 'Promo' } }, overrideAccess: true })).totalDocs).toBe(0)
+    expect((await payload.findGlobal({ slug: 'crm-settings', overrideAccess: true })).outlookLastCheck).toBe('2026-11-23T09:42:00.000Z')
+
+    await payload.updateGlobal({ slug: 'crm-settings', data: { autoSend: false, outlookToken: null }, overrideAccess: true })
   })
 })

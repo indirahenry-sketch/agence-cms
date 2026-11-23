@@ -33,6 +33,12 @@ export const notifications: Endpoint = {
         items.push({ id: `s${r.id}`, kind: 'support', title: r.status === 'resolved' ? 'Demande résolue' : 'Nouvelle demande de support', text: `${t} : « ${r.subject} »`, at: r.createdAt, href: `/admin/collections/support-requests/${r.id}` })
       }
       for (const t of tenants.docs) items.push({ id: `t${t.id}`, kind: 'client', title: 'Nouveau client', text: t.name, at: t.createdAt, href: `/admin/collections/tenants/${t.id}` })
+      // Prospection : réponses des prospects repérées dans Outlook
+      const answers = await p.find({ collection: 'crm-activities', where: { and: [{ kind: { equals: 'reponse' } }, { date: { greater_than: week } }] }, sort: '-date', limit: 10, overrideAccess: true, depth: 1, req })
+      for (const a of answers.docs) {
+        const pr = typeof a.prospect === 'object' && a.prospect ? a.prospect : null
+        if (pr) items.push({ id: `cr${a.id}`, kind: 'reply', title: a.summary.startsWith('A demandé') ? 'Un prospect a dit STOP' : 'Un prospect a répondu', text: `${pr.name} : ${a.summary.replace(/^[^:]+:\s*/, '').slice(0, 90)}`, at: a.date, href: `/admin/prospection/base?fiche=${pr.id}` })
+      }
       for (const u of users.docs) items.push({ id: `u${u.id}`, kind: 'user', title: 'Nouveau compte', text: u.name || u.email, at: u.createdAt, href: `/admin/collections/users/${u.id}` })
     } else {
       const tenantIDs = getTenantIDs(user)

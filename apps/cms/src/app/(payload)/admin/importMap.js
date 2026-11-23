@@ -51,6 +51,7 @@ import { CrmCalendar as CrmCalendar_a07323fcb066d52abc42cf9f43e7a77f } from '@/c
 import { CrmImport as CrmImport_4213cefecc83dda7f9fc95c0d4a3edac } from '@/components/crm/CrmImport'
 import { CrmSearchPage as CrmSearchPage_c352003ca79a843cde52793915f3d915 } from '@/components/crm/CrmSearchPage'
 import { CrmZones as CrmZones_4f1c2d9e8a7b6c5d4e3f2a1b0c9d8e7f } from '@/components/crm/CrmZones'
+import { CrmOutlook as CrmOutlook_2b8d4f6a1c3e5b7d9f0a2c4e6b8d1f3a } from '@/components/crm/CrmOutlook'
 import { CrmRegistre as CrmRegistre_7a3e9c1b5d2f4a6e8c0b1d3f5a7c9e2b } from '@/components/crm/CrmRegistre'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
@@ -110,6 +111,7 @@ export const importMap = {
   "@/components/crm/CrmImport#CrmImport": CrmImport_4213cefecc83dda7f9fc95c0d4a3edac,
   "@/components/crm/CrmSearchPage#CrmSearchPage": CrmSearchPage_c352003ca79a843cde52793915f3d915,
   "@/components/crm/CrmZones#CrmZones": CrmZones_4f1c2d9e8a7b6c5d4e3f2a1b0c9d8e7f,
+  "@/components/crm/CrmOutlook#CrmOutlook": CrmOutlook_2b8d4f6a1c3e5b7d9f0a2c4e6b8d1f3a,
   "@/components/crm/CrmRegistre#CrmRegistre": CrmRegistre_7a3e9c1b5d2f4a6e8c0b1d3f5a7c9e2b,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24

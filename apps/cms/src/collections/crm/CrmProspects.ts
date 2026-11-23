@@ -297,6 +297,19 @@ export const CrmProspects: CollectionConfig = {
       index: true,
       admin: { position: 'sidebar', readOnly: true, description: 'Coché automatiquement : statut « Ne plus contacter » ou demande enregistrée.' },
     },
+    {
+      name: 'autoSend',
+      label: 'Envoi automatique',
+      type: 'select',
+      defaultValue: 'defaut',
+      index: true,
+      options: [
+        { label: 'Selon le réglage général', value: 'defaut' },
+        { label: 'Oui pour ce prospect', value: 'oui' },
+        { label: 'Non, toujours à la main', value: 'non' },
+      ],
+      admin: { position: 'sidebar', description: 'Ne sert que si l’envoi automatique est activé (Prospection → Outlook et envoi auto).' },
+    },
     // Clés de comparaison (doublons), calculées automatiquement
     ...(['nameKey', 'altNameKey', 'communeKey', 'phoneKey', 'emailKey', 'domainKey', 'sirenKey'] as const).map((name) => ({
       name,

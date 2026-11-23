@@ -52,6 +52,35 @@ export const CrmSettings: GlobalConfig = {
       admin: { description: 'Lecture polie : une page à la fois. Plus le nombre est grand, plus la recherche est longue.' },
     },
     {
+      type: 'collapsible',
+      label: 'Outlook et envoi automatique',
+      admin: { description: 'Se règle plus simplement depuis Prospection → Outlook et envoi auto.' },
+      fields: [
+        { name: 'autoSend', label: 'Envoi automatique activé', type: 'checkbox', defaultValue: false },
+        {
+          name: 'autoSendScope',
+          label: 'Prospects concernés',
+          type: 'select',
+          required: true,
+          defaultValue: 'choisis',
+          options: [
+            { label: 'Seulement ceux que je choisis (« Oui » sur la fiche)', value: 'choisis' },
+            { label: 'Tous, sauf ceux mis sur « Non »', value: 'tous' },
+          ],
+        },
+        { name: 'autoSendDailyCap', label: 'Maximum d’e-mails automatiques par jour', type: 'number', required: true, defaultValue: 10, min: 1, max: 50 },
+        { name: 'autoSendGapMinutes', label: 'Écart minimum entre deux envois (minutes)', type: 'number', required: true, defaultValue: 20, min: 5, max: 240 },
+        { name: 'autoSendRelances', label: 'Relances automatiques sans réponse', type: 'number', required: true, defaultValue: 1, min: 0, max: 3 },
+        { name: 'replyCheck', label: 'Repérer les réponses des prospects dans Outlook', type: 'checkbox', defaultValue: true },
+        { name: 'outlookEmail', label: 'Boîte Outlook connectée', type: 'text', admin: { readOnly: true } },
+        { name: 'outlookConnectedAt', label: 'Connectée le', type: 'date', admin: { readOnly: true } },
+        { name: 'outlookLastCheck', label: 'Dernière lecture des réponses', type: 'date', admin: { readOnly: true } },
+        { name: 'outlookError', label: 'Dernière erreur Outlook', type: 'text', admin: { readOnly: true } },
+        // Jeton de connexion, chiffré ; jamais renvoyé par l'API
+        { name: 'outlookToken', type: 'text', hidden: true },
+      ],
+    },
+    {
       name: 'followUpDays',
       label: 'Relancer après (jours sans réponse)',
       type: 'number',

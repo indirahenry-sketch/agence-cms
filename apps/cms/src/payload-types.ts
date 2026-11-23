@@ -903,6 +903,7 @@ export interface CrmProspect {
     | 'email-envoye'
     | 'en-attente'
     | 'relance'
+    | 'a-repondu'
     | 'client'
     | 'non-interesse'
     | 'ne-plus-contacter'
@@ -973,6 +974,10 @@ export interface CrmProspect {
    * Coché automatiquement : statut « Ne plus contacter » ou demande enregistrée.
    */
   doNotContact?: boolean | null;
+  /**
+   * Ne sert que si l’envoi automatique est activé (Prospection → Outlook et envoi auto).
+   */
+  autoSend?: ('defaut' | 'oui' | 'non') | null;
   nameKey?: string | null;
   altNameKey?: string | null;
   communeKey?: string | null;
@@ -1896,6 +1901,7 @@ export interface CrmProspectsSelect<T extends boolean = true> {
   lastContactAt?: T;
   activities?: T;
   doNotContact?: T;
+  autoSend?: T;
   nameKey?: T;
   altNameKey?: T;
   communeKey?: T;
@@ -2087,6 +2093,17 @@ export interface CrmSetting {
    * Lecture polie : une page à la fois. Plus le nombre est grand, plus la recherche est longue.
    */
   maxSiteChecks?: number | null;
+  autoSend?: boolean | null;
+  autoSendScope: 'choisis' | 'tous';
+  autoSendDailyCap: number;
+  autoSendGapMinutes: number;
+  autoSendRelances: number;
+  replyCheck?: boolean | null;
+  outlookEmail?: string | null;
+  outlookConnectedAt?: string | null;
+  outlookLastCheck?: string | null;
+  outlookError?: string | null;
+  outlookToken?: string | null;
   followUpDays: number;
   updatedAt?: string | null;
   createdAt?: string | null;
@@ -2101,6 +2118,17 @@ export interface CrmSettingsSelect<T extends boolean = true> {
   onlyReachable?: T;
   includeBreeders?: T;
   maxSiteChecks?: T;
+  autoSend?: T;
+  autoSendScope?: T;
+  autoSendDailyCap?: T;
+  autoSendGapMinutes?: T;
+  autoSendRelances?: T;
+  replyCheck?: T;
+  outlookEmail?: T;
+  outlookConnectedAt?: T;
+  outlookLastCheck?: T;
+  outlookError?: T;
+  outlookToken?: T;
   followUpDays?: T;
   updatedAt?: T;
   createdAt?: T;
