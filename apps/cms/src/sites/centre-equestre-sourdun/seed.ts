@@ -63,7 +63,7 @@ const countOf = async (payload: Payload, collection: 'services' | 'menus' | 'pos
   (await payload.count({ collection, where: { tenant: { equals: tenantID } }, overrideAccess: true })).totalDocs
 
 async function createTenant(payload: Payload): Promise<number> {
-  const contact = { email: 'c.e.sourdun@gmail.com', phone: '07 84 34 30 81' }
+  const contact = { email: 'contact@centre-equestre-sourdun.example', phone: '07 12 34 56 78' }
   const tenant = await payload.create({
     collection: 'tenants',
     data: {
@@ -71,7 +71,7 @@ async function createTenant(payload: Payload): Promise<number> {
       slug: SOURDUN_SLUG,
       languages: ['fr'],
       ...contact,
-      address: { street: '126 rue de Paris', postalCode: '77171', city: 'Sourdun', country: 'France' },
+      address: { street: '8 allée des Cavaliers', postalCode: '77171', city: 'Sourdun', country: 'France' },
       theme: { primaryColor: '#3E9A1E', secondaryColor: '#E8C15A', font: 'playfair' },
       settings: { showBlog: true, showEvents: true, showPrices: true, showGallery: true },
       labels: ['Équestre', 'Maquette'],
@@ -84,12 +84,12 @@ async function createTenant(payload: Payload): Promise<number> {
       tenant: tenant.id,
       ...contact,
       address: {
-        street: '126 rue de Paris',
+        street: '8 allée des Cavaliers',
         postalCode: '77171',
         city: 'Sourdun',
-        mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Centre+%C3%A9questre+de+Sourdun+126+rue+de+Paris+77171+Sourdun',
+        mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Sourdun+77171',
       },
-      socials: [{ network: 'facebook', url: 'https://www.facebook.com/CentreEquestreSourdun/' }],
+      socials: [{ network: 'facebook', url: 'https://www.facebook.com/' }],
     },
     ...base,
   })
@@ -144,7 +144,7 @@ async function ensureMenus(payload: Payload, tenantID: number) {
       name: 'Pied de page',
       location: 'footer',
       items: [
-        { label: 'Facebook', type: 'url', url: 'https://www.facebook.com/CentreEquestreSourdun/', newTab: true },
+        { label: 'Facebook', type: 'url', url: 'https://www.facebook.com/', newTab: true },
         { label: 'Réservations FFE', type: 'url', url: 'https://acces-equitation-sourdun.ffe.com', newTab: true },
       ],
     },

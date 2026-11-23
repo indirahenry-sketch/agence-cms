@@ -73,9 +73,9 @@ async function createTenant(payload: Payload): Promise<number> {
       name: 'Les Écuries de Poigny',
       slug: POIGNY_SLUG,
       languages: ['fr'],
-      email: 'ecuriespoigny@gmail.com',
-      phone: '06 27 67 92 88',
-      address: { street: "24 route de la Ferme d'Hennepont", postalCode: '77160', city: 'Poigny', country: 'France' },
+      email: 'contact@ecuries-poigny.example',
+      phone: '06 12 34 56 78',
+      address: { street: "12 chemin des Prés", postalCode: '77160', city: 'Poigny', country: 'France' },
       theme: { primaryColor: '#4C6E2A', secondaryColor: '#EDC655', font: 'playfair' },
       settings: { showBlog: true, showEvents: true, showPrices: true, showGallery: true },
     },
@@ -86,13 +86,13 @@ async function createTenant(payload: Payload): Promise<number> {
     collection: 'site-info',
     data: {
       tenant: tenant.id,
-      phone: '06 27 67 92 88',
-      email: 'ecuriespoigny@gmail.com',
+      phone: '06 12 34 56 78',
+      email: 'contact@ecuries-poigny.example',
       address: {
-        street: "24 route de la Ferme d'Hennepont",
+        street: "12 chemin des Prés",
         postalCode: '77160',
         city: 'Poigny',
-        mapsUrl: 'https://www.google.com/maps/search/?api=1&query=24+route+de+la+Ferme+d%27Hennepont+77160+Poigny',
+        mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Poigny+77160',
       },
       openingHours: [
         { day: 'monday', ...weekday },
@@ -103,7 +103,7 @@ async function createTenant(payload: Payload): Promise<number> {
         { day: 'saturday', slots: [{ opens: '08:00', closes: '12:00' }] },
         { day: 'sunday', closed: true },
       ],
-      socials: [{ network: 'instagram', url: 'https://www.instagram.com/ecuries_poigny' }],
+      socials: [{ network: 'instagram', url: 'https://www.instagram.com/' }],
     },
     ...base,
   })
@@ -245,7 +245,7 @@ async function ensurePage(payload: Payload, tenantID: number) {
         {
           blockType: 'text',
           content: rich(
-            "Les Écuries de Poigny, 24 route de la Ferme d'Hennepont, 77160 Poigny. Téléphone : 06 27 67 92 88. E-mail : ecuriespoigny@gmail.com.",
+            "Les Écuries de Poigny, 12 chemin des Prés, 77160 Poigny. Téléphone : 06 12 34 56 78. E-mail : contact@ecuries-poigny.example.",
             'Page d’exemple créée dans le CMS : modifiez-la ou dupliquez-la depuis le menu Pages.',
           ),
         },
@@ -291,7 +291,7 @@ async function ensureMenus(payload: Payload, tenantID: number) {
       name: 'Pied de page',
       location: 'footer',
       items: [
-        { label: 'Instagram @ecuries_poigny', type: 'url', url: 'https://www.instagram.com/ecuries_poigny', newTab: true },
+        { label: 'Instagram', type: 'url', url: 'https://www.instagram.com/', newTab: true },
         ...(pages[0] ? [{ label: 'Mentions légales', type: 'page' as const, page: pages[0].id }] : []),
       ],
     },

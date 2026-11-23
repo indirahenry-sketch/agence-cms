@@ -7,6 +7,7 @@ import { getPayload, type Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { importDomaineCastelle } from '@/sites/domaine-equestre-castelle/seed'
+import { fictionalizeMockups } from '@/sites/fictionalize'
 import { hasSiteTemplate, renderPage, renderSite } from '@/sites/render'
 
 const SLUG = 'castelle-montpellier'
@@ -19,7 +20,7 @@ beforeAll(async () => {
   // Comme une fiche créée à la main dans le CMS : couleurs par défaut, téléphone déjà saisi
   const t = await payload.create({
     collection: 'tenants',
-    data: { name: 'Domaine Équestre De la Castelle', slug: SLUG, phone: '06 14 60 22 46', theme: { primaryColor: '#1F4E79', secondaryColor: '#F2C14E' } },
+    data: { name: 'Domaine Équestre De la Castelle', slug: SLUG, phone: '06 23 45 67 89', theme: { primaryColor: '#1F4E79', secondaryColor: '#F2C14E' } },
     overrideAccess: true,
     context: { skipInvite: true },
   })
@@ -42,9 +43,9 @@ describe('Domaine Équestre de la Castelle', () => {
 
   it('complète la fiche sans écraser ce qui était saisi', async () => {
     const t = await payload.findByID({ collection: 'tenants', id: tenantID, depth: 0, overrideAccess: true })
-    expect(t.phone).toBe('06 14 60 22 46')
-    expect(t.landline).toBe('06 10 44 25 77')
-    expect(t.email).toBe('dedc34@yahoo.com')
+    expect(t.phone).toBe('06 23 45 67 89')
+    expect(t.landline).toBe('04 12 34 56 78')
+    expect(t.email).toBe('contact@domaine-castelle.example')
     expect(t.theme?.primaryColor).toBe('#1F3F99')
   })
 
@@ -68,8 +69,8 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(html).toContain('>Planning</a>')
     expect(html).toContain('>Galerie</a>')
     expect(html).toContain('Le Poney du DEDC')
-    expect(html).toContain('06 10 44 25 77')
-    expect(html).toContain('dedc34@yahoo.com')
+    expect(html).toContain('04 12 34 56 78')
+    expect(html).toContain('contact@domaine-castelle.example')
     expect(html).toContain('>Le domaine</a>')
     expect(html).toMatch(new RegExp(`<figure class="pola r1" tabindex="0"><img src="/sites/${SLUG}/media/\\d+`))
   })
@@ -151,5 +152,23 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(page).toContain('class="head"')
     expect(page).toContain('class="foot"')
     expect(page).not.toMatch(/\{\{[A-Z_]+\}\}/)
+  })
+
+  it('remplace les vraies coordonnées par des coordonnées fictives (maquette de prospection)', async () => {
+    const base = { overrideAccess: true, context: { skipInvite: true } } as const
+    await payload.update({ collection: 'tenants', id: tenantID, data: { email: 'dedc34@yahoo.com', phone: '06 14 60 22 46', landline: '0610442577' }, ...base })
+    const info = (await payload.find({ collection: 'site-info', where: { tenant: { equals: tenantID } }, limit: 1, ...base })).docs[0]
+    await payload.update({ collection: 'site-info', id: info.id, data: { email: 'dedc34@yahoo.com', socials: [{ network: 'facebook', url: 'https://www.facebook.com/profile.php?id=61554556564503' }] }, ...base })
+    expect(await fictionalizeMockups(payload)).toBeGreaterThanOrEqual(2)
+    const t = await payload.findByID({ collection: 'tenants', id: tenantID, ...base })
+    expect(t).toMatchObject({ email: 'contact@domaine-castelle.example', phone: '06 23 45 67 89', landline: '0412345678' })
+    const i2 = await payload.findByID({ collection: 'site-info', id: info.id, ...base })
+    expect(i2.email).toBe('contact@domaine-castelle.example')
+    expect(i2.socials?.[0]?.url).toBe('https://www.facebook.com/')
+    // Relancé : plus rien à changer
+    expect(await fictionalizeMockups(payload)).toBe(0)
+    const page = (await renderSite(payload, SLUG))!
+    expect(page).not.toContain('dedc34')
+    expect(page).not.toContain('61554556564503')
   })
 })

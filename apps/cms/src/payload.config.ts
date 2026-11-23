@@ -55,6 +55,7 @@ import { livePreviewURL } from './utilities/preview'
 import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
 import { importHarasMontesugui } from './sites/haras-montesugui/seed'
 import { importCentreEquestreSourdun } from './sites/centre-equestre-sourdun/seed'
+import { fictionalizeMockups } from './sites/fictionalize'
 import { importDomaineCastelle } from './sites/domaine-equestre-castelle/seed'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -211,6 +212,8 @@ export default buildConfig({
     } catch (err) {
       payload.logger.error({ err }, 'Import du Domaine Équestre de la Castelle impossible')
     }
+    // Maquettes de prospection : coordonnées fictives à la place des vraies
+    await fictionalizeMockups(payload).catch((err) => payload.logger.error({ err }, 'Maquettes : coordonnées fictives non appliquées'))
   },
 
   typescript: { outputFile: path.resolve(dirname, 'payload-types.ts') },

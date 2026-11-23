@@ -41,7 +41,7 @@ export async function importHarasMontesugui(payload: Payload): Promise<void> {
 }
 
 /** Valeurs provisoires mises à la création : elles ne doivent jamais masquer celles de la fiche client. */
-const PLACEHOLDERS = { phone: '06 00 00 00 00', email: 'contact@haras-montesugui.fr', street: 'Adresse à compléter' }
+const PLACEHOLDERS = { phone: '06 00 00 00 00', email: 'contact@haras-montesugui.example', street: 'Adresse à compléter' }
 
 /**
  * Les « Informations » priment sur la fiche client. Les premières versions de l'import y mettaient

@@ -40,7 +40,7 @@ describe('Centre Équestre de Sourdun', () => {
     expect(html).toContain('Ferme pédagogique')
     expect(html).toContain('data-for="adapte groupe"')
     expect(html).toContain('Chasse au Père Noël')
-    expect(html).toContain('07 84 34 30 81')
+    expect(html).toContain('07 12 34 56 78')
     expect(html).toContain('>Cours et horaires</a>')
     expect(html).toContain('data-v="horaires"')
     expect(html).toContain('Réservations FFE')

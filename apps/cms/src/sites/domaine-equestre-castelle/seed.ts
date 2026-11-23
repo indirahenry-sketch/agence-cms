@@ -14,13 +14,13 @@ const base = { overrideAccess: true, context: { skipInvite: true } } as const
 
 /** Infos relevées sur le panneau du domaine et sur l'ancien site (poneyclubmontpellier.com). */
 const CONTACT = {
-  phone: '06 14 60 22 46',
-  landline: '06 10 44 25 77',
-  email: 'dedc34@yahoo.com',
+  phone: '06 23 45 67 89',
+  landline: '04 12 34 56 78',
+  email: 'contact@domaine-castelle.example',
   city: 'Saint-Jean-de-Védas',
   postalCode: '34430',
-  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Domaine+Equestre+de+la+Castelle',
-  facebook: 'https://www.facebook.com/profile.php?id=61554556564503',
+  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Saint-Jean-de-V%C3%A9das+34430',
+  facebook: 'https://www.facebook.com/',
 }
 const COLORS = { primaryColor: '#1F3F99', secondaryColor: '#D6B262' }
 /** Couleurs par défaut d'une fiche client (jamais choisies par le client). */
