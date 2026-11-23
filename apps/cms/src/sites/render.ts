@@ -7,6 +7,7 @@ import { safeHref } from '@/utilities/safeURL'
 import { escapeHTML } from '@/utilities/serverURL'
 
 import { fallbackLogo, serviceIcons, template as poignyTemplate } from './ecuries-poigny/template'
+import { fallbackLogo as paraguyLogo, template as paraguyTemplate } from './ecuries-paraguy/template'
 import { fallbackLogo as montesuguiLogo, template as montesuguiTemplate } from './haras-montesugui/template'
 import { extraServiceIcons, fallbackLogo as sourdunLogo, template as sourdunTemplate } from './centre-equestre-sourdun/template'
 import { fallbackGallery as castelleGallery } from './domaine-equestre-castelle/galleryFallback'
@@ -32,6 +33,7 @@ import { fallbackLogo as castelleLogo, template as castelleTemplate } from './do
  */
 const TEMPLATES: Record<string, string> = {
   'ecuries-poigny': poignyTemplate,
+  'ecuries-paraguy': paraguyTemplate,
   'haras-montesugui': montesuguiTemplate,
   'centre-equestre-sourdun': sourdunTemplate,
   'domaine-equestre-castelle': castelleTemplate,
@@ -42,6 +44,7 @@ const ICONS: Record<string, string> = { ...serviceIcons, ...extraServiceIcons }
 
 /** Logo affiché tant que le client n'a pas choisi le sien. */
 const TEMPLATE_LOGOS: Record<string, string> = {
+  'ecuries-paraguy': paraguyLogo,
   'haras-montesugui': montesuguiLogo,
   'centre-equestre-sourdun': sourdunLogo,
   'domaine-equestre-castelle': castelleLogo,
@@ -62,10 +65,8 @@ const TEMPLATE_TEXTS: Record<string, { forYou: string; blog: string }> = {
  * Maquette d'un client. Le Domaine Équestre de la Castelle a été créé depuis le CMS : sa maquette
  * s'applique quel que soit l'identifiant court choisi, tant qu'il contient « castelle » ou « dedc ».
  */
-/** Maquettes renommées : leur nouvel identifiant garde la même maquette. */
-const TEMPLATE_ALIASES: Record<string, string> = { 'ecuries-paraguy': 'ecuries-poigny' }
 export const templateKey = (slug: string, name?: string | null) =>
-  Object.hasOwn(TEMPLATES, slug) ? slug : TEMPLATE_ALIASES[slug] ? TEMPLATE_ALIASES[slug] : /castelle|dedc|caraminho/i.test(`${slug} ${name ?? ''}`) ? 'domaine-equestre-castelle' : slug
+  Object.hasOwn(TEMPLATES, slug) ? slug : /castelle|dedc|caraminho/i.test(`${slug} ${name ?? ''}`) ? 'domaine-equestre-castelle' : slug
 const keyOf = (t: Pick<Tenant, 'slug' | 'name'>) => templateKey(t.slug, t.name)
 
 const textsOf = (t: Pick<Tenant, 'slug' | 'name'>) => TEMPLATE_TEXTS[keyOf(t)] ?? { forYou: 'Pour toi', blog: 'Blog' }
@@ -79,6 +80,7 @@ export const hasSiteTemplate = (t: Pick<Tenant, 'slug' | 'name'>) => Object.hasO
  */
 const TEMPLATE_COLORS: Record<string, { primary: string; secondary: string; vars: { primary: string[]; secondary: string[] } }> = {
   'ecuries-poigny': { primary: '#4C6E2A', secondary: '#EDC655', vars: { primary: ['--flot', '--pre'], secondary: ['--paille'] } },
+  'ecuries-paraguy': { primary: '#4C6E2A', secondary: '#EDC655', vars: { primary: ['--flot', '--pre'], secondary: ['--paille'] } },
   'haras-montesugui': { primary: '#74231E', secondary: '#B8913A', vars: { primary: ['--bdx', '--flot', '--pre'], secondary: ['--or', '--paille'] } },
   'centre-equestre-sourdun': { primary: '#3E9A1E', secondary: '#E8C15A', vars: { primary: ['--flot', '--pre'], secondary: ['--paille'] } },
   'domaine-equestre-castelle': { primary: '#1F3F99', secondary: '#D6B262', vars: { primary: ['--flot'], secondary: ['--paille'] } },

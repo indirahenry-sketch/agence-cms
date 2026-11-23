@@ -8,8 +8,7 @@ import { seedEvents, seedServices } from './seedContent'
 import { seedGallery, seedLogo } from './seedImages'
 import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
 
-/** Maquette « Les Écuries de Paraguy » (anciennement « de Poigny ») : identifiant renommé au démarrage (sites/fictionalize.ts). */
-export const POIGNY_SLUG = 'ecuries-paraguy'
+export const POIGNY_SLUG = 'ecuries-poigny'
 
 const base = { overrideAccess: true, context: { skipInvite: true } } as const
 
@@ -34,7 +33,7 @@ const rich = (...paragraphs: string[]) => ({
 })
 
 /**
- * Client de démonstration « Les Écuries de Paraguy », d'après la V10 (agenda + blog) :
+ * Client de démonstration « Les Écuries de Poigny », d'après la V10 (agenda + blog) :
  * fiche, horaires, catégories, tarifs, services, agenda, menus, photos, une bannière,
  * un article et une page d'exemple.
  *
@@ -49,7 +48,7 @@ export async function importEcuriesPoigny(payload: Payload): Promise<void> {
     try {
       await fn()
     } catch (err) {
-      payload.logger.error({ err }, `Écuries de Paraguy : étape « ${name} » impossible : ${describeError(err)}`)
+      payload.logger.error({ err }, `Écuries de Poigny : étape « ${name} » impossible : ${describeError(err)}`)
     }
   }
   await step('catégories', () => ensureCategories(payload, tenantID))
@@ -71,12 +70,12 @@ async function createTenant(payload: Payload): Promise<number> {
   const tenant = await payload.create({
     collection: 'tenants',
     data: {
-      name: 'Les Écuries de Paraguy',
+      name: 'Les Écuries de Poigny',
       slug: POIGNY_SLUG,
       languages: ['fr'],
-      email: 'contact@ecuries-paraguy.example',
-      phone: '06 12 34 56 78',
-      address: { street: "12 chemin des Prés", postalCode: '77160', city: 'Poigny', country: 'France' },
+      email: 'ecuriespoigny@gmail.com',
+      phone: '06 27 67 92 88',
+      address: { street: "24 route de la Ferme d'Hennepont", postalCode: '77160', city: 'Poigny', country: 'France' },
       theme: { primaryColor: '#4C6E2A', secondaryColor: '#EDC655', font: 'playfair' },
       settings: { showBlog: true, showEvents: true, showPrices: true, showGallery: true },
     },
@@ -87,13 +86,13 @@ async function createTenant(payload: Payload): Promise<number> {
     collection: 'site-info',
     data: {
       tenant: tenant.id,
-      phone: '06 12 34 56 78',
-      email: 'contact@ecuries-paraguy.example',
+      phone: '06 27 67 92 88',
+      email: 'ecuriespoigny@gmail.com',
       address: {
-        street: "12 chemin des Prés",
+        street: "24 route de la Ferme d'Hennepont",
         postalCode: '77160',
         city: 'Poigny',
-        mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Poigny+77160',
+        mapsUrl: 'https://www.google.com/maps/search/?api=1&query=24+route+de+la+Ferme+d%27Hennepont+77160+Poigny',
       },
       openingHours: [
         { day: 'monday', ...weekday },
@@ -104,11 +103,11 @@ async function createTenant(payload: Payload): Promise<number> {
         { day: 'saturday', slots: [{ opens: '08:00', closes: '12:00' }] },
         { day: 'sunday', closed: true },
       ],
-      socials: [{ network: 'instagram', url: 'https://www.instagram.com/' }],
+      socials: [{ network: 'instagram', url: 'https://www.instagram.com/ecuries_poigny' }],
     },
     ...base,
   })
-  payload.logger.info('✔ Client « Les Écuries de Paraguy » créé')
+  payload.logger.info('✔ Client « Les Écuries de Poigny » créé')
   return tenant.id
 }
 
@@ -214,7 +213,7 @@ async function ensureEvents(payload: Payload, tenantID: number) {
         hours: e.horaires,
         startsAt: new Date(`${e.debut}T09:00:00+01:00`).toISOString(),
         endsAt: e.fin && e.fin !== e.debut ? new Date(`${e.fin}T17:00:00+01:00`).toISOString() : undefined,
-        location: 'Les Écuries de Paraguy',
+        location: 'Les Écuries de Poigny',
       },
       ...base,
     })
@@ -246,7 +245,7 @@ async function ensurePage(payload: Payload, tenantID: number) {
         {
           blockType: 'text',
           content: rich(
-            "Les Écuries de Paraguy, 12 chemin des Prés, 77160 Poigny. Téléphone : 06 12 34 56 78. E-mail : contact@ecuries-paraguy.example.",
+            "Les Écuries de Poigny, 24 route de la Ferme d'Hennepont, 77160 Poigny. Téléphone : 06 27 67 92 88. E-mail : ecuriespoigny@gmail.com.",
             'Page d’exemple créée dans le CMS : modifiez-la ou dupliquez-la depuis le menu Pages.',
           ),
         },
@@ -256,10 +255,10 @@ async function ensurePage(payload: Payload, tenantID: number) {
           title: 'Une question ?',
           content: rich('Les sections combinent un titre, un texte, une image et jusqu’à trois boutons.'),
           background: 'card',
-          buttons: [{ label: 'Nous contacter', url: '/sites/ecuries-paraguy#contact', style: 'primary' }],
+          buttons: [{ label: 'Nous contacter', url: '/sites/ecuries-poigny#contact', style: 'primary' }],
         },
       ],
-      seo: { title: 'Mentions légales · Les Écuries de Paraguy', description: 'Informations légales du site des Écuries de Paraguy.' },
+      seo: { title: 'Mentions légales · Les Écuries de Poigny', description: 'Informations légales du site des Écuries de Poigny.' },
     },
     ...base,
   })
@@ -292,7 +291,7 @@ async function ensureMenus(payload: Payload, tenantID: number) {
       name: 'Pied de page',
       location: 'footer',
       items: [
-        { label: 'Instagram', type: 'url', url: 'https://www.instagram.com/', newTab: true },
+        { label: 'Instagram @ecuries_poigny', type: 'url', url: 'https://www.instagram.com/ecuries_poigny', newTab: true },
         ...(pages[0] ? [{ label: 'Mentions légales', type: 'page' as const, page: pages[0].id }] : []),
       ],
     },
@@ -381,5 +380,5 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
     const m = await upload(img, `photo-${i + 1}.jpg`, true)
     if (cats[0]) await payload.update({ collection: 'media', id: m.id, data: { category: cats[0].id }, ...base })
   }
-  payload.logger.info('✔ Photos des Écuries de Paraguy importées')
+  payload.logger.info('✔ Photos des Écuries de Poigny importées')
 }

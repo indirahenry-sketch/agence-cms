@@ -167,7 +167,7 @@ describe('Domaine Équestre del Caraminho', () => {
     expect(i2.email).toBe('contact@domaine-caraminho.example')
     expect(i2.socials?.[0]?.url).toBe('https://www.facebook.com/')
     expect(movedSite('/sites/castelle-montpellier/tarifs')).toBe('/sites/domaine-equestre-del-caraminho/tarifs')
-    expect(movedSite('/sites/ecuries-poigny')).toBe('/sites/ecuries-paraguy')
+    expect(movedSite('/sites/ecuries-poigny')).toBeNull()
     expect(movedSite('/sites/centre-equestre-sourdun')).toBeNull()
     // Relancé : plus rien à changer
     expect(await fictionalizeMockups(payload)).toBe(0)

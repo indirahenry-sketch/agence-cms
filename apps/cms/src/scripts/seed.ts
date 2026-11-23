@@ -7,6 +7,7 @@ import config from '@payload-config'
 import { getPayload } from 'payload'
 
 import { importEcuriesPoigny } from '../sites/ecuries-poigny/seed'
+import { importEcuriesParaguy } from '../sites/ecuries-paraguy/seed'
 import { importHarasMontesugui } from '../sites/haras-montesugui/seed'
 import { importCentreEquestreSourdun } from '../sites/centre-equestre-sourdun/seed'
 import { importDomaineCastelle } from '../sites/domaine-equestre-castelle/seed'
@@ -80,6 +81,7 @@ if (demo.docs.length === 0) {
 
 // Site réel de démonstration : Les Écuries de Poigny (voir /sites/ecuries-poigny)
 await importEcuriesPoigny(payload)
+await importEcuriesParaguy(payload)
 
 // Haras de Montesugui : duplication classique de la maquette Poigny (voir /sites/haras-montesugui)
 await importHarasMontesugui(payload)

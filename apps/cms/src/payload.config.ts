@@ -53,6 +53,7 @@ import { storageCheck } from './endpoints/storage'
 import { readableErrors } from './hooks/readableErrors'
 import { livePreviewURL } from './utilities/preview'
 import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
+import { importEcuriesParaguy } from './sites/ecuries-paraguy/seed'
 import { importHarasMontesugui } from './sites/haras-montesugui/seed'
 import { importCentreEquestreSourdun } from './sites/centre-equestre-sourdun/seed'
 import { fictionalizeMockups } from './sites/fictionalize'
@@ -198,6 +199,11 @@ export default buildConfig({
       await importEcuriesPoigny(payload)
     } catch (err) {
       payload.logger.error({ err }, 'Import des Écuries de Poigny impossible')
+    }
+    try {
+      await importEcuriesParaguy(payload)
+    } catch (err) {
+      payload.logger.error({ err }, 'Import des Écuries de Paraguy impossible')
     }
     try {
       await importHarasMontesugui(payload)

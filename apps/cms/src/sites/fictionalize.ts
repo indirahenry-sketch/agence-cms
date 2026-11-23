@@ -2,12 +2,13 @@ import type { Payload } from 'payload'
 
 /**
  * Maquettes montrées en prospection : structures FICTIVES.
- * - « Les Écuries de Poigny » devient « Les Écuries de Paraguy » (identifiant ecuries-paraguy).
+ * - « Les Écuries de Paraguy » est une COPIE fictive de Poigny (sites/ecuries-paraguy) ; Poigny
+ *   reste intact (vrai nom, vrai logo, vraies coordonnées) pour être démarché.
  * - « Domaine Équestre de la Castelle » devient « Domaine Équestre del Caraminho »
  *   (identifiant domaine-equestre-del-caraminho ; le sigle DEDC reste valable).
  * - Coordonnées réelles remplacées par des coordonnées fictives : e-mails en « .example » (domaine
  *   réservé qui n'existe pas), numéros et rues inventés, réseaux sociaux génériques.
- * Sourdun n'est PAS concerné pour l'instant (maquette envoyée au centre lui-même).
+ * Poigny et Sourdun ne sont PAS concernés pour l'instant (maquettes envoyées aux structures elles-mêmes).
  *
  * Au démarrage (avant les imports), chaque texte des fiches, informations, menus, pages, articles,
  * événements, services, tarifs, bannières et photos de ces clients est relu : seules les valeurs
@@ -28,22 +29,6 @@ type Mockup = {
 }
 
 export const FICTIONAL: Mockup[] = [
-  {
-    key: 'paraguy',
-    match: (t) => t.slug === 'ecuries-poigny' || t.slug === 'ecuries-paraguy',
-    rename: { name: 'Les Écuries de Paraguy', slug: 'ecuries-paraguy', oldLogoAlt: 'Logo des Écuries de Poigny' },
-    pairs: [
-      ['https://www.google.com/maps/search/?api=1&query=24+route+de+la+Ferme+d%27Hennepont+77160+Poigny', 'https://www.google.com/maps/search/?api=1&query=Poigny+77160'],
-      ["24 route de la Ferme d'Hennepont", '12 chemin des Prés'],
-      ["route de la Ferme d'Hennepont", 'chemin des Prés'],
-      ['ecuriespoigny@gmail.com', 'contact@ecuries-paraguy.example'],
-      ['Instagram @ecuries_poigny', 'Instagram'],
-      ['https://www.instagram.com/ecuries_poigny', 'https://www.instagram.com/'],
-      ...phoneVariants('06 27 67 92 88', '06 12 34 56 78'),
-      ['curies de Poigny', 'curies de Paraguy'],
-      ['CURIES DE POIGNY', 'CURIES DE PARAGUY'],
-    ],
-  },
   {
     key: 'caraminho',
     match: (t) => /castelle|dedc|caraminho/i.test(`${t.slug ?? ''} ${t.name ?? ''}`),
