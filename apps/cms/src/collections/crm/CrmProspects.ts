@@ -49,7 +49,8 @@ const prepare: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) =
   const status = data.status ?? d.status
   const optOut = status === 'ne-plus-contacter' ? null : await findOptOut(req.payload, keys, req)
   if (optOut) data.status = 'ne-plus-contacter'
-  data.doNotContact = Boolean(optOut) || (data.status ?? status) === 'ne-plus-contacter'
+  // « N'existe plus » : plus jamais sollicitée non plus (mais pas ajoutée à la liste « ne plus contacter »)
+  data.doNotContact = Boolean(optOut) || ['ne-plus-contacter', 'ferme'].includes(String(data.status ?? status))
   return data
 }
 

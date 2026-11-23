@@ -556,3 +556,7 @@ button.cmini__day { border: 0; background: transparent; font: inherit; cursor: p
 html[data-theme='dark'] .zmap__dep.on { fill: #6d5bb8; }
 html[data-theme='dark'] .zmap__dep.has { fill: #3a3360; }
 @media (max-width: 1000px) { .zmap { grid-template-columns: minmax(0, 1fr); } .zmap__list { max-height: 40vh; } }
+/* « N'existe plus » : gris neutre */
+.crm .bcount.tone-none, .bfiche .bcount.tone-none { background: var(--theme-elevation-50); color: var(--cms-muted); }
+.bcount--action { background: transparent; border: 1px dashed var(--cms-line) !important; color: var(--cms-muted); cursor: pointer; }
+.bfiche__closed { margin: 0 0 8px; }

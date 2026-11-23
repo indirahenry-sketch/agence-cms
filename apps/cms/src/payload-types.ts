@@ -905,7 +905,8 @@ export interface CrmProspect {
     | 'relance'
     | 'client'
     | 'non-interesse'
-    | 'ne-plus-contacter';
+    | 'ne-plus-contacter'
+    | 'ferme';
   priority?: ('haute' | 'moyenne' | 'basse') | null;
   commune?: string | null;
   department?: (number | null) | CrmZone;

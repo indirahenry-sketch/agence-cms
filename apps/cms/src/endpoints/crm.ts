@@ -1,6 +1,7 @@
 import { APIError, type Endpoint, type PayloadRequest } from 'payload'
 
 import { canUseCrm } from '@/crm/access'
+import { checkClosedProspects } from '@/crm/closed'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { EXPORT_COLUMNS, importProspects, MAX_IMPORT_ROWS } from '@/crm/importExport'
 import { autoMergeDuplicates } from '@/crm/merge'
@@ -111,5 +112,22 @@ export const crmMergeDuplicates: Endpoint = {
     guard(req)
     const merged = await autoMergeDuplicates(req.payload, req)
     return Response.json({ merged })
+  },
+}
+
+/**
+ * POST /api/crm-check-closed  { id?: number }
+ * Vérifie dans l'Annuaire des entreprises (par le SIREN) si les prospects existent encore ;
+ * ceux qui sont fermés passent en « N'existe plus ». Sans id : toutes les fiches avec un SIREN.
+ */
+export const crmCheckClosed: Endpoint = {
+  path: '/crm-check-closed',
+  method: 'post',
+  handler: async (req) => {
+    guard(req)
+    const body = ((typeof req.json === 'function' ? await req.json().catch(() => ({})) : {}) ?? {}) as { id?: unknown }
+    const id = Number(body.id)
+    const result = await checkClosedProspects(req.payload, { ids: Number.isInteger(id) && id > 0 ? [id] : undefined, req })
+    return Response.json(result)
   },
 }
