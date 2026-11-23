@@ -107,7 +107,7 @@ describe('Domaine Équestre del Caraminho', () => {
 
   it('retire les activités et tarifs de démonstration hérités du Haras de Montesugui', async () => {
     const of = { tenant: { equals: tenantID } }
-    const { seedServices } = await import('@/sites/ecuries-paraguy/seedContent')
+    const { seedServices } = await import('@/sites/ecuries-poigny/seedContent')
     const demo = seedServices[0]
     await payload.create({ collection: 'services', data: { tenant: tenantID, title: demo.title, summary: demo.summary }, overrideAccess: true })
     const tab = await payload.create({ collection: 'categories', data: { tenant: tenantID, name: 'Pensions', usage: ['prices'], order: 2 }, overrideAccess: true })
