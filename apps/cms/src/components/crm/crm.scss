@@ -386,6 +386,7 @@ body.bfiche-open .crm-back-fab { display: none; }
 .bmail__to { display: grid; gap: 4px; font-weight: 400; color: var(--cms-ink); overflow-wrap: anywhere; }
 .bmail__via { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--cms-muted, inherit); }
 .bmail .bmail__via select { width: auto; padding: 5px 8px; font-size: 0.82rem; }
+.bmail__sent { padding-top: 8px; border-top: 1px dashed var(--cms-line); }
 @media (max-width: 520px) { .bmail__grid { grid-template-columns: 1fr; } }
 
 /* Fusion des doublons (tableau de bord) */

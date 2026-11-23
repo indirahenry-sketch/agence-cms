@@ -326,7 +326,22 @@ const kindOfTemplate = (v?: string | null) => CRM_TEMPLATE_KINDS.find((k) => k.v
  */
 const MAIL_VIA_KEY = 'crm-mail-via'
 
-const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates: EmailTemplate[] | null; busy: boolean; onPatch: (data: Partial<Prospect>) => Promise<boolean> }) => {
+/** Jour « AAAA-MM-JJ » dans n jours (heure de Paris). */
+const inDays = (n: number) => parisDay(new Date(Date.now() + n * 86400000).toISOString())
+
+const EmailComposer = ({
+  p,
+  templates,
+  busy,
+  onPatch,
+  onLogged,
+}: {
+  p: Prospect
+  templates: EmailTemplate[] | null
+  busy: boolean
+  onPatch: (data: Partial<Prospect>) => Promise<boolean>
+  onLogged: () => Promise<void>
+}) => {
   const addresses = useMemo(() => [p.email, ...(p.otherEmails ?? []).map((e) => e.address)].filter((a): a is string => Boolean(a && a.trim())), [p.email, p.otherEmails])
   const suggested = useMemo(() => {
     if (!templates?.length) return null
@@ -337,6 +352,10 @@ const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [done, setDone] = useState('')
+  const [relanceIn, setRelanceIn] = useState('7')
+  const [logging, setLogging] = useState(false)
+  const [logged, setLogged] = useState('')
+  useEffect(() => setLogged(''), [p.id])
   // Choix de la messagerie mémorisé sur cet appareil (Outlook application par défaut)
   const [via, setVia] = useState<MailVia>('app')
   useEffect(() => {
@@ -402,6 +421,36 @@ const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates
     }
     setDone(via === 'mailto' ? 'Ouvert dans ta messagerie ✓ Relis puis envoie.' : 'Ouvert dans Outlook ✓ Relis puis envoie.')
     await markDraft()
+  }
+  /** « Envoyé ✓ » : note l'envoi dans l'historique, clôt les relances en cours et programme la suivante. */
+  const markSent = async () => {
+    setLogging(true)
+    setLogged('')
+    try {
+      const pending = await api<{ docs: { id: number }[] }>(
+        `/crm-activities?${qs({ 'where[and][0][prospect][equals]': p.id, 'where[and][1][done][not_equals]': 'true', 'where[and][2][followUpAt][exists]': 'true', depth: 0, limit: 50 })}`,
+      )
+      for (const a of pending.docs) await api(`/crm-activities/${a.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true }) })
+      const followUp = relanceIn ? inDays(Number(relanceIn)) : ''
+      await api('/crm-activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prospect: p.id,
+          kind: ['email-envoye', 'en-attente', 'relance'].includes(p.status ?? '') ? 'relance' : 'email-envoye',
+          summary: `E-mail envoyé${subject ? ` : « ${subject} »` : ''}${to.length ? ` à ${to.join(', ')}` : ''}`,
+          date: new Date().toISOString(),
+          followUpAt: dayToIso(followUp),
+        }),
+      })
+      if (!p.status || !['client', 'non-interesse', 'ne-plus-contacter', 'ferme'].includes(p.status)) await onPatch({ status: 'en-attente' })
+      await onLogged()
+      setLogged(followUp ? `Noté ✓ Relance prévue le ${new Date(`${followUp}T12:00:00Z`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}.` : 'Noté ✓ Sans relance prévue.')
+    } catch (e) {
+      setLogged(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setLogging(false)
+    }
   }
   const missing = /\[(nom|commune|site|type) \?\]/.test(`${subject} ${body}`)
 
@@ -470,8 +519,26 @@ const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates
         </label>
         {done && <span className="bok">{done}</span>}
       </div>
+      <div className="brow bmail__sent">
+        <span className="bextra__title">Une fois l’e-mail parti</span>
+        <label className="bmail__via">
+          relancer dans
+          <select value={relanceIn} onChange={(e) => setRelanceIn(e.target.value)}>
+            <option value="3">3 jours</option>
+            <option value="7">7 jours</option>
+            <option value="10">10 jours</option>
+            <option value="14">14 jours</option>
+            <option value="30">1 mois</option>
+            <option value="">pas de relance</option>
+          </select>
+        </label>
+        <button type="button" className="bbtn" disabled={busy || logging} onClick={markSent}>
+          {logging ? 'Enregistrement…' : 'Envoyé ✓'}
+        </button>
+        {logged && <span className="bok">{logged}</span>}
+      </div>
       <p className="bmuted">
-        La phrase « répondez STOP » est ajoutée en fin de texte : elle permet au prospect de refuser (règle de la CNIL). Rien n’est envoyé par le CMS. Le prospect passe en « Brouillon créé » ; une fois l’e-mail parti, note-le dans l’historique.{' '}
+        La phrase « répondez STOP » est ajoutée en fin de texte : elle permet au prospect de refuser (règle de la CNIL). Rien n’est envoyé par le CMS. Le prospect passe en « Brouillon créé », puis en « En attente de réponse » quand tu cliques sur « Envoyé ✓ ».{' '}
         <a href="/admin/collections/crm-email-templates">Gérer les modèles</a>
       </p>
     </div>
@@ -731,7 +798,7 @@ const Fiche = ({
 
         <section className="bfiche__block">
           <h3>Préparer un e-mail</h3>
-          <EmailComposer p={p} templates={templates} busy={busy} onPatch={onPatch} />
+          <EmailComposer p={p} templates={templates} busy={busy} onPatch={onPatch} onLogged={async () => { await Promise.all([loadActivities(), onReload()]) }} />
         </section>
 
         <section className="bfiche__block">
