@@ -31,7 +31,7 @@ export const agendaUrl = (serverURL: string): string | null => {
 
 export type AgendaEvent = { uid: string; day: string; time?: string | null; title: string; description?: string; url?: string }
 
-const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
+const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n')
 
 /** Coupe les lignes à 75 octets, comme le demande le format iCalendar. */
 const fold = (line: string) => {
