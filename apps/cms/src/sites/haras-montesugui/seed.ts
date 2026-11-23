@@ -8,6 +8,7 @@ import { seedGallery } from '../ecuries-poigny/seedImages'
 
 import { montesuguiPhotos } from './seedImages'
 import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
+import { uniqueFileName } from '@/sites/uniqueFileName'
 
 export const MONTESUGUI_SLUG = 'haras-montesugui'
 
@@ -255,7 +256,7 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
     await payload.create({
       collection: 'media',
       data: { tenant: tenantID, alt: img.alt, title: img.caption || img.alt, inGallery: true, isPublic: true, ...(cats[0] ? { category: cats[0].id } : {}) },
-      file: { data, mimetype: img.mime, name: `photo-${i + 1}.jpg`, size: data.length },
+      file: { data, mimetype: img.mime, name: uniqueFileName('montesugui', `photo-${i + 1}.jpg`), size: data.length },
       ...base,
     })
   }

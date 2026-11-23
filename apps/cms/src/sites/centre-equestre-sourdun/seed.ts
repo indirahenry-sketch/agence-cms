@@ -7,6 +7,7 @@ import { describeError } from '@/lib/s3-check'
 import { seedServices } from './seedContent'
 import { seedArticles, seedGallery } from './seedImages'
 import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
+import { uniqueFileName } from '@/sites/uniqueFileName'
 
 export const SOURDUN_SLUG = 'centre-equestre-sourdun'
 
@@ -167,7 +168,7 @@ const upload = (payload: Payload, tenantID: number, img: { mime: string; b64: st
   return payload.create({
     collection: 'media',
     data: { tenant: tenantID, alt: img.alt, title: img.title, inGallery, isPublic: true, ...(category ? { category } : {}) },
-    file: { data, mimetype: img.mime, name, size: data.length },
+    file: { data, mimetype: img.mime, name: uniqueFileName('sourdun', name), size: data.length },
     ...base,
   })
 }

@@ -7,6 +7,7 @@ import { describeError } from '@/lib/s3-check'
 import { seedEvents, seedServices } from '../ecuries-poigny/seedContent'
 import { seedGallery, seedLogo } from './seedImages'
 import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
+import { uniqueFileName } from '@/sites/uniqueFileName'
 
 /** Copie fictive des Écuries de Paraguy (même maquette), à montrer en prospection : nom, logo et coordonnées inventés. */
 export const PARAGUY_SLUG = 'ecuries-paraguy'
@@ -374,7 +375,7 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
     return payload.create({
       collection: 'media',
       data: { tenant: tenantID, alt: img.alt, title: inGallery ? img.caption || img.alt : undefined, inGallery, isPublic: true },
-      file: { data, mimetype: img.mime, name, size: data.length },
+      file: { data, mimetype: img.mime, name: uniqueFileName('paraguy', name), size: data.length },
       ...base,
     })
   }
