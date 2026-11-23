@@ -35,10 +35,21 @@ export const crmDenied = (props: AdminViewServerProps) =>
     props,
     <div className="crm">
       <h1>Accès réservé</h1>
-      <p>Cet espace est réservé à l’agence.</p>
-      <a className="dash__btn" href="/admin">
-        ← Retour
-      </a>
+      {props.initPageResult.req.user ? (
+        <>
+          <p>Cet espace est réservé à l’agence.</p>
+          <a className="dash__btn" href="/admin">
+            ← Retour
+          </a>
+        </>
+      ) : (
+        <>
+          <p>Tu n’es pas connectée au CMS dans ce navigateur.</p>
+          <a className="dash__btn" href="/admin/login">
+            Se connecter
+          </a>
+        </>
+      )}
     </div>,
   )
 

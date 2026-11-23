@@ -30,13 +30,25 @@ export const makeState = (userId: number | string, now = Date.now()) => {
   return `${payload}.${sign(payload)}`
 }
 
-export const checkState = (state: string, userId: number | string, now = Date.now()): boolean => {
+/** Utilisateur qui a lancé la connexion, si le « state » est authentique et a moins de 15 minutes ; sinon null. */
+export const readState = (state: string, now = Date.now()): string | null => {
   const i = state.lastIndexOf('.')
-  if (i < 0) return false
+  if (i < 0) return null
   const payload = state.slice(0, i)
   const sig = Buffer.from(state.slice(i + 1))
   const expected = Buffer.from(sign(payload))
-  if (sig.length !== expected.length || !timingSafeEqual(sig, expected)) return false
+  if (sig.length !== expected.length || !timingSafeEqual(sig, expected)) return null
   const [uid, at] = payload.split('.')
-  return uid === String(userId) && now - Number(at) < 15 * 60 * 1000 && now >= Number(at)
+  return now - Number(at) < 15 * 60 * 1000 && now >= Number(at) ? uid : null
+}
+
+export const checkState = (state: string, userId: number | string, now = Date.now()): boolean => readState(state, now) === String(userId)
+
+/** Un « state » ne sert qu'une fois (mémoire du serveur, le temps de sa validité). */
+const used = new Map<string, number>()
+export const useStateOnce = (state: string, now = Date.now()): boolean => {
+  for (const [k, at] of used) if (now - at > 20 * 60 * 1000) used.delete(k)
+  if (used.has(state)) return false
+  used.set(state, now)
+  return true
 }

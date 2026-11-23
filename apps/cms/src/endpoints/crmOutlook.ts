@@ -2,7 +2,8 @@ import { APIError, type Endpoint, type PayloadRequest } from 'payload'
 
 import { canUseCrm } from '@/crm/access'
 import { buildQueue, inSendingWindow, logSent, sentToday } from '@/crm/outlook/autoSend'
-import { checkState, makeState } from '@/crm/outlook/crypto'
+import { isSuperAdmin } from '@/access/roles'
+import { makeState, readState, useStateOnce } from '@/crm/outlook/crypto'
 import { authorizeUrl, connectWithCode, disconnect, isConnected, loadSettings, outlookConfigured, redirectUri, sendMail, serverBase } from '@/crm/outlook/graph'
 import { checkReplies } from '@/crm/outlook/replies'
 
@@ -30,15 +31,37 @@ export const crmOutlookConnect: Endpoint = {
   },
 }
 
+const DONE: Record<string, [string, string]> = {
+  ok: ['Boîte Outlook connectée ✓', 'Tu peux fermer cette page et revenir au CMS : la page « Outlook et envoi auto » affiche ta boîte.'],
+  annule: ['Connexion annulée', 'Rien n’a été connecté. Recommence depuis le CMS si besoin.'],
+  refuse: ['Lien expiré', 'Ce lien de connexion n’est plus valable (plus de 15 minutes, ou déjà utilisé). Recommence depuis le CMS.'],
+  erreur: ['Microsoft a refusé la connexion', 'Vérifie MS_CLIENT_ID, MS_CLIENT_SECRET et l’adresse de retour dans Azure, puis recommence depuis le CMS.'],
+}
+/** Petite page de fin, pour un navigateur où l'on n'est pas connecté au CMS. */
+const donePage = (req: PayloadRequest, q: string) => {
+  const [title, text] = DONE[q] ?? DONE.erreur
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${esc(title)}</title>
+<style>body{font:17px/1.5 -apple-system,system-ui,sans-serif;background:#f4f2fb;color:#1e1b4b;display:grid;place-items:center;min-height:100vh;margin:0;padding:20px}main{background:#fff;border-radius:18px;padding:28px;max-width:440px;box-shadow:0 8px 30px rgba(30,27,75,.08)}a{display:inline-block;margin-top:14px;padding:10px 18px;border-radius:999px;background:#7c3aed;color:#fff;text-decoration:none;font-weight:600}</style></head>
+<body><main><h1 style="font-size:1.3rem;margin:0 0 8px">${esc(title)}</h1><p style="margin:0">${esc(text)}</p><a href="${esc(`${serverBase(req.payload)}${PAGE}?outlook=${q}`)}">Ouvrir le CMS</a></main></body></html>`
+  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } })
+}
+
 export const crmOutlookCallback: Endpoint = {
   path: '/crm-outlook/callback',
   method: 'get',
   handler: async (req) => {
-    const back = (q: string) => Response.redirect(`${serverBase(req.payload)}${PAGE}?outlook=${q}`, 302)
-    if (!canUseCrm(req.user)) return back('session')
+    // Le retour de Microsoft peut arriver dans un autre navigateur que celui du CMS (application installée
+    // sur l'écran d'accueil, Safari…) : on ne dépend pas de la session, mais du « state » signé, lié au
+    // super admin qui a lancé la connexion, valable 15 minutes et utilisable une seule fois.
+    const back = (q: string) => (canUseCrm(req.user) ? Response.redirect(`${serverBase(req.payload)}${PAGE}?outlook=${q}`, 302) : donePage(req, q))
     const code = String(req.searchParams?.get('code') ?? '')
     const state = String(req.searchParams?.get('state') ?? '')
-    if (!code || !checkState(state, req.user!.id)) return back(req.searchParams?.get('error') === 'access_denied' ? 'annule' : 'refuse')
+    if (req.searchParams?.get('error')) return back(req.searchParams.get('error') === 'access_denied' ? 'annule' : 'erreur')
+    const uid = state ? readState(state) : null
+    if (!code || !uid || !useStateOnce(state)) return back('refuse')
+    const starter = await req.payload.findByID({ collection: 'users', id: uid, depth: 0, overrideAccess: true, disableErrors: true })
+    if (!starter || !isSuperAdmin(starter)) return back('refuse')
     try {
       await connectWithCode(req.payload, code)
       return back('ok')
