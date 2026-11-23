@@ -50,11 +50,11 @@ async function domainMap(): Promise<Record<string, string>> {
   return cache.map
 }
 
-/** /sites/<…castelle…>/… → /sites/domaine-equestre-del-caraminho/… (maquette renommée) */
+/** /sites/<…castelle… ou …caraminho…>/… → /sites/domaine-equestre-de-la-carmelle/… (maquette renommée) */
 export const movedSite = (path: string): string | null => {
   const m = /^\/sites\/([^/]+)(\/.*)?$/.exec(path)
   if (!m) return null
-  const to = /castelle|dedc/i.test(m[1]) ? 'domaine-equestre-del-caraminho' : null
+  const to = /castelle|dedc|caraminho/i.test(m[1]) ? 'domaine-equestre-de-la-carmelle' : null
   return to ? `/sites/${to}${m[2] ?? ''}` : null
 }
 
