@@ -76,8 +76,8 @@ export async function dropSeedMediaWithoutFile(payload: Payload, tenantID: numbe
   let removed = 0
   for (const m of docs) {
     if (await filesOk(m as SeedMedia)) continue
-    // Prudence : si une autre fiche (corbeille comprise) pointe vers le même fichier, la suppression
-    // effacerait aussi SON fichier (ex. le logo). On laisse alors la fiche et on le signale.
+    // Si une autre fiche (corbeille comprise) pointe vers le même fichier, une suppression normale
+    // effacerait aussi SON fichier. On retire alors seulement la ligne de la base (le fichier reste).
     const shared = await payload.count({
       collection: 'media',
       where: { and: [{ filename: { equals: m.filename } }, { id: { not_equals: m.id } }] },
@@ -85,7 +85,12 @@ export async function dropSeedMediaWithoutFile(payload: Payload, tenantID: numbe
       overrideAccess: true,
     })
     if (shared.totalDocs) {
-      payload.logger.warn(`Photo « ${m.alt} » : fichier faux mais partagé avec une autre fiche, à remplacer à la main dans la médiathèque`)
+      try {
+        await payload.db.deleteOne({ collection: 'media', where: { id: { equals: m.id } } })
+        removed++
+      } catch (err) {
+        payload.logger.warn({ err }, `Photo « ${m.alt} » : fiche au fichier partagé impossible à retirer`)
+      }
       continue
     }
     try {

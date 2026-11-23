@@ -7,6 +7,7 @@ import { describeError } from '@/lib/s3-check'
 import { seedEvents, seedServices } from './seedContent'
 import { seedGallery, seedLogo } from './seedImages'
 import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
+import { uniqueFileName } from '@/sites/uniqueFileName'
 
 export const POIGNY_SLUG = 'ecuries-poigny'
 
@@ -377,7 +378,7 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
     return payload.create({
       collection: 'media',
       data: { tenant: tenantID, alt: img.alt, title: inGallery ? img.caption || img.alt : undefined, inGallery, isPublic: true },
-      file: { data, mimetype: img.mime, name, size: data.length },
+      file: { data, mimetype: img.mime, name: uniqueFileName('poigny', name), size: data.length },
       ...base,
     })
   }
