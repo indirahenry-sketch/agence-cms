@@ -5,6 +5,7 @@ import type { CrmZone } from '@/payload-types'
 import { findOptOut, prospectMatchConditions } from '../dedupe'
 import { guessType } from '../importExport'
 import { autoMergeDuplicates } from '../merge'
+import { osmArea } from '../countries'
 import { crmKeys, domainKey, emailKey, type CrmKeys } from '../normalize'
 import { type Candidate, type EtatStats, type Fetcher, fromEtat, fromOsm, fromWebsite } from './sources'
 
@@ -64,9 +65,10 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
     const settings = await payload.findGlobal({ slug: 'crm-settings', ...base })
     const where: Where = opts.zoneIds?.length
       ? { id: { in: opts.zoneIds } }
-      : { and: [{ active: { equals: true } }, { kind: { equals: 'departement' } }, { country: { equals: 'France' } }] }
+      : { active: { equals: true } }
+    // Toutes les zones actives, quel que soit le pays (France : départements ; ailleurs : provinces, cantons, états…)
     const zones = (await payload.find({ collection: 'crm-zones', where, limit: 0, pagination: false, ...base })).docs
-      .filter((z) => z.kind === 'departement' && z.country === 'France')
+      .filter((z) => (z.country === 'France' ? z.kind === 'departement' : Boolean(z.code)))
       .sort((a, b) => String(a.lastSearchedAt ?? '').localeCompare(String(b.lastSearchedAt ?? '')))
 
     const thisWeek = (await payload.count({ collection: 'crm-prospects', where: { createdAt: { greater_than_equal: startOfWeekParis().toISOString() } }, overrideAccess: true })).totalDocs
@@ -80,7 +82,7 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
         startedAt,
         target,
         zones: zones.map((z) => z.id),
-        sources: 'Annuaire des entreprises (État), OpenStreetMap, sites des établissements',
+        sources: zones.some((z) => z.country !== 'France') ? 'Annuaire des entreprises (État, France), OpenStreetMap, sites des établissements' : 'Annuaire des entreprises (État), OpenStreetMap, sites des établissements',
       },
       ...base,
     })
@@ -101,8 +103,10 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
       // On s'arrête dès qu'on a assez de nouvelles fiches (les zones restantes passeront la prochaine fois)
       const promising = settings.onlyReachable === false ? fresh.length : fresh.filter((f) => f.phone || f.email || f.website).length
       if (promising >= target * 1.5) break
-      const etat = await fromEtat(zone.code, fetcher, stats)
-      const osm = await fromOsm(zone.code, fetcher)
+      // L'annuaire de l'État ne couvre que la France ; ailleurs, OpenStreetMap seul
+      const france = zone.country === 'France'
+      const etat = france ? await fromEtat(zone.code, fetcher, stats) : []
+      const osm = france ? await fromOsm(zone.code, fetcher) : await fromOsm(zone.code, fetcher, osmArea(zone.code))
       const pool: Found[] = []
       for (const c of [...etat, ...(osm ?? [])]) {
         const keys = crmKeys(c)
@@ -133,7 +137,7 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
         zoneNew++
       }
       found += pool.length
-      report.push(`${zone.label ?? zone.code} : ${pool.length} structure(s) trouvée(s), ${zoneNew} nouvelle(s)${osm === null ? ' (OpenStreetMap indisponible)' : ''}`)
+      report.push(`${france ? '' : `${zone.country} · `}${zone.label ?? zone.code} : ${pool.length} structure(s) trouvée(s), ${zoneNew} nouvelle(s)${osm === null ? ' (OpenStreetMap indisponible)' : ''}`)
       await payload.update({
         collection: 'crm-zones',
         id: zone.id,
@@ -157,7 +161,8 @@ export const runCrmSearch = async (payload: Payload, opts: SearchOptions, fetche
           c.email = w.email
           siteEmails++
         }
-        if (w.phone && !c.phone) c.phone = w.phone
+        // Le format de téléphone lu sur les sites est français : ailleurs, on ne garde que l'e-mail
+        if (w.phone && !c.phone && c.zone.country === 'France') c.phone = w.phone
         if (w.email || w.phone) c.sources.push({ label: 'Site de l’établissement', url: /^https?:/.test(c.website) ? c.website : `https://${c.website}` })
       }
     }

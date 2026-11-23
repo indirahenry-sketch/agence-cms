@@ -16,7 +16,9 @@ const norm = (s: string) =>
  * Carte de France des zones de prospection : clic sur un département = l'activer / le désactiver
  * pour les recherches. Liste à côté (recherche, régions entières).
  */
-export const CrmZonesMap: React.FC<{ zones: ZoneRow[] }> = ({ zones: initial }) => {
+export const CrmZonesMap: React.FC<{ zones: ZoneRow[]; country?: string; unit?: string; units?: string }> = ({ zones: initial, country = 'France', unit = 'département', units = 'départements' }) => {
+  const france = country === 'France'
+  const plural = (n: number) => (n > 1 ? units : unit)
   const [zones, setZones] = useState(initial)
   const [hover, setHover] = useState<string | null>(null)
   const [q, setQ] = useState('')
@@ -37,7 +39,7 @@ export const CrmZonesMap: React.FC<{ zones: ZoneRow[] }> = ({ zones: initial }) 
   }
   const toggle = async (code: string) => {
     const z = byCode.get(code)
-    if (!z) return say(`Département ${code} absent des zones.`)
+    if (!z) return say(`${code} absent des zones.`)
     const active = !z.active
     setZones((list) => list.map((x) => (x.id === z.id ? { ...x, active } : x)))
     try {
@@ -51,14 +53,14 @@ export const CrmZonesMap: React.FC<{ zones: ZoneRow[] }> = ({ zones: initial }) 
   const setMany = async (filter: (z: ZoneRow) => boolean, active: boolean, label: string) => {
     const ids = zones.filter((z) => filter(z) && z.active !== active).map((z) => z.id)
     if (!ids.length) return say('Rien à changer.')
-    if (!active && ids.length > 5 && !window.confirm(`Désactiver ${ids.length} départements (${label}) ?`)) return
+    if (!active && ids.length > 5 && !window.confirm(`Désactiver ${ids.length} ${units} (${label}) ?`)) return
     setBusy(true)
     const before = zones
     setZones((list) => list.map((z) => (ids.includes(z.id) ? { ...z, active } : z)))
     try {
       const qs = ids.map((id, i) => `where[id][in][${i}]=${id}`).join('&')
       await patch(`?${qs}`, active)
-      say(`${label} : ${ids.length} département${ids.length > 1 ? 's' : ''} ${active ? 'activé' : 'désactivé'}${ids.length > 1 ? 's' : ''}`)
+      say(`${label} : ${ids.length} ${plural(ids.length)} ${active ? 'activé' : 'désactivé'}${ids.length > 1 ? 's' : ''}`)
     } catch (e) {
       setZones(before)
       say(e instanceof Error ? e.message : 'Erreur')
@@ -99,10 +101,32 @@ export const CrmZonesMap: React.FC<{ zones: ZoneRow[] }> = ({ zones: initial }) 
       <section className="ccard zmap__card">
         <div className="ccard__row">
           <h2 className="ccard__title">
-            {activeCount} département{activeCount > 1 ? 's' : ''} actif{activeCount > 1 ? 's' : ''} sur {zones.length}
+            {activeCount} {plural(activeCount)} actif{activeCount > 1 ? 's' : ''} sur {zones.length}
           </h2>
-          <span className="cmuted zmap__hint">Clique sur un département pour l’activer ou le désactiver</span>
+          <span className="cmuted zmap__hint">Clique sur {unit === 'pays' ? 'le pays' : `un${unit === 'province' ? 'e' : ''} ${unit}`} pour l’activer ou le désactiver</span>
         </div>
+        {!france ? (
+          <div className="ztiles">
+            {regions.map((r) => (
+              <div key={r} className="ztiles__group">
+                {regions.length > 1 && <h3>{r}</h3>}
+                <div className="ztiles__grid">
+                  {zones
+                    .filter((z) => z.region === r)
+                    .map((z) => (
+                      <button key={z.id} type="button" className={`ztile${z.active ? ' on' : ''}${z.prospects ? ' has' : ''}`} aria-pressed={z.active} onClick={() => toggle(z.code)}>
+                        <b>{z.name}</b>
+                        <small>
+                          {z.active ? 'active' : 'inactive'}
+                          {z.prospects ? ` · ${z.prospects} prospect${z.prospects > 1 ? 's' : ''}` : ''}
+                        </small>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="zmap__wrap">
           <svg viewBox={FRANCE_MAP_VIEWBOX} className="zmap__svg" role="group" aria-label="Carte des départements">
             {FRANCE_MAP_OVERSEAS_BOXES.map((b) => (
@@ -130,6 +154,7 @@ export const CrmZonesMap: React.FC<{ zones: ZoneRow[] }> = ({ zones: initial }) 
             )}
           </div>
         </div>
+        )}
         <p className="cmuted zmap__legend">
           <span>
             <i className="zmap__sw on" /> active (incluse dans les recherches)
@@ -145,9 +170,9 @@ export const CrmZonesMap: React.FC<{ zones: ZoneRow[] }> = ({ zones: initial }) 
       </section>
 
       <section className="ccard zmap__side">
-        <h2 className="ccard__title">Départements</h2>
-        <input className="zmap__search" type="search" placeholder="Rechercher : 34, Hérault, Occitanie…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <div className="zmap__regions">
+        <h2 className="ccard__title">{units.charAt(0).toUpperCase() + units.slice(1)}</h2>
+        {zones.length > 1 && <input className="zmap__search" type="search" placeholder={france ? 'Rechercher : 34, Hérault, Occitanie…' : 'Rechercher…'} value={q} onChange={(e) => setQ(e.target.value)} />}
+        <div className="zmap__regions" hidden={zones.length < 2}>
           <select value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Région">
             <option value="">Toutes les régions</option>
             {regions.map((r) => (
@@ -166,9 +191,16 @@ export const CrmZonesMap: React.FC<{ zones: ZoneRow[] }> = ({ zones: initial }) 
               </button>
             </>
           ) : (
-            <button type="button" className="bbtn bbtn--ghost" disabled={busy || !activeCount} onClick={() => setMany(() => true, false, 'toute la France')}>
-              Tout désactiver
-            </button>
+            <>
+              {!france && (
+                <button type="button" className="bbtn" disabled={busy || activeCount === zones.length} onClick={() => setMany(() => true, true, country)}>
+                  Tout activer
+                </button>
+              )}
+              <button type="button" className="bbtn bbtn--ghost" disabled={busy || !activeCount} onClick={() => setMany(() => true, false, france ? 'toute la France' : country)}>
+                Tout désactiver
+              </button>
+            </>
           )}
         </div>
         <ul className="zmap__list">
@@ -176,7 +208,7 @@ export const CrmZonesMap: React.FC<{ zones: ZoneRow[] }> = ({ zones: initial }) 
             <li key={z.id} className={hover === z.code ? 'hover' : ''} onMouseEnter={() => setHover(z.code)} onMouseLeave={() => setHover(null)}>
               <label>
                 <input type="checkbox" checked={z.active} onChange={() => toggle(z.code)} />
-                <b>{z.code}</b> {z.name}
+                {france && <b>{z.code}</b>} {z.name}
               </label>
               {z.prospects > 0 && (
                 <a className="cmuted" href={`/admin/prospection/base?dep=${z.id}`} title="Voir les prospects">

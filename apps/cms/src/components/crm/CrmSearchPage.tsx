@@ -37,7 +37,7 @@ export const CrmSearchPage = async (props: AdminViewServerProps) => {
             établissements). Les nouveaux prospects arrivent au statut « À vérifier ». Les doublons et la liste « Ne plus contacter » sont respectés.
           </p>
           <CrmSearchForm
-            zones={zones.docs.map((z) => ({ id: z.id, label: z.label ?? z.code, region: z.region ?? '' }))}
+            zones={zones.docs.map((z) => ({ id: z.id, label: z.country && z.country !== 'France' ? `${z.country} · ${z.name}` : (z.label ?? z.code), region: z.region ?? '', country: z.country ?? 'France' }))}
             remaining={remaining}
             target={target}
             runningSince={running?.startedAt ?? null}
@@ -65,7 +65,7 @@ export const CrmSearchPage = async (props: AdminViewServerProps) => {
               Modifier les réglages →
             </a>{' '}
             ·{' '}
-            <a className="clink" href="/admin/collections/crm-zones?where[active][equals]=true">
+            <a className="clink" href="/admin/prospection/zones">
               Gérer les zones →
             </a>
           </p>

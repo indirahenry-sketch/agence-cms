@@ -22,6 +22,7 @@ import { agendaKey, agendaUrl, buildIcs, parseTime } from '@/crm/agenda'
 import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
 import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
 import { ensureCrmZones } from '@/crm/zones'
+import { COUNTRIES, osmArea } from '@/crm/countries'
 import { crmAgenda, crmExport, crmImport, crmSearch } from '@/endpoints/crm'
 import { AUTO_MARK, autoSendTick, inSendingWindow, planFor } from '@/crm/outlook/autoSend'
 import { checkState, decrypt, encrypt, makeState } from '@/crm/outlook/crypto'
@@ -190,9 +191,15 @@ describe('Suivi', () => {
 
 describe('Zones', () => {
   it('crée les 101 départements, 8 actifs, sans doublon si on relance', async () => {
-    expect(await ensureCrmZones(payload)).toBe(101)
+    const abroad = COUNTRIES.reduce((n, c) => n + c.zones.length, 0)
+    expect(await ensureCrmZones(payload)).toBe(101 + abroad)
     expect(await ensureCrmZones(payload)).toBe(0)
-    expect((await payload.count({ collection: 'crm-zones' })).totalDocs).toBe(101)
+    expect((await payload.count({ collection: 'crm-zones' })).totalDocs).toBe(101 + abroad)
+    expect((await payload.count({ collection: 'crm-zones', where: { country: { equals: 'France' } } })).totalDocs).toBe(101)
+    // Autres pays : créés inactifs
+    expect((await payload.count({ collection: 'crm-zones', where: { and: [{ country: { not_equals: 'France' } }, { active: { equals: true } }] } })).totalDocs).toBe(0)
+    const qc = (await payload.find({ collection: 'crm-zones', where: { code: { equals: 'CA-QC' } } })).docs[0]
+    expect(qc).toMatchObject({ country: 'Canada', name: 'Québec', kind: 'autre', region: 'Francophone' })
     const { docs } = await payload.find({ collection: 'crm-zones', where: { active: { equals: true } }, limit: 0, pagination: false })
     expect(docs.map((z) => z.code).sort()).toEqual(['11', '13', '30', '31', '34', '66', '83', '84'])
     const herault = docs.find((z) => z.code === '34')
@@ -457,6 +464,26 @@ describe('Recherche de prospects', () => {
     const again = await runCrmSearch(payload, { trigger: 'manuel', zoneIds: [zone.id], target: 5 }, fakeFetch)
     expect((await payload.findByID({ collection: 'crm-searches', id: again })).added).toBe(0)
   }, 60_000)
+
+  it('hors de France : OpenStreetMap seul, par code de zone', async () => {
+    expect(osmArea('BE-WLX')).toBe('area["ISO3166-2"="BE-WLX"]')
+    expect(osmArea('LU')).toBe('area["ISO3166-1"="LU"]["admin_level"="2"]')
+    const zone = (await payload.find({ collection: 'crm-zones', where: { code: { equals: 'BE-WLX' } }, limit: 1 })).docs[0]
+    const seen: string[] = []
+    const abroadFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input instanceof Request ? input.url : input)
+      seen.push(url.includes('interpreter') ? decodeURIComponent(String(init?.body ?? '')) : url)
+      if (url.includes('interpreter')) return Response.json({ elements: [{ type: 'node', id: 99, tags: { name: 'Manège des Ardennes', 'addr:city': 'Bastogne', phone: '+32 61 21 00 00', email: 'info@manege-ardennes.be' } }] })
+      return new Response('', { status: 404 })
+    }) as typeof fetch
+    const id = await runCrmSearch(payload, { trigger: 'manuel', zoneIds: [zone.id], target: 3 }, abroadFetch)
+    expect(seen.some((u) => u.includes('recherche-entreprises'))).toBe(false)
+    expect(seen.some((u) => u.includes('area["ISO3166-2"="BE-WLX"]'))).toBe(true)
+    const { docs } = await payload.find({ collection: 'crm-prospects', where: { search: { equals: id } }, depth: 0 })
+    expect(docs).toHaveLength(1)
+    expect(docs[0]).toMatchObject({ name: 'Manège des Ardennes', commune: 'Bastogne', email: 'info@manege-ardennes.be', department: zone.id })
+    expect((await payload.findByID({ collection: 'crm-searches', id })).report).toContain('Belgique · ')
+  }, 30_000)
 
   it('un client ne peut pas lancer de recherche', async () => {
     const req = { payload, user: (await as(clientAdmin)).user, json: async () => ({}) } as unknown as PayloadRequest
