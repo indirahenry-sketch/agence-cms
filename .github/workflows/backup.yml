@@ -110,6 +110,11 @@ jobs:
           if [ -z "$BUCKET" ] || [ -z "$ENDPOINT" ]; then
             echo "::notice::Photos non sauvegardées : secrets BACKUP_S3_* absents."; exit 0
           fi
+          # Supabase Storage exige l'adressage « chemin » (comme S3_FORCE_PATH_STYLE=true sur Render)
+          aws configure set default.s3.addressing_style path
+          # Aide au diagnostic sans rien révéler : forme de l'adresse et longueur du nom du bucket
+          case "$ENDPOINT" in */storage/v1/s3) echo "Adresse du stockage : forme Supabase OK" ;; *) echo "::warning::BACKUP_S3_ENDPOINT ne finit pas par /storage/v1/s3 (forme attendue pour Supabase)." ;; esac
+          echo "Nom du bucket : ${#BUCKET} caractères"
           aws s3 sync "s3://$BUCKET" out/photos --endpoint-url "$ENDPOINT" --only-show-errors
           tar -czf out/photos.tar.gz -C out photos && rm -rf out/photos
           ls -lh out/photos.tar.gz
