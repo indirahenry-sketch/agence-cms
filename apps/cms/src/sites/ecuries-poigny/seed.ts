@@ -10,7 +10,17 @@ import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
 
 export const POIGNY_SLUG = 'ecuries-poigny'
 
-const base = { overrideAccess: true, context: { skipInvite: true } } as const
+/**
+ * `context` est recréé à CHAQUE utilisation (getter) : le stockage S3 de Payload garde le fichier envoyé
+ * dans `req.context`, et un objet partagé entre plusieurs envois lui faisait réutiliser le PREMIER fichier
+ * (toutes les photos devenaient le logo ou la première photo).
+ */
+const base = {
+  overrideAccess: true as const,
+  get context() {
+    return { skipInvite: true }
+  },
+}
 
 /** Paragraphes → texte riche (format Lexical). */
 const rich = (...paragraphs: string[]) => ({
