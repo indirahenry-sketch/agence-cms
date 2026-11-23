@@ -11,7 +11,13 @@ import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
 /** Copie fictive des Écuries de Paraguy (même maquette), à montrer en prospection : nom, logo et coordonnées inventés. */
 export const PARAGUY_SLUG = 'ecuries-paraguy'
 
-const base = { overrideAccess: true, context: { skipInvite: true } } as const
+/** `context` neuf à chaque envoi : un objet partagé fait réutiliser le premier fichier envoyé (voir ecuries-poigny/seed.ts). */
+const base = {
+  overrideAccess: true as const,
+  get context() {
+    return { skipInvite: true }
+  },
+}
 
 /** Paragraphes → texte riche (format Lexical). */
 const rich = (...paragraphs: string[]) => ({
