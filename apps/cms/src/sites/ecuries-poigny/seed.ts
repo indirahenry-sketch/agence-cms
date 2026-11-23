@@ -6,6 +6,7 @@ import { describeError } from '@/lib/s3-check'
 
 import { seedEvents, seedServices } from './seedContent'
 import { seedGallery, seedLogo } from './seedImages'
+import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
 
 export const POIGNY_SLUG = 'ecuries-poigny'
 
@@ -355,6 +356,7 @@ async function ensurePromotions(payload: Payload, tenantID: number) {
 /** Logo et photos de la galerie. En cas d'échec, le site garde son logo intégré et masque la galerie. */
 async function ensurePhotos(payload: Payload, tenantID: number) {
   // Ne renvoie que ce qui manque : un import interrompu (stockage en panne) est repris sans doublon
+  await dropSeedMediaWithoutFile(payload, tenantID, seedGallery.map((p) => p.alt))
   const { docs: existing } = await payload.find({ collection: 'media', where: { tenant: { equals: tenantID } }, limit: 200, depth: 0, ...base })
   const haveAlt = new Set(existing.map((m) => m.alt))
   const tenant = await payload.findByID({ collection: 'tenants', id: tenantID, depth: 0, ...base })
