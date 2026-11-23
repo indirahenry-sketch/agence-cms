@@ -14,7 +14,7 @@ export const MONTESUGUI_SLUG = 'haras-montesugui'
 const base = { overrideAccess: true, context: { skipInvite: true } } as const
 
 /**
- * Client « Haras de Montesugui » : duplication de la V10 des Écuries de Poigny avec un habillage
+ * Client « Haras de Montesugui » : duplication de la V10 des Écuries de Paraguy avec un habillage
  * classique (bordeaux, ivoire et or, vouvoiement). Coordonnées à compléter dans la fiche client.
  *
  * Sans risque et relançable : chaque étape ne crée que ce qui MANQUE pour ce client (rien n'est écrasé).

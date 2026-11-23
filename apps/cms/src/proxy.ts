@@ -50,6 +50,14 @@ async function domainMap(): Promise<Record<string, string>> {
   return cache.map
 }
 
+/** /sites/ecuries-poigny/… → /sites/ecuries-paraguy/… ; /sites/<…castelle…>/… → /sites/domaine-equestre-del-caraminho/… */
+export const movedSite = (path: string): string | null => {
+  const m = /^\/sites\/([^/]+)(\/.*)?$/.exec(path)
+  if (!m) return null
+  const to = m[1] === 'ecuries-poigny' ? 'ecuries-paraguy' : /castelle|dedc/i.test(m[1]) ? 'domaine-equestre-del-caraminho' : null
+  return to ? `/sites/${to}${m[2] ?? ''}` : null
+}
+
 export async function proxy(req: NextRequest) {
   // Cet en-tête n'est posé que par ce fichier : on efface toute valeur venue du navigateur
   const headers = new Headers(req.headers)
@@ -58,6 +66,13 @@ export async function proxy(req: NextRequest) {
 
   const raw = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(',')[0].trim().toLowerCase()
   const host = raw.replace(/:\d+$/, '')
+  // Maquettes renommées (structures fictives) : les anciennes adresses mènent aux nouvelles
+  const moved = movedSite(req.nextUrl.pathname)
+  if (moved) {
+    const url = req.nextUrl.clone()
+    url.pathname = moved
+    return NextResponse.redirect(url, 308)
+  }
   if (isCmsHost(host)) return pass()
 
   const slug = (await domainMap())[host.replace(/^www\./, '')]

@@ -192,6 +192,8 @@ export default buildConfig({
     startCrmScheduler(payload)
     startOutlookScheduler(payload)
     if (process.env.SKIP_DEMO_IMPORT === 'true') return
+    // Maquettes de prospection : noms et coordonnées fictifs (avant les imports, qui retrouvent ainsi leurs clients)
+    await fictionalizeMockups(payload).catch((err) => payload.logger.error({ err }, 'Maquettes : noms et coordonnées fictifs non appliqués'))
     try {
       await importEcuriesPoigny(payload)
     } catch (err) {
@@ -212,8 +214,6 @@ export default buildConfig({
     } catch (err) {
       payload.logger.error({ err }, 'Import du Domaine Équestre de la Castelle impossible')
     }
-    // Maquettes de prospection : coordonnées fictives à la place des vraies
-    await fictionalizeMockups(payload).catch((err) => payload.logger.error({ err }, 'Maquettes : coordonnées fictives non appliquées'))
   },
 
   typescript: { outputFile: path.resolve(dirname, 'payload-types.ts') },

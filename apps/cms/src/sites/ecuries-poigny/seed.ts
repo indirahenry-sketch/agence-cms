@@ -8,7 +8,8 @@ import { seedEvents, seedServices } from './seedContent'
 import { seedGallery, seedLogo } from './seedImages'
 import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
 
-export const POIGNY_SLUG = 'ecuries-poigny'
+/** Maquette « Les Écuries de Paraguy » (anciennement « de Poigny ») : identifiant renommé au démarrage (sites/fictionalize.ts). */
+export const POIGNY_SLUG = 'ecuries-paraguy'
 
 const base = { overrideAccess: true, context: { skipInvite: true } } as const
 
@@ -33,7 +34,7 @@ const rich = (...paragraphs: string[]) => ({
 })
 
 /**
- * Client de démonstration « Les Écuries de Poigny », d'après la V10 (agenda + blog) :
+ * Client de démonstration « Les Écuries de Paraguy », d'après la V10 (agenda + blog) :
  * fiche, horaires, catégories, tarifs, services, agenda, menus, photos, une bannière,
  * un article et une page d'exemple.
  *
@@ -48,7 +49,7 @@ export async function importEcuriesPoigny(payload: Payload): Promise<void> {
     try {
       await fn()
     } catch (err) {
-      payload.logger.error({ err }, `Écuries de Poigny : étape « ${name} » impossible : ${describeError(err)}`)
+      payload.logger.error({ err }, `Écuries de Paraguy : étape « ${name} » impossible : ${describeError(err)}`)
     }
   }
   await step('catégories', () => ensureCategories(payload, tenantID))
@@ -70,10 +71,10 @@ async function createTenant(payload: Payload): Promise<number> {
   const tenant = await payload.create({
     collection: 'tenants',
     data: {
-      name: 'Les Écuries de Poigny',
+      name: 'Les Écuries de Paraguy',
       slug: POIGNY_SLUG,
       languages: ['fr'],
-      email: 'contact@ecuries-poigny.example',
+      email: 'contact@ecuries-paraguy.example',
       phone: '06 12 34 56 78',
       address: { street: "12 chemin des Prés", postalCode: '77160', city: 'Poigny', country: 'France' },
       theme: { primaryColor: '#4C6E2A', secondaryColor: '#EDC655', font: 'playfair' },
@@ -87,7 +88,7 @@ async function createTenant(payload: Payload): Promise<number> {
     data: {
       tenant: tenant.id,
       phone: '06 12 34 56 78',
-      email: 'contact@ecuries-poigny.example',
+      email: 'contact@ecuries-paraguy.example',
       address: {
         street: "12 chemin des Prés",
         postalCode: '77160',
@@ -107,7 +108,7 @@ async function createTenant(payload: Payload): Promise<number> {
     },
     ...base,
   })
-  payload.logger.info('✔ Client « Les Écuries de Poigny » créé')
+  payload.logger.info('✔ Client « Les Écuries de Paraguy » créé')
   return tenant.id
 }
 
@@ -213,7 +214,7 @@ async function ensureEvents(payload: Payload, tenantID: number) {
         hours: e.horaires,
         startsAt: new Date(`${e.debut}T09:00:00+01:00`).toISOString(),
         endsAt: e.fin && e.fin !== e.debut ? new Date(`${e.fin}T17:00:00+01:00`).toISOString() : undefined,
-        location: 'Les Écuries de Poigny',
+        location: 'Les Écuries de Paraguy',
       },
       ...base,
     })
@@ -245,7 +246,7 @@ async function ensurePage(payload: Payload, tenantID: number) {
         {
           blockType: 'text',
           content: rich(
-            "Les Écuries de Poigny, 12 chemin des Prés, 77160 Poigny. Téléphone : 06 12 34 56 78. E-mail : contact@ecuries-poigny.example.",
+            "Les Écuries de Paraguy, 12 chemin des Prés, 77160 Poigny. Téléphone : 06 12 34 56 78. E-mail : contact@ecuries-paraguy.example.",
             'Page d’exemple créée dans le CMS : modifiez-la ou dupliquez-la depuis le menu Pages.',
           ),
         },
@@ -255,10 +256,10 @@ async function ensurePage(payload: Payload, tenantID: number) {
           title: 'Une question ?',
           content: rich('Les sections combinent un titre, un texte, une image et jusqu’à trois boutons.'),
           background: 'card',
-          buttons: [{ label: 'Nous contacter', url: '/sites/ecuries-poigny#contact', style: 'primary' }],
+          buttons: [{ label: 'Nous contacter', url: '/sites/ecuries-paraguy#contact', style: 'primary' }],
         },
       ],
-      seo: { title: 'Mentions légales · Les Écuries de Poigny', description: 'Informations légales du site des Écuries de Poigny.' },
+      seo: { title: 'Mentions légales · Les Écuries de Paraguy', description: 'Informations légales du site des Écuries de Paraguy.' },
     },
     ...base,
   })
@@ -380,5 +381,5 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
     const m = await upload(img, `photo-${i + 1}.jpg`, true)
     if (cats[0]) await payload.update({ collection: 'media', id: m.id, data: { category: cats[0].id }, ...base })
   }
-  payload.logger.info('✔ Photos des Écuries de Poigny importées')
+  payload.logger.info('✔ Photos des Écuries de Paraguy importées')
 }

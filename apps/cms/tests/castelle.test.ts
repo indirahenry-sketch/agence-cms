@@ -7,6 +7,7 @@ import { getPayload, type Payload } from 'payload'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { importDomaineCastelle } from '@/sites/domaine-equestre-castelle/seed'
+import { movedSite } from '@/proxy'
 import { fictionalizeMockups } from '@/sites/fictionalize'
 import { hasSiteTemplate, renderPage, renderSite } from '@/sites/render'
 
@@ -29,7 +30,7 @@ beforeAll(async () => {
   html = (await renderSite(payload, SLUG))!
 })
 
-describe('Domaine Équestre de la Castelle', () => {
+describe('Domaine Équestre del Caraminho', () => {
   it('reconnaît le client créé dans le CMS, sans en créer un second, même si l’import est relancé', async () => {
     await importDomaineCastelle(payload)
     const all = await payload.count({ collection: 'tenants', where: { name: { like: 'castelle' } }, overrideAccess: true })
@@ -45,15 +46,15 @@ describe('Domaine Équestre de la Castelle', () => {
     const t = await payload.findByID({ collection: 'tenants', id: tenantID, depth: 0, overrideAccess: true })
     expect(t.phone).toBe('06 23 45 67 89')
     expect(t.landline).toBe('04 12 34 56 78')
-    expect(t.email).toBe('contact@domaine-castelle.example')
+    expect(t.email).toBe('contact@domaine-caraminho.example')
     expect(t.theme?.primaryColor).toBe('#1F3F99')
   })
 
   it('le site utilise la maquette de la Castelle, sans repère {{…}} oublié', () => {
     expect(hasSiteTemplate({ slug: SLUG, name: 'x' })).toBe(true)
-    expect(hasSiteTemplate({ slug: 'mon-club', name: 'Domaine Équestre de la Castelle' })).toBe(true)
+    expect(hasSiteTemplate({ slug: 'mon-club', name: 'Domaine Équestre del Caraminho' })).toBe(true)
     expect(hasSiteTemplate({ slug: 'boulangerie', name: 'Boulangerie' })).toBe(false)
-    expect(html).toContain('Domaine Équestre</span><span class="gold-text">de la Castelle')
+    expect(html).toContain('Domaine Équestre</span><span class="gold-text">del Caraminho')
     expect(html).toContain('id="tabbar"')
     expect(html).not.toMatch(/\{\{[A-Z_]+\}\}/)
   })
@@ -70,7 +71,7 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(html).toContain('>Galerie</a>')
     expect(html).toContain('Le Poney du DEDC')
     expect(html).toContain('04 12 34 56 78')
-    expect(html).toContain('contact@domaine-castelle.example')
+    expect(html).toContain('contact@domaine-caraminho.example')
     expect(html).toContain('>Le domaine</a>')
     expect(html).toMatch(new RegExp(`<figure class="pola r1" tabindex="0"><img src="/sites/${SLUG}/media/\\d+`))
   })
@@ -106,7 +107,7 @@ describe('Domaine Équestre de la Castelle', () => {
 
   it('retire les activités et tarifs de démonstration hérités du Haras de Montesugui', async () => {
     const of = { tenant: { equals: tenantID } }
-    const { seedServices } = await import('@/sites/ecuries-poigny/seedContent')
+    const { seedServices } = await import('@/sites/ecuries-paraguy/seedContent')
     const demo = seedServices[0]
     await payload.create({ collection: 'services', data: { tenant: tenantID, title: demo.title, summary: demo.summary }, overrideAccess: true })
     const tab = await payload.create({ collection: 'categories', data: { tenant: tenantID, name: 'Pensions', usage: ['prices'], order: 2 }, overrideAccess: true })
@@ -154,20 +155,27 @@ describe('Domaine Équestre de la Castelle', () => {
     expect(page).not.toMatch(/\{\{[A-Z_]+\}\}/)
   })
 
-  it('remplace les vraies coordonnées par des coordonnées fictives (maquette de prospection)', async () => {
+  it('devient une maquette fictive : nom, adresse et coordonnées (prospection)', async () => {
     const base = { overrideAccess: true, context: { skipInvite: true } } as const
     await payload.update({ collection: 'tenants', id: tenantID, data: { email: 'dedc34@yahoo.com', phone: '06 14 60 22 46', landline: '0610442577' }, ...base })
     const info = (await payload.find({ collection: 'site-info', where: { tenant: { equals: tenantID } }, limit: 1, ...base })).docs[0]
     await payload.update({ collection: 'site-info', id: info.id, data: { email: 'dedc34@yahoo.com', socials: [{ network: 'facebook', url: 'https://www.facebook.com/profile.php?id=61554556564503' }] }, ...base })
     expect(await fictionalizeMockups(payload)).toBeGreaterThanOrEqual(2)
     const t = await payload.findByID({ collection: 'tenants', id: tenantID, ...base })
-    expect(t).toMatchObject({ email: 'contact@domaine-castelle.example', phone: '06 23 45 67 89', landline: '0412345678' })
+    expect(t).toMatchObject({ email: 'contact@domaine-caraminho.example', phone: '06 23 45 67 89', landline: '0412345678' })
     const i2 = await payload.findByID({ collection: 'site-info', id: info.id, ...base })
-    expect(i2.email).toBe('contact@domaine-castelle.example')
+    expect(i2.email).toBe('contact@domaine-caraminho.example')
     expect(i2.socials?.[0]?.url).toBe('https://www.facebook.com/')
+    expect(movedSite('/sites/castelle-montpellier/tarifs')).toBe('/sites/domaine-equestre-del-caraminho/tarifs')
+    expect(movedSite('/sites/ecuries-poigny')).toBe('/sites/ecuries-paraguy')
+    expect(movedSite('/sites/centre-equestre-sourdun')).toBeNull()
     // Relancé : plus rien à changer
     expect(await fictionalizeMockups(payload)).toBe(0)
-    const page = (await renderSite(payload, SLUG))!
+    // Renommée : nouveau nom, nouvelle adresse, même maquette
+    expect(t).toMatchObject({ name: 'Domaine Équestre del Caraminho', slug: 'domaine-equestre-del-caraminho' })
+    const page = (await renderSite(payload, 'domaine-equestre-del-caraminho'))!
+    expect(page).toContain('del Caraminho')
+    expect(page).not.toContain('Castelle')
     expect(page).not.toContain('dedc34')
     expect(page).not.toContain('61554556564503')
   })
