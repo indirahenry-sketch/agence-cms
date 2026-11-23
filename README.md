@@ -228,7 +228,7 @@ Voir `infra/scripts/backup.sh` et `infra/scripts/restore.sh` (utilisés sur le s
 
 ## Sites des clients servis par le CMS
 
-> **Maquettes de prospection (23 novembre 2026)** : « Les Écuries de Poigny » s'appelle désormais **« Les Écuries de Paraguy »** (`/sites/ecuries-paraguy`) et « Domaine Équestre de la Castelle » **« Domaine Équestre del Caraminho »** (`/sites/domaine-equestre-del-caraminho`). Ce sont des structures fictives : coordonnées inventées (e-mails en `.example`, domaine qui n'existe pas). Les anciennes adresses redirigent vers les nouvelles. Voir `src/sites/fictionalize.ts`. Sourdun est inchangé pour l'instant.
+> **Maquettes de prospection (23 novembre 2026)** : **« Les Écuries de Paraguy »** (`/sites/ecuries-paraguy`) est une copie fictive des Écuries de Poigny (même maquette et mêmes photos, nom, logo et coordonnées inventés). « Domaine Équestre de la Castelle » devient **« Domaine Équestre del Caraminho »** (`/sites/domaine-equestre-del-caraminho`, les anciennes adresses redirigent). E-mails en `.example` (domaine qui n'existe pas). Poigny et Sourdun restent intacts pour l'instant. Voir `src/sites/fictionalize.ts` et `src/sites/ecuries-paraguy/`.
 
 Chaque site est une maquette HTML (dossier `apps/cms/src/sites/<client>/`) dont les repères `{{…}}` sont remplis à chaque visite avec les contenus du client. Adresse : **`<adresse du CMS>/sites/<identifiant court du client>`**.
 
