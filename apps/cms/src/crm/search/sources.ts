@@ -135,14 +135,19 @@ const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.
 
 type OsmEl = { type: string; id: number; tags?: Record<string, string> }
 
-export const fromOsm = async (dep: string, fetcher: Fetcher): Promise<Candidate[] | null> => {
-  const q = `[out:json][timeout:90];
-area["ref:INSEE"="${dep}"]["admin_level"="6"]->.d;
+/**
+ * `dep` : numéro de département français, ou `area` : sélecteur OpenStreetMap d'une zone étrangère
+ * (voir crm/countries.ts). Les noms sont cherchés en français, anglais, allemand et néerlandais.
+ */
+export const fromOsm = async (dep: string, fetcher: Fetcher, area?: string): Promise<Candidate[] | null> => {
+  const big = Boolean(area)
+  const q = `[out:json][timeout:${big ? 180 : 90}];
+${area ?? `area["ref:INSEE"="${dep}"]["admin_level"="6"]`}->.d;
 (
   nwr["leisure"="horse_riding"]["name"](area.d);
   nwr["sport"~"equestrian"]["name"](area.d);
   nwr["amenity"="stables"]["name"](area.d);
-  nwr["name"~"[Hh]aras|[EeÉé]curie|[EeÉé]questre|[Pp]oney"]["leisure"](area.d);
+  nwr["name"~"[Hh]aras|[EeÉé]curie|[EeÉé]questre|[Pp]oney|[Ee]questrian|[Ss]table|[Rr]anch|[Rr]iding|[Rr]eit|[Pp]ferd|[Mm]anege|[Pp]aard|[Hh]ípica|[Hh]ipica"]["leisure"](area.d);
 );
 out tags;`
   for (const [i, host] of OVERPASS.entries()) {
@@ -151,7 +156,7 @@ out tags;`
       method: 'POST',
       headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `data=${encodeURIComponent(q)}`,
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(big ? 210_000 : 120_000),
     }).catch(() => null)
     if (!r?.ok) continue
     const els = ((await r.json()) as { elements?: OsmEl[] }).elements ?? []

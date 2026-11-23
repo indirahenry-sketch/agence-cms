@@ -600,3 +600,20 @@ html[data-theme='dark'] .zmap__dep.has { fill: #3a3360; }
 .creplies__list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .creplies__list a { display: inline-block; padding: 5px 12px; border-radius: 999px; background: var(--t-butter-bg, #fef3c7); color: var(--t-butter-fg, #92400e); text-decoration: none; font-size: 0.86rem; font-weight: 600; }
 .creplies__list small { font-weight: 400; }
+
+/* Zones : choix du pays et zones hors de France */
+.zcountries { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.zcountries a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--cms-line); background: var(--cms-card); color: var(--cms-ink); text-decoration: none; font-size: 0.86rem; }
+.zcountries a.on { background: #c4b5fd; border-color: #c4b5fd; color: #1e1b4b; font-weight: 600; }
+.zcountries b { min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--cms-accent); color: #fff; font-size: 0.72rem; text-align: center; }
+.zcountries__note { margin: -4px 0 12px; max-width: 900px; }
+.ztiles { display: grid; gap: 14px; }
+.ztiles__group h3 { margin: 0 0 6px; font-size: 0.85rem; color: var(--cms-muted); font-weight: 600; }
+.ztiles__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ztile { display: grid; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--cms-line); background: var(--theme-elevation-100, #eceaf3); color: var(--cms-ink); font: inherit; cursor: pointer; transition: background 0.15s; }
+.ztile small { color: var(--cms-muted); font-size: 0.75rem; }
+.ztile.has { background: #e9e3fb; }
+.ztile.on { background: #c4b5fd; border-color: #a78bfa; }
+.ztile:hover { background: #a78bfa; }
+html[data-theme='dark'] .ztile.on { background: #6d5bb8; }
+html[data-theme='dark'] .ztile.has { background: #3a3360; }

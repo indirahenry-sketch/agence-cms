@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 
-type Zone = { id: number; label: string; region: string }
+type Zone = { id: number; label: string; region: string; country?: string }
 type Search = { id: number; status: string; added?: number | null; target?: number | null; report?: string | null }
 
 /** Formulaire « Lancer une recherche » + suivi en direct jusqu'à la fin. */
@@ -14,6 +14,7 @@ export const CrmSearchForm: React.FC<{ zones: Zone[]; remaining: number; target:
   const [result, setResult] = useState<Search | null>(null)
 
   const regions = useMemo(() => [...new Set(zones.map((z) => z.region).filter(Boolean))].sort(), [zones])
+  const countries = useMemo(() => [...new Set(zones.map((z) => z.country ?? 'France'))], [zones])
 
   // Suivi : on relit la dernière recherche toutes les 5 secondes
   useEffect(() => {
@@ -31,7 +32,14 @@ export const CrmSearchForm: React.FC<{ zones: Zone[]; remaining: number; target:
   }, [state])
 
   const launch = async () => {
-    const zoneIds = scope === 'all' ? undefined : scope.startsWith('r:') ? zones.filter((z) => z.region === scope.slice(2)).map((z) => z.id) : [Number(scope)]
+    const zoneIds =
+      scope === 'all'
+        ? undefined
+        : scope.startsWith('c:')
+          ? zones.filter((z) => (z.country ?? 'France') === scope.slice(2)).map((z) => z.id)
+          : scope.startsWith('r:')
+            ? zones.filter((z) => z.region === scope.slice(2)).map((z) => z.id)
+            : [Number(scope)]
     setState('running')
     setResult(null)
     setMessage('Recherche lancée. Elle prend en général 2 à 10 minutes : tu peux quitter cette page, le résultat sera dans l’historique.')
@@ -51,7 +59,7 @@ export const CrmSearchForm: React.FC<{ zones: Zone[]; remaining: number; target:
   if (!zones.length)
     return (
       <p className="cempty">
-        Aucune zone active. <a href="/admin/collections/crm-zones">Active au moins un département</a>.
+        Aucune zone active. <a href="/admin/prospection/zones">Active au moins une zone</a>.
       </p>
     )
 
@@ -60,6 +68,12 @@ export const CrmSearchForm: React.FC<{ zones: Zone[]; remaining: number; target:
       <div className="bfilters" style={{ padding: 0 }}>
         <select value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Zone" disabled={state === 'running'}>
           <option value="all">Toutes les zones actives ({zones.length})</option>
+          {countries.length > 1 &&
+            countries.map((c) => (
+              <option key={`c${c}`} value={`c:${c}`}>
+                Pays : {c} ({zones.filter((z) => (z.country ?? 'France') === c).length})
+              </option>
+            ))}
           {regions.map((r) => (
             <option key={r} value={`r:${r}`}>
               Région : {r}
