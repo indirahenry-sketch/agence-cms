@@ -1,0 +1,33 @@
+# Vérification ponctuelle (branche temporaire) : migrations sur base vide, puis aucune dérive.
+name: Verif migration v8
+on: push
+jobs:
+  verif:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: cms, POSTGRES_PASSWORD: cms, POSTGRES_DB: cms }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U cms" --health-interval 5s --health-retries 10
+    env:
+      PAYLOAD_SECRET: ci-secret
+      DATABASE_URI: postgres://cms:cms@localhost:5432/cms
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22.23.4, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Migrations sur base vide
+        working-directory: apps/cms
+        run: pnpm migrate
+      - name: Dérive restante
+        working-directory: apps/cms
+        run: |
+          pnpm migrate:create verif --skip-empty || true
+          for f in src/migrations/*verif*.ts; do [ -f "$f" ] && { echo "=== $f"; cat "$f"; }; done; echo fin
+      - name: Compilation SCSS
+        working-directory: apps/cms
+        run: pnpm dlx sass@1 --no-source-map src/components/crm/crm.scss > /dev/null && echo OK
