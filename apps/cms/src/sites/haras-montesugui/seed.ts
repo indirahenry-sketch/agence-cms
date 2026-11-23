@@ -24,7 +24,7 @@ const base = {
 }
 
 /**
- * Client « Haras de Montesugui » : duplication de la V10 des Écuries de Poigny avec un habillage
+ * Client « Haras de Montesugui » : duplication de la V10 des Écuries de Paraguy avec un habillage
  * classique (bordeaux, ivoire et or, vouvoiement). Coordonnées à compléter dans la fiche client.
  *
  * Sans risque et relançable : chaque étape ne crée que ce qui MANQUE pour ce client (rien n'est écrasé).
@@ -51,7 +51,7 @@ export async function importHarasMontesugui(payload: Payload): Promise<void> {
 }
 
 /** Valeurs provisoires mises à la création : elles ne doivent jamais masquer celles de la fiche client. */
-const PLACEHOLDERS = { phone: '06 00 00 00 00', email: 'contact@haras-montesugui.fr', street: 'Adresse à compléter' }
+const PLACEHOLDERS = { phone: '06 00 00 00 00', email: 'contact@haras-montesugui.example', street: 'Adresse à compléter' }
 
 /**
  * Les « Informations » priment sur la fiche client. Les premières versions de l'import y mettaient

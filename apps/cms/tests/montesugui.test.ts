@@ -70,7 +70,7 @@ describe('Haras de Montesugui', () => {
     const id = docs[0].id
     // État laissé par la première version de l'import : coordonnées provisoires dans les « Informations »
     const { docs: infos } = await payload.find({ collection: 'site-info', where: { tenant: { equals: id } }, depth: 0, overrideAccess: true })
-    await payload.update({ collection: 'site-info', id: infos[0].id, data: { phone: '06 00 00 00 00', email: 'contact@haras-montesugui.fr', address: { street: 'Adresse à compléter' } }, overrideAccess: true })
+    await payload.update({ collection: 'site-info', id: infos[0].id, data: { phone: '06 00 00 00 00', email: 'contact@haras-montesugui.example', address: { street: 'Adresse à compléter' } }, overrideAccess: true })
     await payload.update({
       collection: 'tenants',
       id,

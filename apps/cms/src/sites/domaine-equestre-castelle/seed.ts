@@ -8,7 +8,7 @@ import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
 import { seedServices as demoServices } from '../ecuries-poigny/seedContent'
 import { castellePhotos } from './seedImages'
 
-export const CASTELLE_SLUG = 'domaine-equestre-castelle'
+export const CASTELLE_SLUG = 'domaine-equestre-del-caraminho'
 
 /**
  * `context` est recréé à CHAQUE utilisation (getter) : le stockage S3 de Payload garde le fichier envoyé
@@ -24,13 +24,13 @@ const base = {
 
 /** Infos relevées sur le panneau du domaine et sur l'ancien site (poneyclubmontpellier.com). */
 const CONTACT = {
-  phone: '06 14 60 22 46',
-  landline: '06 10 44 25 77',
-  email: 'dedc34@yahoo.com',
+  phone: '06 23 45 67 89',
+  landline: '04 12 34 56 78',
+  email: 'contact@domaine-caraminho.example',
   city: 'Saint-Jean-de-Védas',
   postalCode: '34430',
-  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Domaine+Equestre+de+la+Castelle',
-  facebook: 'https://www.facebook.com/profile.php?id=61554556564503',
+  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Saint-Jean-de-V%C3%A9das+34430',
+  facebook: 'https://www.facebook.com/',
 }
 const COLORS = { primaryColor: '#1F3F99', secondaryColor: '#D6B262' }
 /** Couleurs par défaut d'une fiche client (jamais choisies par le client). */
@@ -90,7 +90,7 @@ const SERVICES: S[] = [
 ]
 
 /**
- * Domaine Équestre de la Castelle (DEDC), client créé depuis le CMS.
+ * Domaine Équestre del Caraminho (DEDC), client créé depuis le CMS.
  *
  * Retrouve le client (identifiant ou nom contenant « castelle » / « dedc »), sinon le crée, puis
  * complète SEULEMENT ce qui manque : coordonnées, horaires, couleurs (si encore celles par défaut),
@@ -109,7 +109,7 @@ export function importDomaineCastelle(payload: Payload): Promise<void> {
 async function runImport(payload: Payload): Promise<void> {
   const found = await payload.find({
     collection: 'tenants',
-    where: { or: [{ slug: { like: 'castelle' } }, { slug: { like: 'dedc' } }, { name: { like: 'castelle' } }] },
+    where: { or: [{ slug: { like: 'castelle' } }, { slug: { like: 'dedc' } }, { slug: { like: 'caraminho' } }, { name: { like: 'castelle' } }, { name: { like: 'caraminho' } }] },
     limit: 1,
     depth: 0,
     ...base,
@@ -119,7 +119,7 @@ async function runImport(payload: Payload): Promise<void> {
     try {
       await fn()
     } catch (err) {
-      payload.logger.error({ err }, `Domaine de la Castelle : étape « ${name} » impossible : ${describeError(err)}`)
+      payload.logger.error({ err }, `Domaine del Caraminho : étape « ${name} » impossible : ${describeError(err)}`)
     }
   }
   await step('fiche client', () => completeTenant(payload, tenant))
@@ -141,7 +141,7 @@ const slug = (v: string) =>
     .replace(/^-|-$/g, '')
     .slice(0, 40)
 
-/** Tarifs de démonstration du Haras de Montesugui (repris des Écuries de Poigny), copiés à la duplication. */
+/** Tarifs de démonstration du Haras de Montesugui (repris des Écuries de Paraguy), copiés à la duplication. */
 const DEMO_PRICES: [name: string, price: number][] = [
   ['Baby poney', 450],
   ['Poney / double poney', 660],
@@ -181,7 +181,7 @@ async function removeDemoContent(payload: Payload, tenantID: number) {
     const left = await payload.count({ collection: 'prices', where: { and: [ofTenant, { category: { equals: c.id } }] }, overrideAccess: true })
     if (!left.totalDocs) await payload.delete({ collection: 'categories', id: c.id, ...base })
   }
-  if (removed) payload.logger.info(`✔ Domaine de la Castelle : ${removed} tarif(s) de démonstration retiré(s)`)
+  if (removed) payload.logger.info(`✔ Domaine del Caraminho : ${removed} tarif(s) de démonstration retiré(s)`)
 }
 
 const countOf = async (payload: Payload, collection: 'services' | 'menus', tenantID: number) =>
@@ -191,7 +191,7 @@ async function createTenant(payload: Payload): Promise<Tenant> {
   const tenant = await payload.create({
     collection: 'tenants',
     data: {
-      name: 'Domaine Équestre de la Castelle',
+      name: 'Domaine Équestre del Caraminho',
       slug: CASTELLE_SLUG,
       languages: ['fr'],
       email: CONTACT.email,
@@ -204,7 +204,7 @@ async function createTenant(payload: Payload): Promise<Tenant> {
     },
     ...base,
   })
-  payload.logger.info('✔ Client « Domaine Équestre de la Castelle » créé')
+  payload.logger.info('✔ Client « Domaine Équestre del Caraminho » créé')
   return tenant as Tenant
 }
 
@@ -415,8 +415,8 @@ const OLD_MENUS = [
  * Échange demandé : la vue aérienne de la carrière (avec le ciel) illustre « Le domaine »,
  * la vue de haut de toute la propriété va dans la galerie.
  */
-const AERIAL_OUT = 'Vue aérienne du Domaine Équestre de la Castelle'
-const AERIAL_IN = 'Le Domaine Équestre de la Castelle vu du ciel'
+const AERIAL_OUT = 'Vue aérienne du Domaine Équestre del Caraminho'
+const AERIAL_IN = 'Le Domaine Équestre del Caraminho vu du ciel'
 
 async function ensureMenus(payload: Payload, tenantID: number) {
   type A = 'top' | 'activites' | 'installations' | 'horaires' | 'tarifs' | 'blog' | 'galerie' | 'contact'
@@ -500,5 +500,5 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
       ...base,
     })
   }
-  payload.logger.info('✔ Photos du Domaine de la Castelle importées')
+  payload.logger.info('✔ Photos du Domaine del Caraminho importées')
 }

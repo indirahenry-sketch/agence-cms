@@ -53,8 +53,10 @@ import { storageCheck } from './endpoints/storage'
 import { readableErrors } from './hooks/readableErrors'
 import { livePreviewURL } from './utilities/preview'
 import { importEcuriesPoigny } from './sites/ecuries-poigny/seed'
+import { importEcuriesParaguy } from './sites/ecuries-paraguy/seed'
 import { importHarasMontesugui } from './sites/haras-montesugui/seed'
 import { importCentreEquestreSourdun } from './sites/centre-equestre-sourdun/seed'
+import { fictionalizeMockups } from './sites/fictionalize'
 import { importDomaineCastelle } from './sites/domaine-equestre-castelle/seed'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -191,10 +193,17 @@ export default buildConfig({
     startCrmScheduler(payload)
     startOutlookScheduler(payload)
     if (process.env.SKIP_DEMO_IMPORT === 'true') return
+    // Maquettes de prospection : noms et coordonnées fictifs (avant les imports, qui retrouvent ainsi leurs clients)
+    await fictionalizeMockups(payload).catch((err) => payload.logger.error({ err }, 'Maquettes : noms et coordonnées fictifs non appliqués'))
     try {
       await importEcuriesPoigny(payload)
     } catch (err) {
       payload.logger.error({ err }, 'Import des Écuries de Poigny impossible')
+    }
+    try {
+      await importEcuriesParaguy(payload)
+    } catch (err) {
+      payload.logger.error({ err }, 'Import des Écuries de Paraguy impossible')
     }
     try {
       await importHarasMontesugui(payload)
