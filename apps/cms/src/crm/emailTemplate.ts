@@ -83,3 +83,13 @@ export const outlookLink = (via: MailVia, to: string[], subject: string, body: s
   const params = [`to=${addresses.map(encodeURIComponent).join(';')}`, `subject=${encodeURIComponent(subject)}`, `body=${encodeURIComponent(text)}`]
   return `${base}?${params.join('&')}`
 }
+
+/** Phrase de refus ajoutée en fin d'e-mail (prospection entre professionnels : la personne doit pouvoir refuser). */
+export const OPT_OUT_LINE = 'Si vous ne souhaitez plus recevoir de message de ma part, répondez simplement « STOP » à cet e-mail.'
+
+/** Ajoute la phrase de refus, sauf si le texte en contient déjà une (« STOP », « désinscri… », « ne plus recevoir »). */
+export const withOptOut = (body: string): string => {
+  if (!body.trim()) return body
+  if (/\bSTOP\b|d[ée]sinscri|ne plus recevoir/i.test(body)) return body
+  return `${body.replace(/\s+$/, '')}\n\n${OPT_OUT_LINE}`
+}

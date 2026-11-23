@@ -17,11 +17,12 @@ import { checkClosedProspects } from '@/crm/closed'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { loadTasks, monthCells } from '@/crm/followUps'
 import { autoMergeDuplicates, mergeProspects } from '@/crm/merge'
-import { fillTemplate, mailtoLink, outlookLink } from '@/crm/emailTemplate'
+import { fillTemplate, mailtoLink, OPT_OUT_LINE, outlookLink, withOptOut } from '@/crm/emailTemplate'
+import { agendaKey, agendaUrl, buildIcs, parseTime } from '@/crm/agenda'
 import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
 import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
 import { ensureCrmZones } from '@/crm/zones'
-import { crmExport, crmImport, crmSearch } from '@/endpoints/crm'
+import { crmAgenda, crmExport, crmImport, crmSearch } from '@/endpoints/crm'
 import { runCrmSearch } from '@/crm/search/run'
 import { isMondayAfter9Paris } from '@/crm/search/scheduler'
 import { title } from '@/crm/search/sources'
@@ -289,6 +290,23 @@ describe('Export et import : réservés à l’agence', () => {
     await expect(crmImport.handler(await reqAs(clientAdmin, { arrayBuffer: async () => new TextEncoder().encode('Nom\nX').buffer }))).rejects.toThrow()
   })
 
+  it('agenda : mauvaise clé refusée, bonne clé = tâches non faites', async () => {
+    const bad = await crmAgenda.handler(await reqAs(clientAdmin, { routeParams: { key: 'nimporte-quoi.ics' } }))
+    expect(bad.status).toBe(404)
+    const day = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10)
+    const opts = await as(superAdmin)
+    const todo = await payload.create({ collection: 'crm-tasks', data: { kind: 'appel', title: 'Agenda test à faire', date: `${day}T12:00:00.000Z`, time: '10h' }, ...opts })
+    const done = await payload.create({ collection: 'crm-tasks', data: { kind: 'appel', title: 'Agenda test déjà fait', date: `${day}T12:00:00.000Z`, done: true }, ...opts })
+    const res = await crmAgenda.handler(await reqAs(clientAdmin, { routeParams: { key: `${agendaKey()}.ics` } }))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toContain('text/calendar')
+    const ics = await res.text()
+    expect(ics).toContain('Agenda test à faire')
+    expect(ics).not.toContain('Agenda test déjà fait')
+    await payload.delete({ collection: 'crm-tasks', id: todo.id, ...opts })
+    await payload.delete({ collection: 'crm-tasks', id: done.id, ...opts })
+  })
+
   it('le super admin exporte un CSV lisible, « Non trouvé » compris', async () => {
     const res = await crmExport.handler(await reqAs(superAdmin))
     expect(res.headers.get('Content-Type')).toContain('text/csv')
@@ -533,6 +551,32 @@ describe('Modèles d’e-mails et coordonnées multiples', () => {
     const link = mailtoLink(['a@b.fr', 'c@d.fr'], 'Objet é', 'Ligne 1\nLigne 2')
     expect(link.startsWith('mailto:a@b.fr,c@d.fr?subject=Objet%20%C3%A9&body=')).toBe(true)
     expect(link).toContain('Ligne%201%0D%0ALigne%202')
+  })
+
+  it('ajoute une seule fois la phrase de refus', () => {
+    expect(withOptOut('Bonjour,\n\nCordialement\n')).toBe(`Bonjour,\n\nCordialement\n\n${OPT_OUT_LINE}`)
+    expect(withOptOut(`Texte\n\n${OPT_OUT_LINE}`)).toBe(`Texte\n\n${OPT_OUT_LINE}`)
+    expect(withOptOut('Pour vous désinscrire, répondez non.')).toBe('Pour vous désinscrire, répondez non.')
+    expect(withOptOut('')).toBe('')
+  })
+
+  it('prépare un agenda lisible par Outlook', () => {
+    expect(parseTime('14h30')).toEqual([14, 30])
+    expect(parseTime('9h')).toEqual([9, 0])
+    expect(parseTime('soir')).toBeNull()
+    const ics = buildIcs(
+      [
+        { uid: 'tache-1', day: '2026-11-24', time: '14:30', title: 'Appel : Écuries, du Lac; test', url: 'https://cms.test/admin/prospection/base?fiche=1' },
+        { uid: 'relance-p2', day: '2026-11-25', title: 'Relance : Haras ' + 'x'.repeat(120) },
+      ],
+      new Date('2026-11-23T10:00:00Z'),
+    )
+    expect(ics.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true)
+    expect(ics).toContain('DTSTART;TZID=Europe/Paris:20261124T143000\r\nDTEND;TZID=Europe/Paris:20261124T150000')
+    expect(ics).toContain('SUMMARY:Appel : Écuries\\, du Lac\\; test')
+    expect(ics).toContain('DTSTART;VALUE=DATE:20261125\r\nDTEND;VALUE=DATE:20261126')
+    for (const line of ics.split('\r\n')) expect(Buffer.byteLength(line)).toBeLessThanOrEqual(75)
+    expect(agendaUrl('https://cms.test/')).toBe(`https://cms.test/api/crm-agenda/${agendaKey()}.ics`)
   })
 
   it('ouvre le brouillon dans Outlook (application ou web)', () => {

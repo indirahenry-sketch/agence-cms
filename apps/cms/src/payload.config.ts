@@ -45,7 +45,7 @@ import { removeOrphans } from './hooks/tenantCleanup'
 import { startKeepAwake } from './lib/keepAwake'
 import { startTrashPurge } from './lib/trashPurge'
 import { checkS3 } from './lib/s3-check'
-import { crmCheckClosed, crmExport, crmImport, crmMergeDuplicates, crmSearch } from './endpoints/crm'
+import { crmAgenda, crmCheckClosed, crmExport, crmImport, crmMergeDuplicates, crmSearch } from './endpoints/crm'
 import { notifications } from './endpoints/notifications'
 import { storageCheck } from './endpoints/storage'
 import { readableErrors } from './hooks/readableErrors'
@@ -87,6 +87,7 @@ export default buildConfig({
         prospectionImport: { Component: '@/components/crm/CrmImport#CrmImport', path: '/prospection/import' },
         prospectionRecherche: { Component: '@/components/crm/CrmSearchPage#CrmSearchPage', path: '/prospection/recherche' },
         prospectionZones: { Component: '@/components/crm/CrmZones#CrmZones', path: '/prospection/zones' },
+        prospectionRegistre: { Component: '@/components/crm/CrmRegistre#CrmRegistre', path: '/prospection/registre' },
       },
       actions: ['@/components/HeaderTools#HeaderTools'],
       providers: ['@/components/MobileBar#MobileBar', '@/components/ArticlesName#ArticlesNameNav'],
@@ -103,7 +104,7 @@ export default buildConfig({
     },
   },
 
-  endpoints: [notifications, storageCheck, crmExport, crmImport, crmSearch, crmMergeDuplicates, crmCheckClosed],
+  endpoints: [notifications, storageCheck, crmExport, crmImport, crmSearch, crmMergeDuplicates, crmCheckClosed, crmAgenda],
 
   // Messages d'erreur compréhensibles au lieu de « Something went wrong »
   hooks: { afterError: [readableErrors] },

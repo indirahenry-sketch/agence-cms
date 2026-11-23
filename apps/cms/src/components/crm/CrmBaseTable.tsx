@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { CRM_ACTIVITY_KINDS, CRM_COMMERCIAL, CRM_PROJECT_STATUSES, CRM_TEMPLATE_KINDS, CRM_TYPES, commercialOf, statusForCommercial, type CrmCommercial } from '@/crm/constants'
-import { fillTemplate, MAIL_VIA_OPTIONS, outlookLink, type MailVia } from '@/crm/emailTemplate'
+import { fillTemplate, MAIL_VIA_OPTIONS, outlookLink, withOptOut, type MailVia } from '@/crm/emailTemplate'
 
 import { api, qs } from '../admin/client'
 
@@ -360,7 +360,7 @@ const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates
     (t: EmailTemplate | null | undefined) => {
       setTemplateId(t?.id ?? null)
       setSubject(t ? fillTemplate(t.subject, p) : '')
-      setBody(t ? fillTemplate(t.body, p) : '')
+      setBody(t ? withOptOut(fillTemplate(t.body, p)) : '')
       setDone('')
     },
     [p],
@@ -471,7 +471,7 @@ const EmailComposer = ({ p, templates, busy, onPatch }: { p: Prospect; templates
         {done && <span className="bok">{done}</span>}
       </div>
       <p className="bmuted">
-        Rien n’est envoyé par le CMS. Le prospect passe en « Brouillon créé » ; une fois l’e-mail parti, note-le dans l’historique.{' '}
+        La phrase « répondez STOP » est ajoutée en fin de texte : elle permet au prospect de refuser (règle de la CNIL). Rien n’est envoyé par le CMS. Le prospect passe en « Brouillon créé » ; une fois l’e-mail parti, note-le dans l’historique.{' '}
         <a href="/admin/collections/crm-email-templates">Gérer les modèles</a>
       </p>
     </div>
@@ -626,6 +626,21 @@ const Fiche = ({
         {p.status === 'ferme' && <p className="bwarn bfiche__closed">Cette entreprise n’existe plus (fermée). Elle n’est plus proposée dans les relances ni les recherches ; la fiche est gardée pour éviter de la recréer.</p>}
 
         {p.doNotContact && p.status !== 'ferme' && <p className="bwarn">Ne plus contacter : ce prospect a refusé toute sollicitation.</p>}
+        {!p.doNotContact && (
+          <div className="brow bfiche__stop">
+            <button
+              type="button"
+              className="bbtn bbtn--ghost"
+              disabled={busy}
+              onClick={() => {
+                if (window.confirm(`${p.name} ne sera plus jamais proposé ni relancé, même s’il est réimporté. Continuer ?`)) void onPatch({ status: 'ne-plus-contacter' })
+              }}
+            >
+              ⊘ Ne plus contacter
+            </button>
+            <span className="bmuted">S’il a répondu « STOP » ou refusé d’être sollicité.</span>
+          </div>
+        )}
 
         <section className="bfiche__block">
           <div className="bfiche__selects">
