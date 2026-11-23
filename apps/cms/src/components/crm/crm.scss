@@ -562,3 +562,22 @@ html[data-theme='dark'] .zmap__dep.has { fill: #3a3360; }
 .crm .bcount.tone-none, .bfiche .bcount.tone-none { background: var(--theme-elevation-50); color: var(--cms-muted); }
 .bcount--action { background: transparent; border: 1px dashed var(--cms-line) !important; color: var(--cms-muted); cursor: pointer; }
 .bfiche__closed { margin: 0 0 8px; }
+
+/* Abonnement agenda (page Relances) */
+.cagenda { display: grid; gap: 8px; }
+.cagenda__url { width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--cms-line); border-radius: 10px; background: var(--cms-card); color: var(--cms-ink); font: 0.82rem ui-monospace, Menlo, monospace; }
+.cagenda__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cagenda__btn { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--cms-accent); background: var(--cms-accent); color: #fff; font: inherit; font-size: 0.85rem; cursor: pointer; text-decoration: none; }
+.cagenda__btn--ghost { background: transparent; color: var(--cms-accent); }
+.crm__steps { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; font-size: 0.88rem; }
+
+/* Registre RGPD */
+.creg { display: grid; gap: 14px; max-width: 900px; }
+.creg h2 { margin: 0 0 8px; font-size: 1.05rem; }
+.creg dl { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; gap: 8px 16px; margin: 0; font-size: 0.9rem; }
+.creg dt { font-weight: 600; }
+.creg dd { margin: 0; }
+.creg__nums { display: flex; flex-wrap: wrap; gap: 10px; }
+.creg__nums a, .creg__nums span { display: grid; gap: 2px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--cms-line); text-decoration: none; color: inherit; min-width: 150px; }
+.creg__nums b { font-size: 1.3rem; }
+@media (max-width: 640px) { .creg dl { grid-template-columns: 1fr; } }

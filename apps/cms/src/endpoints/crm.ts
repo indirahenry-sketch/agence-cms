@@ -1,6 +1,7 @@
 import { APIError, type Endpoint, type PayloadRequest } from 'payload'
 
 import { canUseCrm } from '@/crm/access'
+import { buildIcs, isAgendaKey, loadAgendaEvents } from '@/crm/agenda'
 import { checkClosedProspects } from '@/crm/closed'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { EXPORT_COLUMNS, importProspects, MAX_IMPORT_ROWS } from '@/crm/importExport'
@@ -129,5 +130,28 @@ export const crmCheckClosed: Endpoint = {
     const id = Number(body.id)
     const result = await checkClosedProspects(req.payload, { ids: Number.isInteger(id) && id > 0 ? [id] : undefined, req })
     return Response.json(result)
+  },
+}
+
+/**
+ * GET /api/crm-agenda/<clé>.ics : relances et tâches au format agenda (Outlook, Google, Apple), lecture seule.
+ * Pas de connexion possible depuis un agenda : la clé secrète de l'adresse sert d'accès. Mauvaise clé → 404.
+ */
+export const crmAgenda: Endpoint = {
+  path: '/crm-agenda/:key',
+  method: 'get',
+  handler: async (req) => {
+    const key = String(req.routeParams?.key ?? '').replace(/\.ics$/i, '')
+    if (!isAgendaKey(key)) return new Response('Introuvable', { status: 404 })
+    const serverURL = process.env.PUBLIC_SERVER_URL || req.payload.config.serverURL || ''
+    const events = await loadAgendaEvents(req.payload, req, serverURL)
+    return new Response(buildIcs(events), {
+      headers: {
+        'Content-Type': 'text/calendar; charset=utf-8',
+        'Content-Disposition': 'inline; filename="prospection.ics"',
+        'Cache-Control': 'private, no-store',
+        'X-Robots-Tag': 'noindex, nofollow',
+      },
+    })
   },
 }

@@ -15,6 +15,7 @@ export const CRM_MENU: CrmMenuItem[] = [
   { key: 'zones', href: '/admin/prospection/zones', label: 'Zones (carte)', icon: '⌖', tone: 'lav' },
   { key: 'doublons', href: '/admin/collections/crm-duplicates?where[status][equals]=a-examiner', match: '/admin/collections/crm-duplicates', label: 'Doublons', icon: '⧉', tone: 'rose' },
   { key: 'historique', href: '/admin/collections/crm-searches', label: 'Historique des recherches', icon: '↻', tone: 'mint' },
+  { key: 'registre', href: '/admin/prospection/registre', label: 'Registre RGPD', icon: '§', tone: 'mint' },
   { key: 'optouts', href: '/admin/collections/crm-optouts', label: 'Ne plus contacter', icon: '⊘', tone: 'rose' },
   { key: 'reglages', href: '/admin/globals/crm-settings', label: 'Réglages', icon: '⚙', tone: 'sky' },
 ]

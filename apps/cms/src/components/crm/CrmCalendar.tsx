@@ -1,10 +1,12 @@
 import type { AdminViewServerProps } from 'payload'
 import React from 'react'
 
+import { agendaUrl } from '@/crm/agenda'
 import { CRM_TASK_KINDS } from '@/crm/constants'
 import { loadFollowUps, loadTasks, monthCells, parisDay, ymd } from '@/crm/followUps'
 import { KIND_LEGEND, toneOfKind } from '@/crm/tones'
 
+import { CrmAgendaLink } from './CrmAgendaLink'
 import { CrmDayTasks } from './CrmDayTasks'
 import { CrmHeader, crmAllowed, crmDenied, crmPage } from './template'
 
@@ -41,6 +43,7 @@ export const CrmCalendar = async (props: AdminViewServerProps) => {
   const inMonth = items.filter((i) => i.day.startsWith(`${y}-${String(m).padStart(2, '0')}`)).sort((a, b) => a.day.localeCompare(b.day))
   const fmt = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
   const late = items.filter((i) => i.day < today).length
+  const feed = agendaUrl(process.env.PUBLIC_SERVER_URL || payload.config.serverURL || '')
 
   return crmPage(
     props,
@@ -157,6 +160,25 @@ export const CrmCalendar = async (props: AdminViewServerProps) => {
           Pour ajouter une tâche (relance, appel, e-mail, recherche…) : clique sur un jour du calendrier. Les relances notées dans le suivi d’un prospect
           (« Relancer le ») s’affichent aussi ici ; coche « Relance faite » une fois l’appel ou l’e-mail fait.
         </p>
+      </section>
+      <section className="crm__card">
+        <h2>Voir mes relances dans Outlook</h2>
+        {feed ? (
+          <>
+            <p className="cmuted">
+              Tes relances et tes tâches non faites apparaissent dans ton agenda, sur ordinateur, iPad et téléphone. Lecture seule : on les modifie ici. Mise à jour par Outlook toutes les quelques heures.
+            </p>
+            <CrmAgendaLink url={feed} />
+            <ol className="crm__steps">
+              <li>Ouvre Outlook sur le web (outlook.office.com ou outlook.live.com), puis Calendrier.</li>
+              <li>« Ajouter un calendrier » → « S’abonner à partir du web » → colle l’adresse → nomme-le « Prospection ».</li>
+              <li>Il apparaît ensuite tout seul dans l’application Outlook de l’iPad et du téléphone.</li>
+            </ol>
+            <p className="cmuted">Garde cette adresse pour toi : elle donne accès à la liste de tes relances. Pour la changer, ajoute ou modifie la variable CRM_AGENDA_KEY sur Render.</p>
+          </>
+        ) : (
+          <p className="crm__empty">Adresse indisponible : la variable PUBLIC_SERVER_URL n’est pas renseignée sur le serveur.</p>
+        )}
       </section>
     </div>,
   )
