@@ -27,6 +27,7 @@ import { crmAgenda, crmExport, crmImport, crmSearch } from '@/endpoints/crm'
 import { AUTO_MARK, autoSendTick, inSendingWindow, planFor } from '@/crm/outlook/autoSend'
 import { checkState, decrypt, encrypt, makeState } from '@/crm/outlook/crypto'
 import { resetTokenCache } from '@/crm/outlook/graph'
+import { crmOutlookCallback } from '@/endpoints/crmOutlook'
 import { checkReplies, isStopReply, ownText } from '@/crm/outlook/replies'
 import { runCrmSearch } from '@/crm/search/run'
 import { isMondayAfter9Paris } from '@/crm/search/scheduler'
@@ -742,6 +743,7 @@ describe('Outlook : envoi automatique et réponses', () => {
       const u = String(url)
       calls.push({ url: u, body: typeof init?.body === 'string' ? init.body : init?.body ? String(init.body) : undefined })
       if (u.includes('/oauth2/v2.0/token')) return Response.json({ access_token: 'jeton-acces', refresh_token: 'jeton-renouvele', expires_in: 3600 })
+      if (u.endsWith('/me')) return Response.json({ mail: 'moi@outlook.fr' })
       if (u.endsWith('/me/sendMail')) return new Response(null, { status: 202 })
       if (u.includes('/me/messages')) return Response.json({ value: inbox })
       return Response.json({ error: { message: 'inattendu' } }, { status: 404 })
@@ -795,6 +797,24 @@ describe('Outlook : envoi automatique et réponses', () => {
     expect(planFor({ ...base, status: 'a-repondu' }, templates, settings, 0)).toEqual({ skip: 'Statut non concerné' })
     expect(inSendingWindow(MONDAY_1030)).toBe(true)
     expect(inSendingWindow(new Date('2026-11-22T10:00:00Z'))).toBe(false) // dimanche
+  })
+
+  it('connecte la boîte même si le retour de Microsoft arrive sans session du CMS', async () => {
+    stubGraph()
+    const call = (state: string, code = 'code-microsoft') =>
+      crmOutlookCallback.handler({ payload, user: null, searchParams: new URLSearchParams({ code, state }) } as unknown as PayloadRequest)
+    const state = makeState(superAdmin.id)
+    const ok = await call(state)
+    expect(ok.status).toBe(200)
+    expect(await ok.text()).toContain('Boîte Outlook connectée')
+    const s1 = await payload.findGlobal({ slug: 'crm-settings', overrideAccess: true, showHiddenFields: true })
+    expect(s1.outlookEmail).toBe('moi@outlook.fr')
+    expect(decrypt(s1.outlookToken)).toBe('jeton-renouvele')
+    // Même lien une seconde fois, lien d'un compte client, lien falsifié : refusés
+    expect(await (await call(state)).text()).toContain('Lien expiré')
+    expect(await (await call(makeState(clientAdmin.id))).text()).toContain('Lien expiré')
+    expect(await (await call(`${state.slice(0, -3)}abc`)).text()).toContain('Lien expiré')
+    await payload.updateGlobal({ slug: 'crm-settings', data: { outlookToken: null, outlookEmail: null }, overrideAccess: true })
   })
 
   it('envoie un seul e-mail, le note, puis repère les réponses et les « STOP »', async () => {
