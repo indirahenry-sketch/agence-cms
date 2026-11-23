@@ -30,7 +30,7 @@ beforeAll(async () => {
   html = (await renderSite(payload, SLUG))!
 })
 
-describe('Domaine Équestre del Caraminho', () => {
+describe('Domaine Équestre de la Carmelle', () => {
   it('reconnaît le client créé dans le CMS, sans en créer un second, même si l’import est relancé', async () => {
     await importDomaineCastelle(payload)
     const all = await payload.count({ collection: 'tenants', where: { name: { like: 'castelle' } }, overrideAccess: true })
@@ -46,15 +46,15 @@ describe('Domaine Équestre del Caraminho', () => {
     const t = await payload.findByID({ collection: 'tenants', id: tenantID, depth: 0, overrideAccess: true })
     expect(t.phone).toBe('06 23 45 67 89')
     expect(t.landline).toBe('04 12 34 56 78')
-    expect(t.email).toBe('contact@domaine-caraminho.example')
+    expect(t.email).toBe('contact@domaine-carmelle.example')
     expect(t.theme?.primaryColor).toBe('#1F3F99')
   })
 
   it('le site utilise la maquette de la Castelle, sans repère {{…}} oublié', () => {
     expect(hasSiteTemplate({ slug: SLUG, name: 'x' })).toBe(true)
-    expect(hasSiteTemplate({ slug: 'mon-club', name: 'Domaine Équestre del Caraminho' })).toBe(true)
+    expect(hasSiteTemplate({ slug: 'mon-club', name: 'Domaine Équestre de la Carmelle' })).toBe(true)
     expect(hasSiteTemplate({ slug: 'boulangerie', name: 'Boulangerie' })).toBe(false)
-    expect(html).toContain('Domaine Équestre</span><span class="gold-text">del Caraminho')
+    expect(html).toContain('Domaine Équestre</span><span class="gold-text">de la Carmelle')
     expect(html).toContain('id="tabbar"')
     expect(html).not.toMatch(/\{\{[A-Z_]+\}\}/)
   })
@@ -71,7 +71,7 @@ describe('Domaine Équestre del Caraminho', () => {
     expect(html).toContain('>Galerie</a>')
     expect(html).toContain('Le Poney du DEDC')
     expect(html).toContain('04 12 34 56 78')
-    expect(html).toContain('contact@domaine-caraminho.example')
+    expect(html).toContain('contact@domaine-carmelle.example')
     expect(html).toContain('>Le domaine</a>')
     expect(html).toMatch(new RegExp(`<figure class="pola r1" tabindex="0"><img src="/sites/${SLUG}/media/\\d+`))
   })
@@ -162,19 +162,28 @@ describe('Domaine Équestre del Caraminho', () => {
     await payload.update({ collection: 'site-info', id: info.id, data: { email: 'dedc34@yahoo.com', socials: [{ network: 'facebook', url: 'https://www.facebook.com/profile.php?id=61554556564503' }] }, ...base })
     expect(await fictionalizeMockups(payload)).toBeGreaterThanOrEqual(2)
     const t = await payload.findByID({ collection: 'tenants', id: tenantID, ...base })
-    expect(t).toMatchObject({ email: 'contact@domaine-caraminho.example', phone: '06 23 45 67 89', landline: '0412345678' })
+    expect(t).toMatchObject({ email: 'contact@domaine-carmelle.example', phone: '06 23 45 67 89', landline: '0412345678' })
     const i2 = await payload.findByID({ collection: 'site-info', id: info.id, ...base })
-    expect(i2.email).toBe('contact@domaine-caraminho.example')
+    expect(i2.email).toBe('contact@domaine-carmelle.example')
     expect(i2.socials?.[0]?.url).toBe('https://www.facebook.com/')
-    expect(movedSite('/sites/castelle-montpellier/tarifs')).toBe('/sites/domaine-equestre-del-caraminho/tarifs')
+    expect(movedSite('/sites/castelle-montpellier/tarifs')).toBe('/sites/domaine-equestre-de-la-carmelle/tarifs')
     expect(movedSite('/sites/ecuries-poigny')).toBeNull()
     expect(movedSite('/sites/centre-equestre-sourdun')).toBeNull()
+    // Déjà renommée « del Caraminho » (nom provisoire) : passe aussi à « de la Carmelle »
+    await payload.update({ collection: 'tenants', id: tenantID, data: { name: 'Domaine Équestre del Caraminho', slug: 'domaine-equestre-del-caraminho', email: 'contact@domaine-caraminho.example' }, ...base })
+    expect(await fictionalizeMockups(payload)).toBeGreaterThanOrEqual(2)
+    expect(await payload.findByID({ collection: 'tenants', id: tenantID, ...base })).toMatchObject({
+      name: 'Domaine Équestre de la Carmelle',
+      slug: 'domaine-equestre-de-la-carmelle',
+      email: 'contact@domaine-carmelle.example',
+    })
+    expect(movedSite('/sites/domaine-equestre-del-caraminho')).toBe('/sites/domaine-equestre-de-la-carmelle')
     // Relancé : plus rien à changer
     expect(await fictionalizeMockups(payload)).toBe(0)
     // Renommée : nouveau nom, nouvelle adresse, même maquette
-    expect(t).toMatchObject({ name: 'Domaine Équestre del Caraminho', slug: 'domaine-equestre-del-caraminho' })
-    const page = (await renderSite(payload, 'domaine-equestre-del-caraminho'))!
-    expect(page).toContain('del Caraminho')
+    expect(t).toMatchObject({ name: 'Domaine Équestre de la Carmelle', slug: 'domaine-equestre-de-la-carmelle' })
+    const page = (await renderSite(payload, 'domaine-equestre-de-la-carmelle'))!
+    expect(page).toContain('de la Carmelle')
     expect(page).not.toContain('Castelle')
     expect(page).not.toContain('dedc34')
     expect(page).not.toContain('61554556564503')

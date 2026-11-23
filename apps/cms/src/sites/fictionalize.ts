@@ -4,8 +4,8 @@ import type { Payload } from 'payload'
  * Maquettes montrées en prospection : structures FICTIVES.
  * - « Les Écuries de Paraguy » est une COPIE fictive de Poigny (sites/ecuries-paraguy) ; Poigny
  *   reste intact (vrai nom, vrai logo, vraies coordonnées) pour être démarché.
- * - « Domaine Équestre de la Castelle » devient « Domaine Équestre del Caraminho »
- *   (identifiant domaine-equestre-del-caraminho ; le sigle DEDC reste valable).
+ * - « Domaine Équestre de la Castelle » devient « Domaine Équestre de la Carmelle »
+ *   (identifiant domaine-equestre-de-la-carmelle ; le sigle DEDC reste valable).
  * - Coordonnées réelles remplacées par des coordonnées fictives : e-mails en « .example » (domaine
  *   réservé qui n'existe pas), numéros et rues inventés, réseaux sociaux génériques.
  * Poigny et Sourdun ne sont PAS concernés pour l'instant (maquettes envoyées aux structures elles-mêmes).
@@ -30,22 +30,27 @@ type Mockup = {
 
 export const FICTIONAL: Mockup[] = [
   {
-    key: 'caraminho',
-    match: (t) => /castelle|dedc|caraminho/i.test(`${t.slug ?? ''} ${t.name ?? ''}`),
-    rename: { name: 'Domaine Équestre del Caraminho', slug: 'domaine-equestre-del-caraminho' },
+    key: 'carmelle',
+    match: (t) => /castelle|dedc|caraminho|carmelle/i.test(`${t.slug ?? ''} ${t.name ?? ''}`),
+    rename: { name: 'Domaine Équestre de la Carmelle', slug: 'domaine-equestre-de-la-carmelle' },
     pairs: [
       ['https://www.google.com/maps/search/?api=1&query=Domaine+Equestre+de+la+Castelle', 'https://www.google.com/maps/search/?api=1&query=Saint-Jean-de-V%C3%A9das+34430'],
       ['maps.google.com/maps?q=Domaine%20equestre%20de%20la%20Castelle', 'maps.google.com/maps?q=Saint-Jean-de-V%C3%A9das%2034430'],
-      ['dedc34@yahoo.com', 'contact@domaine-caraminho.example'],
+      ['dedc34@yahoo.com', 'contact@domaine-carmelle.example'],
+      ['contact@domaine-caraminho.example', 'contact@domaine-carmelle.example'],
       ['https://www.facebook.com/profile.php?id=61554556564503', 'https://www.facebook.com/'],
       ...phoneVariants('06 14 60 22 46', '06 23 45 67 89'),
       ...phoneVariants('06 10 44 25 77', '04 12 34 56 78'),
-      ['De la Castelle', 'del Caraminho'],
-      ['de la Castelle', 'del Caraminho'],
-      ['à la Castelle', 'au Caraminho'],
-      ['la Castelle', 'le Caraminho'],
-      ['CASTELLE', 'CARAMINHO'],
-      ['Castelle', 'Caraminho'],
+      // Ancien nom réel, puis nom provisoire « del Caraminho »
+      ['De la Castelle', 'de la Carmelle'],
+      ['Castelle', 'Carmelle'],
+      ['CASTELLE', 'CARMELLE'],
+      ['Del Caraminho', 'De la Carmelle'],
+      ['del Caraminho', 'de la Carmelle'],
+      ['au Caraminho', 'à la Carmelle'],
+      ['le Caraminho', 'la Carmelle'],
+      ['Caraminho', 'Carmelle'],
+      ['CARAMINHO', 'CARMELLE'],
     ],
   },
   { key: 'montesugui', match: (t) => t.slug === 'haras-montesugui', pairs: [['contact@haras-montesugui.fr', 'contact@haras-montesugui.example']] },

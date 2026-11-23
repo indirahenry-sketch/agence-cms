@@ -8,7 +8,7 @@ import { dropSeedMediaWithoutFile } from '@/sites/mediaRepair'
 import { seedServices as demoServices } from '../ecuries-poigny/seedContent'
 import { castellePhotos } from './seedImages'
 
-export const CASTELLE_SLUG = 'domaine-equestre-del-caraminho'
+export const CASTELLE_SLUG = 'domaine-equestre-de-la-carmelle'
 
 /**
  * `context` est recréé à CHAQUE utilisation (getter) : le stockage S3 de Payload garde le fichier envoyé
@@ -26,7 +26,7 @@ const base = {
 const CONTACT = {
   phone: '06 23 45 67 89',
   landline: '04 12 34 56 78',
-  email: 'contact@domaine-caraminho.example',
+  email: 'contact@domaine-carmelle.example',
   city: 'Saint-Jean-de-Védas',
   postalCode: '34430',
   mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Saint-Jean-de-V%C3%A9das+34430',
@@ -90,7 +90,7 @@ const SERVICES: S[] = [
 ]
 
 /**
- * Domaine Équestre del Caraminho (DEDC), client créé depuis le CMS.
+ * Domaine Équestre de la Carmelle (DEDC), client créé depuis le CMS.
  *
  * Retrouve le client (identifiant ou nom contenant « castelle » / « dedc »), sinon le crée, puis
  * complète SEULEMENT ce qui manque : coordonnées, horaires, couleurs (si encore celles par défaut),
@@ -109,7 +109,7 @@ export function importDomaineCastelle(payload: Payload): Promise<void> {
 async function runImport(payload: Payload): Promise<void> {
   const found = await payload.find({
     collection: 'tenants',
-    where: { or: [{ slug: { like: 'castelle' } }, { slug: { like: 'dedc' } }, { slug: { like: 'caraminho' } }, { name: { like: 'castelle' } }, { name: { like: 'caraminho' } }] },
+    where: { or: [{ slug: { like: 'castelle' } }, { slug: { like: 'dedc' } }, { slug: { like: 'caraminho' } }, { slug: { like: 'carmelle' } }, { name: { like: 'carmelle' } }, { name: { like: 'castelle' } }, { name: { like: 'caraminho' } }] },
     limit: 1,
     depth: 0,
     ...base,
@@ -119,7 +119,7 @@ async function runImport(payload: Payload): Promise<void> {
     try {
       await fn()
     } catch (err) {
-      payload.logger.error({ err }, `Domaine del Caraminho : étape « ${name} » impossible : ${describeError(err)}`)
+      payload.logger.error({ err }, `Domaine de la Carmelle : étape « ${name} » impossible : ${describeError(err)}`)
     }
   }
   await step('fiche client', () => completeTenant(payload, tenant))
@@ -181,7 +181,7 @@ async function removeDemoContent(payload: Payload, tenantID: number) {
     const left = await payload.count({ collection: 'prices', where: { and: [ofTenant, { category: { equals: c.id } }] }, overrideAccess: true })
     if (!left.totalDocs) await payload.delete({ collection: 'categories', id: c.id, ...base })
   }
-  if (removed) payload.logger.info(`✔ Domaine del Caraminho : ${removed} tarif(s) de démonstration retiré(s)`)
+  if (removed) payload.logger.info(`✔ Domaine de la Carmelle : ${removed} tarif(s) de démonstration retiré(s)`)
 }
 
 const countOf = async (payload: Payload, collection: 'services' | 'menus', tenantID: number) =>
@@ -191,7 +191,7 @@ async function createTenant(payload: Payload): Promise<Tenant> {
   const tenant = await payload.create({
     collection: 'tenants',
     data: {
-      name: 'Domaine Équestre del Caraminho',
+      name: 'Domaine Équestre de la Carmelle',
       slug: CASTELLE_SLUG,
       languages: ['fr'],
       email: CONTACT.email,
@@ -204,7 +204,7 @@ async function createTenant(payload: Payload): Promise<Tenant> {
     },
     ...base,
   })
-  payload.logger.info('✔ Client « Domaine Équestre del Caraminho » créé')
+  payload.logger.info('✔ Client « Domaine Équestre de la Carmelle » créé')
   return tenant as Tenant
 }
 
@@ -415,8 +415,8 @@ const OLD_MENUS = [
  * Échange demandé : la vue aérienne de la carrière (avec le ciel) illustre « Le domaine »,
  * la vue de haut de toute la propriété va dans la galerie.
  */
-const AERIAL_OUT = 'Vue aérienne du Domaine Équestre del Caraminho'
-const AERIAL_IN = 'Le Domaine Équestre del Caraminho vu du ciel'
+const AERIAL_OUT = 'Vue aérienne du Domaine Équestre de la Carmelle'
+const AERIAL_IN = 'Le Domaine Équestre de la Carmelle vu du ciel'
 
 async function ensureMenus(payload: Payload, tenantID: number) {
   type A = 'top' | 'activites' | 'installations' | 'horaires' | 'tarifs' | 'blog' | 'galerie' | 'contact'
@@ -500,5 +500,5 @@ async function ensurePhotos(payload: Payload, tenantID: number) {
       ...base,
     })
   }
-  payload.logger.info('✔ Photos du Domaine del Caraminho importées')
+  payload.logger.info('✔ Photos du Domaine de la Carmelle importées')
 }

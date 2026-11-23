@@ -66,7 +66,7 @@ const TEMPLATE_TEXTS: Record<string, { forYou: string; blog: string }> = {
  * s'applique quel que soit l'identifiant court choisi, tant qu'il contient « castelle » ou « dedc ».
  */
 export const templateKey = (slug: string, name?: string | null) =>
-  Object.hasOwn(TEMPLATES, slug) ? slug : /castelle|dedc|caraminho/i.test(`${slug} ${name ?? ''}`) ? 'domaine-equestre-castelle' : slug
+  Object.hasOwn(TEMPLATES, slug) ? slug : /castelle|dedc|caraminho|carmelle/i.test(`${slug} ${name ?? ''}`) ? 'domaine-equestre-castelle' : slug
 const keyOf = (t: Pick<Tenant, 'slug' | 'name'>) => templateKey(t.slug, t.name)
 
 const textsOf = (t: Pick<Tenant, 'slug' | 'name'>) => TEMPLATE_TEXTS[keyOf(t)] ?? { forYou: 'Pour toi', blog: 'Blog' }
