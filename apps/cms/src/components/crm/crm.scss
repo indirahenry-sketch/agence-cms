@@ -528,6 +528,34 @@ button.cmini__day { border: 0; background: transparent; font: inherit; cursor: p
 .crm-sidemenu__link::before,
 .crm-back-nav::before { content: none !important; display: none !important; }
 
+/* ---- Zones : carte de France cliquable ---- */
+.zmap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.zmap__wrap { position: relative; }
+.zmap__svg { display: block; width: 100%; height: auto; max-height: 78vh; }
+.zmap__dep { fill: var(--theme-elevation-100, #eceaf3); stroke: var(--cms-card, #fff); stroke-width: 1.2; cursor: pointer; transition: fill 0.15s; }
+.zmap__dep.has { fill: #e9e3fb; }
+.zmap__dep.on { fill: #c4b5fd; }
+.zmap__dep.inregion { stroke: var(--cms-accent); stroke-width: 1.6; }
+.zmap__dep.hover, .zmap__dep:hover { fill: #a78bfa; }
+.zmap__dep--none { cursor: default; opacity: 0.5; }
+.zmap__box { fill: none; stroke: var(--cms-line); stroke-dasharray: 4 3; }
+.zmap__label { font-size: 13px; fill: var(--cms-muted); }
+.zmap__info { position: absolute; top: 8px; right: 8px; display: grid; gap: 2px; padding: 8px 12px; border-radius: 12px; background: var(--cms-card); border: 1px solid var(--cms-line); font-size: 0.85rem; max-width: 60%; }
+.zmap__info span { font-size: 0.78rem; }
+.zmap__legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; font-size: 0.78rem; > span { display: inline-flex; align-items: center; gap: 6px; } }
+.zmap__sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: var(--theme-elevation-100, #eceaf3); &.on { background: #c4b5fd; } &.has { background: #e9e3fb; } }
+.zmap__hint { font-size: 0.8rem; }
+.zmap__toast { margin: 8px 0 0; }
+.zmap__side { display: grid; gap: 10px; }
+.zmap__search, .zmap__regions select { width: 100%; padding: 8px 10px; border: 1px solid var(--cms-line); border-radius: 10px; background: var(--cms-card); color: var(--cms-ink); font: inherit; }
+.zmap__regions { display: flex; flex-wrap: wrap; gap: 6px; select { flex: 1 1 100%; } }
+.zmap__list { list-style: none; margin: 0; padding: 0; max-height: 52vh; overflow: auto; display: grid; gap: 1px; }
+.zmap__list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; font-size: 0.86rem;
+  &.hover { background: color-mix(in srgb, var(--cms-accent) 10%, transparent); }
+  label { display: flex; align-items: center; gap: 8px; cursor: pointer; } b { min-width: 26px; } a { font-size: 0.78rem; text-decoration: none; } }
+html[data-theme='dark'] .zmap__dep.on { fill: #6d5bb8; }
+html[data-theme='dark'] .zmap__dep.has { fill: #3a3360; }
+@media (max-width: 1000px) { .zmap { grid-template-columns: minmax(0, 1fr); } .zmap__list { max-height: 40vh; } }
 /* « N'existe plus » : gris neutre */
 .crm .bcount.tone-none, .bfiche .bcount.tone-none { background: var(--theme-elevation-50); color: var(--cms-muted); }
 .bcount--action { background: transparent; border: 1px dashed var(--cms-line) !important; color: var(--cms-muted); cursor: pointer; }
