@@ -11,6 +11,7 @@ export const CRM_MENU: CrmMenuItem[] = [
   { key: 'relances', href: '/admin/prospection/relances', label: 'Relances', icon: '◷', tone: 'peach' },
   { key: 'echanges', href: '/admin/collections/crm-activities', label: 'Suivi des échanges', icon: '✎', tone: 'mint' },
   { key: 'import', href: '/admin/prospection/import', label: 'Importer / exporter', icon: '⇅', tone: 'butter' },
+  { key: 'envoi', href: '/admin/prospection/envoi', label: 'Outlook et envoi auto', icon: '✈', tone: 'peach' },
   { key: 'modeles', href: '/admin/collections/crm-email-templates', label: 'Modèles d’e-mails', icon: '✉', tone: 'sky' },
   { key: 'zones', href: '/admin/prospection/zones', label: 'Zones (carte)', icon: '⌖', tone: 'lav' },
   { key: 'doublons', href: '/admin/collections/crm-duplicates?where[status][equals]=a-examiner', match: '/admin/collections/crm-duplicates', label: 'Doublons', icon: '⧉', tone: 'rose' },

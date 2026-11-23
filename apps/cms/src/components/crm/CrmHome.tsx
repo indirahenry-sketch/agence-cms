@@ -47,6 +47,7 @@ const PIPELINE: { label: string; tone: Tone; statuses: string[] }[] = [
   { label: 'À traiter', tone: 'lav', statuses: ['nouveau', 'a-verifier', 'qualifie'] },
   { label: 'E-mail', tone: 'sky', statuses: ['email-a-preparer', 'brouillon-cree', 'email-envoye', 'en-attente'] },
   { label: 'À relancer', tone: 'peach', statuses: ['relance'] },
+  { label: 'Ont répondu', tone: 'butter', statuses: ['a-repondu'] },
   { label: 'Clients', tone: 'mint', statuses: ['client'] },
   { label: 'Perdus', tone: 'rose', statuses: ['non-interesse', 'ne-plus-contacter', 'ferme'] },
 ]
@@ -61,8 +62,8 @@ const Delta = ({ now, before }: { now: number; before: number }) =>
   now === before ? <small className="cdelta">= sem. dernière</small> : <small className={`cdelta ${now > before ? 'up' : 'down'}`}>{now > before ? '▲' : '▼'} {Math.abs(now - before)} vs sem. dernière</small>
 
 /** Statuts qui supposent qu'on a déjà pris contact / reçu une réponse. */
-const CONTACTED = new Set(['email-envoye', 'en-attente', 'relance', 'client', 'non-interesse'])
-const ANSWERED = new Set(['client', 'non-interesse'])
+const CONTACTED = new Set(['email-envoye', 'en-attente', 'relance', 'a-repondu', 'client', 'non-interesse'])
+const ANSWERED = new Set(['a-repondu', 'client', 'non-interesse'])
 
 const ago = (iso: string, now: Date) => {
   const rtf = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' })
@@ -106,7 +107,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
       req,
     }),
   ])
-  const [settings, prospects, replies, emailsSent, recent, activity, zones, followUps] = await Promise.all([
+  const [settings, prospects, replies, emailsSent, recent, activity, zones, followUps, answeredNow] = await Promise.all([
     payload.findGlobal({ slug: 'crm-settings', ...base }),
     payload.find({
       collection: 'crm-prospects',
@@ -122,6 +123,7 @@ export const CrmHome = async (props: AdminViewServerProps) => {
     payload.find({ collection: 'crm-activities', sort: '-updatedAt', limit: 7, depth: 1, ...base }),
     payload.find({ collection: 'crm-zones', limit: 0, pagination: false, depth: 0, select: { label: true }, ...base }),
     loadFollowUps(payload, req, cells),
+    payload.find({ collection: 'crm-prospects', where: { status: { equals: 'a-repondu' } }, sort: '-updatedAt', limit: 8, depth: 0, select: { name: true, commune: true, updatedAt: true }, ...base }),
   ])
 
   const all = prospects.docs
@@ -192,6 +194,25 @@ export const CrmHome = async (props: AdminViewServerProps) => {
       <CrmHeader title="Prospection" current="accueil" />
       <CrmSearchBar />
       <CrmDayTasks />
+
+      {answeredNow.totalDocs > 0 && (
+        <section className="ccard creplies" aria-live="polite">
+          <h2 className="ccard__title">
+            💬 {answeredNow.totalDocs} prospect{answeredNow.totalDocs > 1 ? 's ont' : ' a'} répondu
+          </h2>
+          <ul className="creplies__list">
+            {answeredNow.docs.map((p) => (
+              <li key={p.id}>
+                <a href={`/admin/prospection/base?fiche=${p.id}`}>
+                  {p.name}
+                  {p.commune ? <small> · {p.commune}</small> : null}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p className="cmuted">Lis la réponse dans Outlook, puis change le statut de la fiche (Client, Non intéressé, à relancer…) pour la retirer d’ici.</p>
+        </section>
+      )}
 
       <div className="cdash">
         {/* ---------- Colonne gauche ---------- */}

@@ -6,6 +6,10 @@ import { createPortal } from 'react-dom'
 import { CRM_ACTIVITY_KINDS, CRM_COMMERCIAL, CRM_PROJECT_STATUSES, CRM_TEMPLATE_KINDS, CRM_TYPES, commercialOf, statusForCommercial, type CrmCommercial } from '@/crm/constants'
 import { fillTemplate, MAIL_VIA_OPTIONS, outlookLink, withOptOut, type MailVia } from '@/crm/emailTemplate'
 
+/** Boîte Outlook connectée au CMS ? (une seule requête par page) */
+let outlookState: Promise<{ connected: boolean; email: string | null }> | null = null
+const outlookConnected = () => (outlookState ??= api<{ connected: boolean; email: string | null }>('/crm-outlook/status?light=1').catch(() => ({ connected: false, email: null })))
+
 import { api, qs } from '../admin/client'
 
 /* ------------------------------------------------------------------ */
@@ -35,6 +39,7 @@ type Prospect = {
   nextFollowUpAt?: string | null
   lastContactAt?: string | null
   doNotContact?: boolean | null
+  autoSend?: 'defaut' | 'oui' | 'non' | null
   search?: number | null
   sources?: { label?: string | null; url?: string | null }[] | null
 }
@@ -47,6 +52,11 @@ type Activity = { id: number; kind: string; date: string; summary: string; follo
 const SITE = [
   { value: 'site-existant', label: 'Site internet existant', tone: 'sky' },
   { value: 'sans-site', label: 'Site internet inexistant', tone: 'butter' },
+] as const
+const AUTO_SEND = [
+  { value: 'defaut', label: 'Selon le réglage général' },
+  { value: 'oui', label: 'Oui' },
+  { value: 'non', label: 'Non, à la main' },
 ] as const
 const PROJECT_TONE: Record<string, string> = { 'a-faire': 'lav', 'en-cours': 'sky', 'en-livraison': 'peach', livre: 'mint' }
 const COMMERCIAL_TONE = Object.fromEntries(CRM_COMMERCIAL.map((c) => [c.value, c.tone])) as Record<CrmCommercial, string>
@@ -357,6 +367,10 @@ const EmailComposer = ({
   const [logged, setLogged] = useState('')
   useEffect(() => setLogged(''), [p.id])
   // Choix de la messagerie mémorisé sur cet appareil (Outlook application par défaut)
+  const [direct, setDirect] = useState<{ connected: boolean; email: string | null } | null>(null)
+  useEffect(() => {
+    void outlookConnected().then(setDirect)
+  }, [])
   const [via, setVia] = useState<MailVia>('app')
   useEffect(() => {
     try {
@@ -421,6 +435,26 @@ const EmailComposer = ({
     }
     setDone(via === 'mailto' ? 'Ouvert dans ta messagerie ✓ Relis puis envoie.' : 'Ouvert dans Outlook ✓ Relis puis envoie.')
     await markDraft()
+  }
+  /** Envoi direct par la boîte Outlook connectée au CMS (copie dans « Éléments envoyés »). */
+  const sendNow = async () => {
+    if (!window.confirm(`Envoyer maintenant à ${to.join(', ')}${direct?.email ? ` depuis ${direct.email}` : ''} ?`)) return
+    setLogging(true)
+    setLogged('')
+    try {
+      await api('/crm-outlook/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prospect: p.id, to, subject, body, followUpDays: relanceIn ? Number(relanceIn) : 0 }),
+      })
+      await onLogged()
+      setDone('')
+      setLogged(relanceIn ? `Envoyé ✓ Relance prévue dans ${relanceIn} jours.` : 'Envoyé ✓')
+    } catch (e) {
+      setLogged(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setLogging(false)
+    }
   }
   /** « Envoyé ✓ » : note l'envoi dans l'historique, clôt les relances en cours et programme la suivante. */
   const markSent = async () => {
@@ -504,7 +538,12 @@ const EmailComposer = ({
         <button type="button" className="bbtn" disabled={busy || !body.trim()} onClick={copy}>
           Copier le texte
         </button>
-        <button type="button" className="bbtn bbtn--primary" disabled={busy || !to.length || !body.trim()} onClick={open}>
+        {direct?.connected && (
+          <button type="button" className="bbtn bbtn--primary" disabled={busy || logging || !to.length || !body.trim()} onClick={sendNow} title={`Depuis ${direct.email ?? 'ta boîte Outlook'}`}>
+            Envoyer maintenant
+          </button>
+        )}
+        <button type="button" className={`bbtn${direct?.connected ? '' : ' bbtn--primary'}`} disabled={busy || !to.length || !body.trim()} onClick={open}>
           {via === 'mailto' ? 'Ouvrir dans ma messagerie' : 'Ouvrir dans Outlook'}
         </button>
         <label className="bmail__via">
@@ -520,7 +559,7 @@ const EmailComposer = ({
         {done && <span className="bok">{done}</span>}
       </div>
       <div className="brow bmail__sent">
-        <span className="bextra__title">Une fois l’e-mail parti</span>
+        <span className="bextra__title">{direct?.connected ? 'Relance après l’envoi' : 'Une fois l’e-mail parti'}</span>
         <label className="bmail__via">
           relancer dans
           <select value={relanceIn} onChange={(e) => setRelanceIn(e.target.value)}>
@@ -532,7 +571,7 @@ const EmailComposer = ({
             <option value="">pas de relance</option>
           </select>
         </label>
-        <button type="button" className="bbtn" disabled={busy || logging} onClick={markSent}>
+        <button type="button" className="bbtn" disabled={busy || logging} onClick={markSent} title="Si tu l’as envoyé toi-même depuis Outlook">
           {logging ? 'Enregistrement…' : 'Envoyé ✓'}
         </button>
         {logged && <span className="bok">{logged}</span>}
@@ -723,6 +762,23 @@ const Fiche = ({
               Statut du projet
               <ProjectSelect p={p} disabled={busy} onChange={(v) => onPatch({ projectStatus: v })} />
             </label>
+            {!p.doNotContact && (
+              <label>
+                Envoi automatique
+                <select
+                  className={`bsel tone-${p.autoSend === 'oui' ? 'mint' : p.autoSend === 'non' ? 'rose' : 'none'}`}
+                  value={p.autoSend ?? 'defaut'}
+                  disabled={busy}
+                  onChange={(e) => onPatch({ autoSend: e.target.value as Prospect['autoSend'] })}
+                >
+                  {AUTO_SEND.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
         </section>
 
@@ -1181,6 +1237,21 @@ export const CrmBaseTable: React.FC = () => {
             {SITE.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value=""
+            onChange={(e) => {
+              const v = e.target.value as NonNullable<Prospect['autoSend']>
+              if (v) bulk(() => ({ autoSend: v }), 'Envoi automatique')
+            }}
+            aria-label="Envoi automatique pour la sélection"
+          >
+            <option value="">Envoi automatique…</option>
+            {AUTO_SEND.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>
