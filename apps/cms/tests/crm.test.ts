@@ -17,7 +17,7 @@ import { checkClosedProspects } from '@/crm/closed'
 import { decodeCsv, parseCsv, toCsv } from '@/crm/csv'
 import { loadTasks, monthCells } from '@/crm/followUps'
 import { autoMergeDuplicates, mergeProspects } from '@/crm/merge'
-import { fillTemplate, mailtoLink } from '@/crm/emailTemplate'
+import { fillTemplate, mailtoLink, outlookLink } from '@/crm/emailTemplate'
 import { departmentFromPostalCode, importProspects, mapHeaders } from '@/crm/importExport'
 import { communeKey, domainKey, emailKey, nameKey, phoneKey, sirenKey } from '@/crm/normalize'
 import { ensureCrmZones } from '@/crm/zones'
@@ -533,6 +533,15 @@ describe('Modèles d’e-mails et coordonnées multiples', () => {
     const link = mailtoLink(['a@b.fr', 'c@d.fr'], 'Objet é', 'Ligne 1\nLigne 2')
     expect(link.startsWith('mailto:a@b.fr,c@d.fr?subject=Objet%20%C3%A9&body=')).toBe(true)
     expect(link).toContain('Ligne%201%0D%0ALigne%202')
+  })
+
+  it('ouvre le brouillon dans Outlook (application ou web)', () => {
+    const app = outlookLink('app', ['a@b.fr', 'c@d.fr'], 'Objet é', 'Ligne 1\nLigne 2')
+    expect(app).toBe('ms-outlook://compose?to=a@b.fr,c@d.fr&subject=Objet%20%C3%A9&body=Ligne%201%0ALigne%202')
+    const pro = outlookLink('pro', ['a@b.fr', 'c@d.fr'], 'Objet', 'Texte')
+    expect(pro).toBe('https://outlook.office.com/mail/deeplink/compose?to=a%40b.fr;c%40d.fr&subject=Objet&body=Texte')
+    expect(outlookLink('perso', ['a@b.fr'], 'O', 'T').startsWith('https://outlook.live.com/mail/0/deeplink/compose?to=a%40b.fr&')).toBe(true)
+    expect(outlookLink('mailto', ['a@b.fr'], 'O', 'T').startsWith('mailto:a@b.fr?')).toBe(true)
   })
 
   it('enregistre un modèle et plusieurs téléphones / e-mails sur une fiche', async () => {
